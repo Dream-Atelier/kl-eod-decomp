@@ -1,0 +1,24 @@
+#include "global.h"
+#include "include_asm.h"
+
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08000ac8);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08000bd4);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08000f70);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08001028);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_0800107c);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08001158);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08001cd0);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08001f58);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08002144);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_0800247c);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_0800260c);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_080027c4);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08002ac4);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08002fd0);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_0800343c);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_0800350c);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08003750);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08003904);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08003d58);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08003d80);
+INCLUDE_ASM("asm/nonmatchings/engine", FUN_08003da0);

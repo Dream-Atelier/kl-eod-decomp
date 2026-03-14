@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check formatting
+        run: make check_format
+
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install ARM toolchain
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: gcc-arm-none-eabi binutils-arm-none-eabi
+          version: 1.0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Cache agbcc
+        id: cache-agbcc
+        uses: actions/cache@v4
+        with:
+          path: |
+            tools/agbcc/bin
+            tools/agbcc/lib
+            tools/agbcc/include
+          key: agbcc-${{ hashFiles('tools/agbcc/**/*.c', 'tools/agbcc/**/*.h', 'tools/agbcc/build.sh') }}
+
+      - name: Build agbcc
+        if: steps.cache-agbcc.outputs.cache-hit != 'true'
+        run: |
+          cd tools/agbcc
+          ./build.sh
+          ./install.sh ../..
+
+      - name: Fetch ROM
+        env:
+          STORAGE_URL: ${{ secrets.STORAGE_URL }}
+        run: |
+          wget -q -O rom.zip "$STORAGE_URL"
+          unzip -o rom.zip
+          mv *.gba baserom.gba
+
+      - name: Generate assembly from ROM
+        run: python3 scripts/generate_asm.py
+
+      - name: Build and verify match
+        run: make -j$(nproc) compare

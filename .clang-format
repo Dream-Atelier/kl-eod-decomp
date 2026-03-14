@@ -1,0 +1,70 @@
+---
+# Klonoa: Empire of Dreams - C code style
+# Based on conventions from other GBA decomp projects (SA3, pokeemerald)
+
+Language: Cpp
+Standard: c++03
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+IndentCaseLabels: true
+IndentGotoLabels: true
+IndentPPDirectives: None
+
+# Line length
+ColumnLimit: 120
+
+# Braces: opening brace on same line (K&R / Java style)
+BreakBeforeBraces: Attach
+
+# Short constructs
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortEnumsOnASingleLine: true
+
+# Pointers: right-aligned (e.g. u8 *ptr)
+PointerAlignment: Right
+DerivePointerAlignment: false
+
+# Arguments and parameters
+BinPackArguments: true
+BinPackParameters: true
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: true
+
+# Operators
+BreakBeforeBinaryOperators: All
+BreakBeforeTernaryOperators: true
+AlignOperands: DontAlign
+
+# Alignment
+AlignConsecutiveMacros: Consecutive
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignEscapedNewlines: Right
+AlignTrailingComments: false
+
+# Includes: never reorder (order matters for matching)
+SortIncludes: Never
+
+# Spaces
+SpaceAfterCStyleCast: false
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyBlock: true
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+
+# Other
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: true
+ReflowComments: true
+
+# Treat INCLUDE_ASM as a statement (don't reformat its arguments)
+StatementMacros:
+  - INCLUDE_ASM
+...

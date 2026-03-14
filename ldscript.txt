@@ -1,0 +1,19 @@
+SECTIONS {
+    . = 0x8000000;
+    ROM : ALIGN(4) {
+        asm/rom_header.o(.text);
+        asm/crt0.o(.text);
+        src/system.o(.text);
+        src/math.o(.text);
+        src/engine.o(.text);
+        src/code_0.o(.text);
+        src/code_1.o(.text);
+        src/code_3.o(.text);
+        src/gfx.o(.text);
+        src/m4a.o(.text);
+        src/syscalls.o(.text);
+        src/util.o(.text);
+        asm/libgcc.o(.text);
+        data/data.o(.text);
+    }
+}

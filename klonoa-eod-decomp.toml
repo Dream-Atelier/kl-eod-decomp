@@ -1,0 +1,55 @@
+# Module definitions: (name, start_address)
+# Order must match ldscript.txt / src/*.c files.
+# Each module corresponds to one original compilation unit.
+
+[[modules]]
+name = "system"
+start = 0x0800043C
+
+[[modules]]
+name = "math"
+start = 0x08000960
+
+[[modules]]
+name = "engine"
+start = 0x08000AC8
+
+[[modules]]
+name = "code_0"
+start = 0x08003DC0
+
+[[modules]]
+name = "code_1"
+start = 0x080101E8
+
+[[modules]]
+name = "code_3"
+start = 0x080301A8
+
+[[modules]]
+name = "gfx"
+start = 0x080480F4
+
+[[modules]]
+name = "m4a"
+start = 0x0804EB64
+
+[[modules]]
+name = "syscalls"
+start = 0x08051438
+
+[[modules]]
+name = "util"
+start = 0x08051450
+
+[[modules]]
+name = "libgcc"
+start = 0x08051868
+
+# Function renames: original Luvdis/Ghidra name -> descriptive name.
+# When decompiling a function, add an entry here so that
+# generate_asm.py renames the assembly label everywhere.
+
+[renames]
+FUN_0804b254 = "ReadUnalignedU16"
+FUN_0804b260 = "ReadUnalignedS16"

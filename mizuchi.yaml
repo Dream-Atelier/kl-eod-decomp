@@ -1,0 +1,177 @@
+# Mizuchi Configuration File for "Klonoa: Empire of Dreams"
+
+# Global settings that apply to the entire pipeline
+global:
+  # Path to the context.h file used during compilation
+  getContextScript: cat ctx.c
+
+  # Maximum retry attempts per prompt (default: 25)
+  maxRetries: 2
+
+  # Output directory for generated files and reports (default: current directory)
+  outputDir: "."
+
+  # Shell script template for compilation.
+  # Template variables: {{cFilePath}}, {{objFilePath}}, {{functionName}}
+  compilerScript: |
+    "./tools/agbcc/bin/agbcc" \
+      "{{cFilePath}}" -o asm.s \
+      -mthumb-interwork -Wimplicit \
+      -Wparentheses -Werror -O2 -g -fhex-asm
+
+    sed '/\.size/d' asm.s > asm_stripped.s && mv asm_stripped.s asm.s
+
+    arm-none-eabi-as -mcpu=arm7tdmi -mthumb-interwork asm.s -o "{{objFilePath}}"
+
+  # Directory containing prompt folders
+  # Discovers and loads prompts from directory structure
+  # Each prompt lives in its own folder with:
+  #   - prompt.md: The prompt content
+  #   - settings.yaml: Metadata (functionName, targetObjectPath)
+  promptsDir: "./prompts"
+
+  # Path to GNU ld map file for resolving function → object file
+  mapFilePath: klonoa-eod.map
+
+  nonMatchingAsmFolders:
+    - asm
+
+  matchingAsmFolders:
+    - asm/matchings
+
+  # Target platform for decompilation (default: gba)
+  # Supported values: gba, nds, n3ds, n64, gc, wii, ps1, ps2, psp, win32, switch, android_x86, irix, saturn, dreamcast
+  target: gba
+
+# Plugin-specific configurations
+# Each plugin receives only its own section along with the global config
+plugins:
+  # Objdiff Plugin
+  # Compares compiled object files with target using objdiff-wasm
+  objdiff:
+    # Architecture-specific diff settings passed to objdiff-wasm
+    diffSettings:
+      arm.archVersion: "v4t"
+      functionRelocDiffs: "none"
+
+  # Claude Runner Plugin
+  # Uses Claude Agent SDK to generate C code from assembly prompts
+  claude-runner:
+    # Timeout in milliseconds for Claude requests (default: 600000 = 10 minutes)
+    timeoutMs: 600000
+    debug: true
+
+    # First user message sent to Claude to start the conversation
+    kickoffMessage: "Decompile the function described in the system prompt. Respond with only the C code in a ```c code block."
+
+    # System prompt template for Claude
+    # Template variables: {{contextFilePath}}, {{promptContent}}
+    systemPrompt: |
+      You are an automated decompilation system that converts assembly code into a C code that compiles into identical assembly.
+
+      **Operating Context**
+      - This is a fully automated pipeline with no human review
+      - Do not request clarifications, confirmations, or permissions
+      - You can use the read-only tools to inspect the codebase, but you cannot write or modify files directly
+      - The last C code you provided will be concatenated with the `{{contextFilePath}}` during compilation. No other import statements or includes are supported
+
+      **Output Requirements**
+      - Provide complete, compilable C code in a fenced code block (```c)
+      - The system extracts and compiles only the **last** ```c block in your response
+
+      **Success Criteria**
+      - The compiled output must produce assembly that matches the target exactly
+      - Functional equivalence is insufficient; the generated assembly must be identical
+
+      **Available Tools**
+      - `compile_and_view_assembly`: Use this tool for testing. It compiles your C code and see the resulting assembly BEFORE submitting your final answer. This allows you to iterate and refine your code to match the target assembly more precisely. The code is also concatenated with `{{contextFilePath}}` during compilation
+
+      **Workflow**
+      1. Analyze the provided assembly
+      2. Read the relevant structure and constants from the context file at `{{contextFilePath}}`
+      3. Produce equivalent C code
+      4. Use `compile_and_view_assembly` to test your code and see how it compiles
+      5. Iterate on your code until the assembly looks correct
+      6. Provide your final C code in a ```c block
+      7. The system compiles your code and compares the resulting assembly against the target
+      8. If mismatches occur, you will receive feedback for iteration
+
+      <decompilation_task>
+      {{promptContent}}
+      </decompilation_task>
+
+      # Implementation Process
+
+      1. Code Analysis
+
+      - Carefully analyze the original assembly function
+      - Identify function parameters, return values, and local variables
+      - Map register usage and memory access patterns
+      - Understand the control flow and logic structure
+      - Search the codebase to find existing struct, type definitions to reuse, and find patterns
+
+      2. C Code Generation
+
+      - Output ONLY the C code in a single ```c code block.
+
+      - Write clean, readable C code following these guidelines:
+
+        - Use meaningful variable names
+        - Avoid unnecessary goto statements - prefer structured control flow (if/else, loops)
+        - Minimize pointer arithmetic where possible
+        - Avoid unnecessary type casts
+        - Use appropriate data types that match the assembly operations
+        - Maintain the code styleguide
+        - Before adding a new type definition, search in the codebase if this struct already exists and reuse them whenever possible
+
+      - You might need to duplicate a structs if you identify that a struct might be wrong. If that's the case, duplicate it with a new name and modify it as needed.
+
+      - Before referencing any function or global variable, verify it exists by searching the context file. If a symbol is not found, declare it as extern or use a forward declaration in your code.
+
+      - ALWAYS use `compile_and_view_assembly` before submitting your final answer. Never submit code that you haven't test-compiled. If you encounter a compile error during testing, fix it before submitting.
+
+      # Additional Guidelines
+
+      - Test after each significant change
+      - If stuck, try different approaches (different variable types, control structures, etc.)
+      - When searching in the codebase, ignore the file `kappa-db.json`
+
+    # Soft timeout: gives Claude a chance to submit its best code before the hard timeout kills the request.
+    # When softTimeoutMs elapses, the current query is closed and a new "submit now" prompt is sent
+    # with the remaining time budget (timeoutMs - softTimeoutMs). If no session was established
+    # (API never responded), falls through to the normal hard timeout error.
+    softTimeout:
+      # Time in milliseconds before the soft timeout fires (must be < timeoutMs)
+      softTimeoutMs: 420000
+      # Prompt sent to Claude when the soft timeout fires
+      prompt: "You are running out of time. Submit your best C code now in a ```c block. Do not explain, do not use tools, just output the code."
+      # Optional: override model for the resumed query (defaults to the parent model)
+      # model: claude-haiku-4-5-20251001
+      # Optional: override effort level for the resumed query
+      # effort: low
+
+  # m2c Plugin (optional)
+  # Runs m2c as a setup phase before the Claude retry loop.
+  # If m2c produces a match, the pipeline succeeds immediately.
+  # Otherwise, the m2c output feeds into Claude Runner as additional context.
+  # Requires: scripts/setup-m2c.sh to be run first
+  m2c:
+    # Enable or disable m2c setup phase (default: true)
+    enable: true
+
+  # decomp-permuter Plugin (optional)
+  # Brute-forces code mutations to improve match percentage.
+  # Runs in the programmatic phase (after m2c) and as background tasks
+  # during the AI-powered phase.
+  # Requires: scripts/setup-decomp-permuter.sh to be run first
+  decomp-permuter:
+    enable: true
+    # Maximum iterations per permuter run (default: 1000)
+    maxIterations: 1000
+    # Timeout in milliseconds per permuter run (default: 120000 = 2 minutes)
+    timeoutMs: 120000
+    # Flags passed to permuter.py (default: ['--show-errors'])
+    # See: https://github.com/simonlindholm/decomp-permuter#usage
+    flags:
+      - "--show-errors"
+      - "-j 8"
