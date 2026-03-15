@@ -66,7 +66,16 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bf7c);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bfd0);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c050);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c0be);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c0d4);
+/*
+ * Shuts down the graphics stream: calls FUN_0804c050 to finalize,
+ * then frees the buffer at 0x030007C8 via thunk_FUN_0800020c.
+ *   no parameters
+ *   no return value
+ */
+void ShutdownGfxStream(void) {
+    FUN_0804c050();
+    thunk_FUN_0800020c(*(u32 *)0x030007C8);
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c0ec);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c1a0);
 INCLUDE_ASM("asm/nonmatchings/gfx", sub_0804C1C0);
