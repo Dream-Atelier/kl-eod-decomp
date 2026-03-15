@@ -43,7 +43,7 @@ BreakBeforeTernaryOperators: true
 AlignOperands: DontAlign
 
 # Alignment
-AlignConsecutiveMacros: Consecutive
+AlignConsecutiveMacros: AcrossEmptyLinesAndComments
 AlignConsecutiveAssignments: None
 AlignConsecutiveDeclarations: None
 AlignEscapedNewlines: Right
