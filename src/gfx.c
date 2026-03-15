@@ -21,7 +21,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804af00);
  *   ptr: pointer to the first of two consecutive bytes
  *   returns: the reconstructed u16 value
  */
-u16 ReadUnalignedU16(u8 *ptr) {
+u32 ReadUnalignedU16(u8 *ptr) {
     return ptr[0] | (ptr[1] << 8);
 }
 
@@ -77,7 +77,21 @@ void ShutdownGfxStream(void) {
     thunk_FUN_0800020c(*(u32 *)0x030007C8);
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c0ec);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c1a0);
+/*
+ * Reads a command byte from the data stream, splits it into a 7-bit value
+ * and a 1-bit flag, then dispatches to FUN_0804c0ec. Advances stream by 3.
+ *   no parameters (reads from global data stream pointer at 0x03004D84)
+ *   no return value
+ */
+void DispatchStreamCommand_C0EC(void) {
+    u8 **gp = (u8 **)0x03004D84;
+    u8 *ptr = *gp;
+    u8 byte = ptr[2];
+    u8 val = byte & 0x7F;
+    u8 flag = byte >> 7;
+    *gp = ptr + 3;
+    FUN_0804c0ec(val, flag);
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", sub_0804C1C0);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c1fc);
 /*
@@ -115,7 +129,23 @@ void WritePaletteColor(void) {
     *(u16 *)(0x05000000 + ptr[2] * 2) = color;
     *gp = ptr + 5;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c86c);
+/*
+ * Reads a 16-bit value from the data stream and writes it to two destinations:
+ * the palette/color register at 0x03005420 and the mirror at 0x030034AC.
+ * Advances the data stream pointer by 4.
+ *   no parameters (reads from global data stream pointer at 0x03004D84)
+ *   no return value
+ */
+void WriteStreamValue_Dual(void) {
+    u16 *dest1 = (u16 *)0x030034AC;
+    u8 **gp = (u8 **)0x03004D84;
+
+    int val = ReadUnalignedU16(*gp + 2);
+    *(u16 *)0x03005420 = val;
+    *dest1 = val;
+
+    *gp += 4;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c898);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c8f4);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c9a8);
@@ -162,7 +192,24 @@ void ProcessStreamCommand_50094(void) {
     FUN_08050094((*gp)[2]);
     *gp += 3;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e7a0);
+/*
+ * Dispatches a sound/music stream command based on byte[2] of the data stream.
+ * If byte[2] <= 0x22, passes it directly; otherwise re-reads and passes it.
+ * Both paths call FUN_0804ffc8. Advances the stream pointer by 3.
+ *   no parameters (reads from global data stream pointer at 0x03004D84)
+ *   no return value
+ */
+void DispatchMusicStreamCommand(void) {
+    u8 *ptr = *(u8 **)0x03004D84;
+
+    if (ptr[2] <= 0x22) {
+        FUN_0804ffc8(ptr[2]);
+    } else {
+        FUN_0804ffc8(ptr[2]);
+    }
+
+    *(u8 **)0x03004D84 += 3;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e7d2);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e7fa);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e814);
@@ -178,7 +225,31 @@ void EnableVBlankHandler(void) {
     FUN_08050648();
     *(u8 **)0x03004D84 += 2;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e884);
+/*
+ * Enables VBlank interrupt and IRQ, sets up handler via FUN_08050648,
+ * then dispatches a music stream command via FUN_0804ffc8 using byte[2].
+ * Advances the data stream pointer by 3.
+ *   no parameters (reads from global data stream pointer at 0x03004D84)
+ *   no return value
+ */
+void EnableVBlankAndDispatchMusic(void) {
+    u8 **gp = (u8 **)0x03004D84;
+    u8 *ptr = *gp;
+
+    if (ptr[2] <= 0x22) {
+        *(vu16 *)0x04000200 |= 1;
+        *(vu16 *)0x04000004 |= 8;
+        FUN_08050648();
+        FUN_0804ffc8((*gp)[2]);
+    } else {
+        *(vu16 *)0x04000200 |= 1;
+        *(vu16 *)0x04000004 |= 8;
+        FUN_08050648();
+        FUN_0804ffc8((*gp)[2]);
+    }
+
+    *(u8 **)0x03004D84 += 3;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e8fe);
 /*
  * Enables VBlank interrupt and VBlank IRQ status, then calls two
