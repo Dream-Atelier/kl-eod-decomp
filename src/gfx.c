@@ -21,7 +21,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804af00);
  *   ptr: pointer to the first of two consecutive bytes
  *   returns: the reconstructed u16 value
  */
-u16 ReadUnalignedU16(u8 *ptr) {
+u32 ReadUnalignedU16(u8 *ptr) {
     return ptr[0] | (ptr[1] << 8);
 }
 
@@ -115,7 +115,23 @@ void WritePaletteColor(void) {
     *(u16 *)(0x05000000 + ptr[2] * 2) = color;
     *gp = ptr + 5;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c86c);
+/*
+ * Reads a 16-bit value from the data stream and writes it to two destinations:
+ * the palette/color register at 0x03005420 and the mirror at 0x030034AC.
+ * Advances the data stream pointer by 4.
+ *   no parameters (reads from global data stream pointer at 0x03004D84)
+ *   no return value
+ */
+void WriteStreamValue_Dual(void) {
+    u16 *dest1 = (u16 *)0x030034AC;
+    u8 **gp = (u8 **)0x03004D84;
+
+    int val = ReadUnalignedU16(*gp + 2);
+    *(u16 *)0x03005420 = val;
+    *dest1 = val;
+
+    *gp += 4;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c898);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c8f4);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c9a8);
