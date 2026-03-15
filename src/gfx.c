@@ -78,7 +78,7 @@ void ShutdownGfxStream(void) {
     FUN_0804c050();
     thunk_FUN_0800020c(gGfxStreamBuffer);
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c0ec);
+INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c0ec); /* ProcessStreamOpcode */
 /*
  * Reads a command byte from the data stream, splits it into a 7-bit value
  * and a 1-bit flag, then dispatches to FUN_0804c0ec. Advances stream by 3.

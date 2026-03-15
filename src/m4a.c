@@ -39,7 +39,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804fc10);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804fe50);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804fe6c);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804fea0);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ff08);
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ff08); /* ResetSoundChannel */
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ff44);
 /*
  * Wrapper that calls FUN_0804f294 to initialize the sound engine.
@@ -49,12 +49,12 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ff44);
 void SoundInit(void) {
     FUN_0804f294();
 }
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ffc8);
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ffc8); /* PlayMusicTrack */
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804fff6);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050042);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050094);
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050094); /* ExecuteMusicCommand */
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080500c8);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080500fc);
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080500fc); /* UpdateAllSoundChannels */
 /*
  * Wrapper that calls FUN_0804ff08 to stop/reset a sound channel.
  * Passes through r0 (sound struct pointer).
@@ -64,7 +64,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080500fc);
 void StopSoundChannel(u32 r0) {
     FUN_0804ff08(r0);
 }
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050134);
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050134); /* SetupSoundInterrupt */
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050162);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080501ba);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050200);
@@ -90,11 +90,11 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050344);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0805043c);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080504e0);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050578);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080505cc);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050648);
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080505cc); /* StopAllSound */
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050648); /* SetupVBlankSoundHandler */
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050684);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080506fc);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080507e0);
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080506fc); /* LoadSoundData */
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080507e0); /* UpdateSoundChannel */
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050820);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080508e8);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0805099e);
