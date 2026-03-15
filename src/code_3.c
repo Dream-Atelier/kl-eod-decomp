@@ -28,7 +28,22 @@ INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803ac18);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803ad94);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803ae88);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803af38);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803b074);
+/*
+ * Iterates over entity slots 0-6 and updates active ones.
+ * For each slot, checks if the entity is active via FUN_0803ac18.
+ * If active, calls FUN_0803ad94 and FUN_0803af38 to update it.
+ *   no parameters
+ *   no return value
+ */
+void UpdateEntities(void) {
+    u8 i;
+    for (i = 0; i <= 6; i++) {
+        if ((u8)FUN_0803ac18(i)) {
+            FUN_0803ad94(i);
+            FUN_0803af38(i);
+        }
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803b0a0);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803b378);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803b3d2);
@@ -58,7 +73,18 @@ INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08042bee);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08042e66);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08043af4);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08043b34);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08043b80);
+/*
+ * Allocates a buffer and decompresses/copies data into it.
+ * Reads the size from the first word of the source (masking off the top bit),
+ * allocates that many bytes, then calls FUN_08043af4 to fill the buffer.
+ *   src: pointer to compressed data header (first word = size | flags)
+ *   returns: pointer to the newly allocated and filled buffer
+ */
+u32 AllocAndDecompress(u32 *src) {
+    u32 buf = thunk_FUN_080001e0(*src & 0x7FFFFFFF, 0);
+    FUN_08043af4(buf, (u32)src);
+    return buf;
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08043ba4);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080441c8);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080446fa);
@@ -68,7 +94,22 @@ INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0804517c);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080452ea);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0804539a);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080453f0);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08045734);
+/*
+ * Runs the per-frame game update. If the pause flag at 0x030034E4 is zero,
+ * calls four game subsystem update functions. Always calls FUN_08025ba4
+ * at the end regardless of pause state.
+ *   no parameters
+ *   no return value
+ */
+void GameUpdate(void) {
+    if (*(u8 *)0x030034E4 == 0) {
+        FUN_080468b0();
+        FUN_08045874();
+        FUN_08045f68();
+        FUN_08046288();
+    }
+    FUN_08025ba4();
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0804575c);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08045874);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08045f68);

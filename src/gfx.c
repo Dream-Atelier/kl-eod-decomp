@@ -15,12 +15,22 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_08049efc);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804a070);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804af00);
 
-// Reads a u16 from a potentially unaligned address (byte-by-byte, little-endian)
+/*
+ * Reads an unsigned 16-bit value from a potentially unaligned address.
+ * Assembles two bytes in little-endian order.
+ *   ptr: pointer to the first of two consecutive bytes
+ *   returns: the reconstructed u16 value
+ */
 u16 ReadUnalignedU16(u8 *ptr) {
     return ptr[0] | (ptr[1] << 8);
 }
 
-// Reads a s16 from a potentially unaligned address (byte-by-byte, little-endian)
+/*
+ * Reads a signed 16-bit value from a potentially unaligned address.
+ * Assembles two bytes in little-endian order with sign extension.
+ *   ptr: pointer to the first of two consecutive bytes
+ *   returns: the reconstructed s16 value
+ */
 s16 ReadUnalignedS16(u8 *ptr) {
     return (s16)(ptr[0] + (ptr[1] << 8));
 }
@@ -39,7 +49,14 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bb3c);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bb74);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bb86);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bb88);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bbc0);
+/*
+ * Frees the memory buffer pointed to by the global at 0x030052A4.
+ *   no parameters
+ *   no return value
+ */
+void FreeBuffer_52A4(void) {
+    thunk_FUN_0800020c(*(u32 *)0x030052A4);
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bbd4);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bd10);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bdb4);
@@ -49,12 +66,31 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bf7c);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bfd0);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c050);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c0be);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c0d4);
+/*
+ * Shuts down the graphics stream: calls FUN_0804c050 to finalize,
+ * then frees the buffer at 0x030007C8 via thunk_FUN_0800020c.
+ *   no parameters
+ *   no return value
+ */
+void ShutdownGfxStream(void) {
+    FUN_0804c050();
+    thunk_FUN_0800020c(*(u32 *)0x030007C8);
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c0ec);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c1a0);
 INCLUDE_ASM("asm/nonmatchings/gfx", sub_0804C1C0);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c1fc);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c230);
+/*
+ * Reads a command byte from the data stream and processes it via FUN_0804c218.
+ * Byte[2] is the command argument. Advances the stream pointer by 3.
+ *   no parameters (reads from global data stream pointer at 0x03004D84)
+ *   no return value
+ */
+void ProcessStreamCommand_C218(void) {
+    u8 **gp = (u8 **)0x03004D84;
+    FUN_0804c218((*gp)[2]);
+    *gp += 3;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c24c);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c300);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c3a4);
@@ -65,7 +101,20 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c6a8);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c6e0);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c798);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c7fc);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c844);
+/*
+ * Reads a palette color entry from a data stream and writes it to BG palette RAM.
+ * The stream at *0x03004D84 is a packed format: byte[2] is the palette index,
+ * bytes[3..4] are a little-endian RGB555 color value. Advances the stream pointer by 5.
+ *   no parameters (reads from global data stream pointer at 0x03004D84)
+ *   no return value (writes directly to GBA palette RAM at 0x05000000)
+ */
+void WritePaletteColor(void) {
+    u8 **gp = (u8 **)0x03004D84;
+    u16 color = ReadUnalignedU16(*gp + 3);
+    u8 *ptr = *gp;
+    *(u16 *)(0x05000000 + ptr[2] * 2) = color;
+    *gp = ptr + 5;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c86c);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c898);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c8f4);
@@ -102,15 +151,49 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e634);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e6b6);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e708);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e76e);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e784);
+/*
+ * Reads a command byte from the data stream and processes it via FUN_08050094.
+ * Byte[2] is the command argument. Advances the stream pointer by 3.
+ *   no parameters (reads from global data stream pointer at 0x03004D84)
+ *   no return value
+ */
+void ProcessStreamCommand_50094(void) {
+    u8 **gp = (u8 **)0x03004D84;
+    FUN_08050094((*gp)[2]);
+    *gp += 3;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e7a0);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e7d2);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e7fa);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e814);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e850);
+/*
+ * Enables VBlank interrupt and VBlank IRQ status, then calls
+ * FUN_08050648 to set up the handler. Advances the data stream by 2.
+ *   no parameters
+ *   no return value
+ */
+void EnableVBlankHandler(void) {
+    *(vu16 *)0x04000200 |= 1;
+    *(vu16 *)0x04000004 |= 8;
+    FUN_08050648();
+    *(u8 **)0x03004D84 += 2;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e884);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e8fe);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e93c);
+/*
+ * Enables VBlank interrupt and VBlank IRQ status, then calls two
+ * interrupt setup handlers (FUN_08050648, FUN_08050134).
+ * Advances the data stream pointer by 2.
+ *   no parameters
+ *   no return value
+ */
+void EnableVBlankAndHandlers(void) {
+    *(vu16 *)0x04000200 |= 1;
+    *(vu16 *)0x04000004 |= 8;
+    FUN_08050648();
+    FUN_08050134();
+    *(u8 **)0x03004D84 += 2;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e974);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e9dc);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804ea94);

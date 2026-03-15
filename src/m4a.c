@@ -3,7 +3,18 @@
 
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804eb64);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ed68);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ee14);
+/*
+ * Frees a sound data structure and its inner buffer.
+ * Reads the struct pointer from 0x0300081C, frees *(struct) - 4 (inner buffer
+ * with header), then frees the struct pointer itself.
+ *   no parameters
+ *   no return value
+ */
+void FreeSoundStruct(void) {
+    u32 *p = (u32 *)0x0300081C;
+    thunk_FUN_0800020c(*(u32 *)(*p) - 4);
+    thunk_FUN_0800020c(*p);
+}
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ee34);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ee60);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ef50);
@@ -29,20 +40,51 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804fe6c);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804fea0);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ff08);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ff44);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ffbc);
+/*
+ * Wrapper that calls FUN_0804f294 to initialize the sound engine.
+ *   no parameters
+ *   no return value
+ */
+void SoundInit(void) {
+    FUN_0804f294();
+}
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804ffc8);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804fff6);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050042);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050094);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080500c8);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080500fc);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0805012a);
+/*
+ * Wrapper that calls FUN_0804ff08 to stop/reset a sound channel.
+ * Passes through r0 (sound struct pointer).
+ *   r0: pointer to sound struct
+ *   no return value
+ */
+void StopSoundChannel(u32 r0) {
+    FUN_0804ff08(r0);
+}
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050134);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050162);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080501ba);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050200);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0805031c);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050330);
+/*
+ * Calls FUN_0805186c with the given parameter and a global sound context
+ * pointer from 0x030064D8 as the second argument.
+ *   r0: first argument passed through to FUN_0805186c
+ *   no return value
+ */
+void PlaySoundWithContext_D8(u32 r0) {
+    FUN_0805186c(r0, *(u32 *)0x030064D8);
+}
+/*
+ * Calls FUN_0805186c with the given parameter and a global sound context
+ * pointer from 0x030064DC as the second argument.
+ *   r0: first argument passed through to FUN_0805186c
+ *   no return value
+ */
+void PlaySoundWithContext_DC(u32 r0) {
+    FUN_0805186c(r0, *(u32 *)0x030064DC);
+}
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050344);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0805043c);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080504e0);
@@ -67,5 +109,13 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080510d4);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08051148);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080511bc);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08051314);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08051334);
+/*
+ * Calls FUN_08051870 with two pass-through arguments and a global
+ * sound table pointer from 0x03006450 as the third argument.
+ *   r0, r1: passed through to FUN_08051870
+ *   no return value
+ */
+void SoundCommand_6450(u32 r0, u32 r1) {
+    FUN_08051870(r0, r1, *(u32 *)0x03006450);
+}
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08051348);
