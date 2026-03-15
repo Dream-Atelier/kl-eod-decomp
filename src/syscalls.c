@@ -19,6 +19,14 @@ void UnpackTilemap(void *src, void *dest) {
     asm("swi #19");
 }
 
-INCLUDE_ASM("asm/nonmatchings/syscalls", FUN_08051440);
+/*
+ * BIOS LZ77UnCompWram (SWI 0x11): LZ77 decompression to WRAM.
+ *   r0: source pointer, r1: dest pointer
+ *   no return value
+ */
+void LZ77UnCompWram(void *src, void *dest) {
+    asm("swi #17");
+}
+
 INCLUDE_ASM("asm/nonmatchings/syscalls", FUN_08051444);
 INCLUDE_ASM("asm/nonmatchings/syscalls", FUN_08051448);
