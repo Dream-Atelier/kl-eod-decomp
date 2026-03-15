@@ -1,4 +1,5 @@
 #include "global.h"
+#include "globals.h"
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080301a8);
@@ -102,7 +103,7 @@ INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080453f0);
  *   no return value
  */
 void GameUpdate(void) {
-    if (*(u8 *)0x030034E4 == 0) {
+    if (gPauseFlag == 0) {
         FUN_080468b0();
         FUN_08045874();
         FUN_08045f68();

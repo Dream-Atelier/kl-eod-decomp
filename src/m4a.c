@@ -1,4 +1,5 @@
 #include "global.h"
+#include "globals.h"
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804eb64);
@@ -74,16 +75,16 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050200);
  *   no return value
  */
 void PlaySoundWithContext_D8(u32 r0) {
-    FUN_0805186c(r0, *(u32 *)0x030064D8);
+    FUN_0805186c(r0, gSoundCtx_D8);
 }
 /*
  * Calls FUN_0805186c with the given parameter and a global sound context
- * pointer from 0x030064DC as the second argument.
+ * pointer from gSoundCtx_DC as the second argument.
  *   r0: first argument passed through to FUN_0805186c
  *   no return value
  */
 void PlaySoundWithContext_DC(u32 r0) {
-    FUN_0805186c(r0, *(u32 *)0x030064DC);
+    FUN_0805186c(r0, gSoundCtx_DC);
 }
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050344);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0805043c);
@@ -116,6 +117,6 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08051314);
  *   no return value
  */
 void SoundCommand_6450(u32 r0, u32 r1) {
-    FUN_08051870(r0, r1, *(u32 *)0x03006450);
+    FUN_08051870(r0, r1, gSoundTablePtr);
 }
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08051348);

@@ -1,4 +1,6 @@
 #include "global.h"
+#include "gba.h"
+#include "globals.h"
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_080480f4);
@@ -55,7 +57,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bb88);
  *   no return value
  */
 void FreeBuffer_52A4(void) {
-    thunk_FUN_0800020c(*(u32 *)0x030052A4);
+    thunk_FUN_0800020c(gBuffer_52A4);
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bbd4);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bd10);
@@ -74,7 +76,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c0be);
  */
 void ShutdownGfxStream(void) {
     FUN_0804c050();
-    thunk_FUN_0800020c(*(u32 *)0x030007C8);
+    thunk_FUN_0800020c(gGfxStreamBuffer);
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c0ec);
 /*
@@ -101,9 +103,8 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c1fc);
  *   no return value
  */
 void ProcessStreamCommand_C218(void) {
-    u8 **gp = (u8 **)0x03004D84;
-    FUN_0804c218((*gp)[2]);
-    *gp += 3;
+    FUN_0804c218(gStreamPtr[2]);
+    gStreamPtr += 3;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c24c);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c300);
@@ -126,7 +127,7 @@ void WritePaletteColor(void) {
     u8 **gp = (u8 **)0x03004D84;
     u16 color = ReadUnalignedU16(*gp + 3);
     u8 *ptr = *gp;
-    *(u16 *)(0x05000000 + ptr[2] * 2) = color;
+    *(u16 *)(BG_PAL_RAM + ptr[2] * 2) = color;
     *gp = ptr + 5;
 }
 /*
@@ -188,9 +189,8 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e76e);
  *   no return value
  */
 void ProcessStreamCommand_50094(void) {
-    u8 **gp = (u8 **)0x03004D84;
-    FUN_08050094((*gp)[2]);
-    *gp += 3;
+    FUN_08050094(gStreamPtr[2]);
+    gStreamPtr += 3;
 }
 /*
  * Dispatches a sound/music stream command based on byte[2] of the data stream.
@@ -220,10 +220,10 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e814);
  *   no return value
  */
 void EnableVBlankHandler(void) {
-    *(vu16 *)0x04000200 |= 1;
-    *(vu16 *)0x04000004 |= 8;
+    REG_IE |= IE_VBLANK;
+    REG_DISPSTAT |= DISPSTAT_VBLANK_IRQ_ENABLE;
     FUN_08050648();
-    *(u8 **)0x03004D84 += 2;
+    gStreamPtr += 2;
 }
 /*
  * Enables VBlank interrupt and IRQ, sets up handler via FUN_08050648,
@@ -259,11 +259,11 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e8fe);
  *   no return value
  */
 void EnableVBlankAndHandlers(void) {
-    *(vu16 *)0x04000200 |= 1;
-    *(vu16 *)0x04000004 |= 8;
+    REG_IE |= IE_VBLANK;
+    REG_DISPSTAT |= DISPSTAT_VBLANK_IRQ_ENABLE;
     FUN_08050648();
     FUN_08050134();
-    *(u8 **)0x03004D84 += 2;
+    gStreamPtr += 2;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e974);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e9dc);
