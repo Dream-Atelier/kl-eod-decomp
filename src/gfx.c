@@ -49,7 +49,14 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bb3c);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bb74);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bb86);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bb88);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bbc0);
+/*
+ * Frees the memory buffer pointed to by the global at 0x030052A4.
+ *   no parameters
+ *   no return value
+ */
+void FreeBuffer_52A4(void) {
+    thunk_FUN_0800020c(*(u32 *)0x030052A4);
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bbd4);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bd10);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bdb4);
