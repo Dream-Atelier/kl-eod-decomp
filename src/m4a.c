@@ -91,5 +91,13 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080510d4);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08051148);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080511bc);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08051314);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08051334);
+/*
+ * Calls FUN_08051870 with two pass-through arguments and a global
+ * sound table pointer from 0x03006450 as the third argument.
+ *   r0, r1: passed through to FUN_08051870
+ *   no return value
+ */
+void SoundCommand_6450(u32 r0, u32 r1) {
+    FUN_08051870(r0, r1, *(u32 *)0x03006450);
+}
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08051348);
