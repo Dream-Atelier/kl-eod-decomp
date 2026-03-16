@@ -150,7 +150,7 @@ INCLUDE_ASM("asm/nonmatchings/code_3", InitPauseMenu);
 INCLUDE_ASM("asm/nonmatchings/code_3", InitGameplayFromWorldMap);
 /*
  * Runs the per-frame game update. If the pause flag at 0x030034E4 is zero,
- * calls four game subsystem update functions. Always calls FUN_08025ba4
+ * calls four game subsystem update functions. Always calls UpdatePaletteAnimations
  * at the end regardless of pause state.
  *   no parameters
  *   no return value
@@ -162,7 +162,7 @@ void GameUpdate(void) {
         InitPlayerCollision();
         UpdateWorldMapCursor();
     }
-    FUN_08025ba4();
+    UpdatePaletteAnimations();
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", SpawnLevelEntities);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerInput); /* UpdatePhysics */

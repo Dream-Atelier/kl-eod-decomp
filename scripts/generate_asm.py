@@ -601,6 +601,10 @@ def _update_c_sources(merged_groups, module_funcs):
     the preceding function's INCLUDE_ASM.
     """
     absorbed = {name for group in merged_groups.values() for name in group[1:]}
+    # Include renamed versions so we match C sources that use new names
+    for old_name, new_name in RENAMES.items():
+        if old_name in absorbed:
+            absorbed.add(new_name)
 
     name_to_addr = {
         name: addr
