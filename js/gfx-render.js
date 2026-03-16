@@ -134,21 +134,25 @@ export function composeBg(tilesRaw, tilemapRaw, paletteRaw, mapW = 32, mapH = 32
                     }
                     const dy = vflip ? (7 - ty) : ty;
 
-                    // Write pixel c0
-                    const x0 = pxX + dx0, y0 = pxY + dy;
-                    if (x0 >= 0 && x0 < width && y0 < height) {
-                        const p = (y0 * width + x0) * 4;
-                        const s = c0 * 4;
-                        pixels[p] = pal[s]; pixels[p+1] = pal[s+1];
-                        pixels[p+2] = pal[s+2]; pixels[p+3] = pal[s+3];
+                    // Write pixel c0 (skip color index 0 = transparent)
+                    if (c0 !== 0) {
+                        const x0 = pxX + dx0, y0 = pxY + dy;
+                        if (x0 >= 0 && x0 < width && y0 < height) {
+                            const p = (y0 * width + x0) * 4;
+                            const s = c0 * 4;
+                            pixels[p] = pal[s]; pixels[p+1] = pal[s+1];
+                            pixels[p+2] = pal[s+2]; pixels[p+3] = 255;
+                        }
                     }
-                    // Write pixel c1
-                    const x1 = pxX + dx1, y1 = pxY + dy;
-                    if (x1 >= 0 && x1 < width && y1 < height) {
-                        const p = (y1 * width + x1) * 4;
-                        const s = c1 * 4;
-                        pixels[p] = pal[s]; pixels[p+1] = pal[s+1];
-                        pixels[p+2] = pal[s+2]; pixels[p+3] = pal[s+3];
+                    // Write pixel c1 (skip color index 0 = transparent)
+                    if (c1 !== 0) {
+                        const x1 = pxX + dx1, y1 = pxY + dy;
+                        if (x1 >= 0 && x1 < width && y1 < height) {
+                            const p = (y1 * width + x1) * 4;
+                            const s = c1 * 4;
+                            pixels[p] = pal[s]; pixels[p+1] = pal[s+1];
+                            pixels[p+2] = pal[s+2]; pixels[p+3] = 255;
+                        }
                     }
                 }
             }
@@ -177,6 +181,10 @@ export function compositeLayers(layers) {
     canvas.width = maxW;
     canvas.height = maxH;
     const ctx = canvas.getContext('2d');
+
+    // Start with opaque black background (matching GBA hardware)
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, maxW, maxH);
 
     // Draw layers back to front (0 first, 2 last)
     for (const c of layers) {

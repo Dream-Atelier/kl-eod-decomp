@@ -114,6 +114,10 @@ export function convertSong(dv, rom, songIndex) {
 
 /**
  * Parse one m4a track and append timed MIDI events.
+ *
+ * Key m4a parsing rule: when a byte < 0x80 appears at the command position,
+ * it is NOT a new command — it repeats the last note command (Nxx/TIE/EOT)
+ * using the byte (and any subsequent bytes < 0x80) as new arguments.
  */
 function parseTrack(rom, dv, startOff, channel, events) {
     let pos = startOff;
@@ -121,68 +125,123 @@ function parseTrack(rom, dv, startOff, channel, events) {
     let lastKey = 60;
     let lastVel = 127;
     let keyShift = 0;
+    let lastNoteCmd = -1; // last Nxx/TIE/EOT command byte for repeats
 
     // Subroutine return address (single-level)
     let returnPos = -1;
     let returnFlag = false;
 
-    // Active notes: Map<key, { offTick }>
+    // Active notes: Map<key, true>
     const activeNotes = new Map();
 
     // Set of visited GOTO targets to prevent infinite loops
     const visitedGotos = new Set();
 
     // Emit initial reverb CC (many m4a games use reverb)
-    events.push({ tick: 0, bytes: [0xB0 | channel, 0x5B, 0x47] }); // CC 91 (reverb) = 71
+    events.push({ tick: 0, bytes: [0xB0 | channel, 0x5B, 0x47] });
 
-    const maxIterations = 100000; // safety limit
+    const maxIterations = 100000;
     let iterations = 0;
+
+    /** Emit a Nxx note-on with auto-duration. */
+    function emitNxx(duration) {
+        let key = lastKey, vel = lastVel, gateExtra = 0;
+        if (pos < rom.length && rom[pos] < 0x80) { key = rom[pos++]; lastKey = key; }
+        if (pos < rom.length && rom[pos] < 0x80) { vel = rom[pos++]; lastVel = vel; }
+        if (pos < rom.length && rom[pos] < 0x80) { gateExtra = rom[pos++]; }
+
+        const midiKey = (key + keyShift) & 0x7F;
+        const midiVel = vel & 0x7F;
+        const totalDur = duration + gateExtra;
+
+        if (activeNotes.has(midiKey)) {
+            events.push({ tick, bytes: [0x80 | channel, midiKey, 0] });
+            activeNotes.delete(midiKey);
+        }
+        events.push({ tick, bytes: [0x90 | channel, midiKey, midiVel] });
+        events.push({ tick: tick + totalDur, bytes: [0x80 | channel, midiKey, 0] });
+    }
+
+    /** Emit a TIE note-on (indefinite duration). */
+    function emitTie() {
+        let key = lastKey, vel = lastVel;
+        if (pos < rom.length && rom[pos] < 0x80) { key = rom[pos++]; lastKey = key; }
+        if (pos < rom.length && rom[pos] < 0x80) { vel = rom[pos++]; lastVel = vel; }
+
+        const midiKey = (key + keyShift) & 0x7F;
+        const midiVel = vel & 0x7F;
+
+        if (activeNotes.has(midiKey)) {
+            events.push({ tick, bytes: [0x80 | channel, midiKey, 0] });
+        }
+        events.push({ tick, bytes: [0x90 | channel, midiKey, midiVel] });
+        activeNotes.set(midiKey, true);
+    }
+
+    /** Emit an EOT note-off. */
+    function emitEot() {
+        let key = lastKey;
+        if (pos < rom.length && rom[pos] < 0x80) { key = rom[pos++]; lastKey = key; }
+        const midiKey = (key + keyShift) & 0x7F;
+        if (activeNotes.has(midiKey)) {
+            events.push({ tick, bytes: [0x80 | channel, midiKey, 0] });
+            activeNotes.delete(midiKey);
+        }
+    }
+
+    function endTrack() {
+        for (const [key] of activeNotes) {
+            events.push({ tick, bytes: [0x80 | channel, key, 0] });
+        }
+        activeNotes.clear();
+    }
 
     while (iterations++ < maxIterations) {
         if (pos >= rom.length) break;
-        const cmd = rom[pos++];
+        const cmd = rom[pos];
 
-        if (cmd <= 0x7F) {
-            // Argument byte: repeat last repeatable command
-            // In m4a, bytes < 0x80 when not following a command are skipped
-            // (they're consumed as arguments by the preceding command)
-            // This shouldn't happen at the command level, so skip
+        // Bytes < 0x80: repeat the last note command with new arguments
+        if (cmd < 0x80) {
+            if (lastNoteCmd >= 0xD0 && lastNoteCmd <= 0xFF) {
+                // Don't consume the first byte — emitNxx reads args from pos
+                emitNxx(LEN_TBL[lastNoteCmd - 0xD0]);
+            } else if (lastNoteCmd === 0xCF) {
+                emitTie();
+            } else if (lastNoteCmd === 0xCE) {
+                emitEot();
+            } else {
+                // No previous note command; skip byte
+                pos++;
+            }
             continue;
         }
 
+        pos++; // consume the command byte
+
         if (cmd >= 0x80 && cmd <= 0xB0) {
-            // Wait command
-            const waitTicks = LEN_TBL[cmd - 0x80];
-            tick += waitTicks;
+            tick += LEN_TBL[cmd - 0x80];
+            continue;
+        }
+
+        if (cmd >= 0xD0 && cmd <= 0xFF) {
+            lastNoteCmd = cmd;
+            emitNxx(LEN_TBL[cmd - 0xD0]);
             continue;
         }
 
         switch (cmd) {
-            case 0xB1: // FINE - end of track
-                // Turn off all active notes
-                for (const [key, info] of activeNotes) {
-                    events.push({ tick, bytes: [0x80 | channel, key, 0] });
-                }
-                activeNotes.clear();
-                return;
+            case 0xB1: endTrack(); return;
 
-            case 0xB2: { // GOTO - loop
+            case 0xB2: {
                 const ptr = readU32(dv, pos) - 0x08000000;
                 pos += 4;
-                if (visitedGotos.has(ptr)) {
-                    // Already visited: end track to prevent infinite loop
-                    for (const [key, info] of activeNotes) {
-                        events.push({ tick, bytes: [0x80 | channel, key, 0] });
-                    }
-                    activeNotes.clear();
-                    return;
-                }
+                if (visitedGotos.has(ptr)) { endTrack(); return; }
                 visitedGotos.add(ptr);
                 pos = ptr;
                 continue;
             }
 
-            case 0xB3: { // PATT - call subroutine
+            case 0xB3: {
                 const ptr = readU32(dv, pos) - 0x08000000;
                 pos += 4;
                 returnPos = pos;
@@ -191,17 +250,13 @@ function parseTrack(rom, dv, startOff, channel, events) {
                 continue;
             }
 
-            case 0xB4: // PEND - return from subroutine
-                if (returnFlag) {
-                    pos = returnPos;
-                    returnFlag = false;
-                }
+            case 0xB4:
+                if (returnFlag) { pos = returnPos; returnFlag = false; }
                 continue;
 
-            case 0xBB: { // TEMPO
+            case 0xBB: {
                 const tempoVal = rom[pos++];
-                const bpm = tempoVal * 2;
-                const usPerBeat = Math.round(60000000 / bpm);
+                const usPerBeat = Math.round(60000000 / (tempoVal * 2));
                 events.push({
                     tick,
                     bytes: [0xFF, 0x51, 0x03,
@@ -212,155 +267,59 @@ function parseTrack(rom, dv, startOff, channel, events) {
                 continue;
             }
 
-            case 0xBC: { // KEYSH - key shift / transpose
+            case 0xBC: {
                 const val = rom[pos++];
-                keyShift = (val > 127) ? val - 256 : val; // signed
+                keyShift = (val > 127) ? val - 256 : val;
                 continue;
             }
 
-            case 0xBD: { // VOICE - program change
-                const prog = rom[pos++];
-                events.push({ tick, bytes: [0xC0 | channel, prog & 0x7F] });
-                continue;
-            }
+            case 0xBD: events.push({ tick, bytes: [0xC0 | channel, rom[pos++] & 0x7F] }); continue;
+            case 0xBE: events.push({ tick, bytes: [0xB0 | channel, 0x07, rom[pos++] & 0x7F] }); continue;
+            case 0xBF: events.push({ tick, bytes: [0xB0 | channel, 0x0A, rom[pos++] & 0x7F] }); continue;
 
-            case 0xBE: { // VOL - volume
-                const vol = rom[pos++];
-                events.push({ tick, bytes: [0xB0 | channel, 0x07, vol & 0x7F] });
-                continue;
-            }
-
-            case 0xBF: { // PAN
-                const pan = rom[pos++];
-                events.push({ tick, bytes: [0xB0 | channel, 0x0A, pan & 0x7F] });
-                continue;
-            }
-
-            case 0xC0: { // BEND
+            case 0xC0: {
                 const bend = rom[pos++];
-                // Map 0x00-0x7F (centered at 0x40) to MIDI pitch bend (centered at 0x2000)
                 const midiVal = Math.round(((bend - 0x40) / 0x40) * 0x2000 + 0x2000);
                 const clamped = Math.max(0, Math.min(0x3FFF, midiVal));
                 events.push({ tick, bytes: [0xE0 | channel, clamped & 0x7F, (clamped >>> 7) & 0x7F] });
                 continue;
             }
 
-            case 0xC1: { // BENDR - pitch bend range
+            case 0xC1: {
                 const range = rom[pos++];
-                // RPN 0x0000 (pitch bend range)
-                events.push({ tick, bytes: [0xB0 | channel, 0x65, 0x00] }); // RPN MSB
-                events.push({ tick, bytes: [0xB0 | channel, 0x64, 0x00] }); // RPN LSB
-                events.push({ tick, bytes: [0xB0 | channel, 0x06, range & 0x7F] }); // Data Entry
-                continue;
-            }
-
-            case 0xC2: { // LFOS - LFO speed (no direct MIDI equivalent, skip)
-                pos++;
-                continue;
-            }
-
-            case 0xC3: { // LFODL - LFO delay (no direct MIDI equivalent, skip)
-                pos++;
-                continue;
-            }
-
-            case 0xC4: { // MOD - modulation depth
-                const mod = rom[pos++];
-                events.push({ tick, bytes: [0xB0 | channel, 0x01, mod & 0x7F] });
-                continue;
-            }
-
-            case 0xC5: { // MODT - LFO type (skip, no MIDI equivalent)
-                pos++;
-                continue;
-            }
-
-            case 0xC8: { // TUNE - detune
-                const tune = rom[pos++];
-                // Fine tuning as RPN
                 events.push({ tick, bytes: [0xB0 | channel, 0x65, 0x00] });
-                events.push({ tick, bytes: [0xB0 | channel, 0x64, 0x01] }); // RPN 0x0001
+                events.push({ tick, bytes: [0xB0 | channel, 0x64, 0x00] });
+                events.push({ tick, bytes: [0xB0 | channel, 0x06, range & 0x7F] });
+                continue;
+            }
+
+            case 0xC2: pos++; continue; // LFOS
+            case 0xC3: pos++; continue; // LFODL
+
+            case 0xC4:
+                events.push({ tick, bytes: [0xB0 | channel, 0x01, rom[pos++] & 0x7F] });
+                continue;
+
+            case 0xC5: pos++; continue; // MODT
+
+            case 0xC8: {
+                const tune = rom[pos++];
+                events.push({ tick, bytes: [0xB0 | channel, 0x65, 0x00] });
+                events.push({ tick, bytes: [0xB0 | channel, 0x64, 0x01] });
                 events.push({ tick, bytes: [0xB0 | channel, 0x06, tune & 0x7F] });
                 continue;
             }
 
-            case 0xCE: { // EOT - note off
-                // Optional key argument
-                let key = lastKey;
-                if (pos < rom.length && rom[pos] < 0x80) {
-                    key = rom[pos++];
-                }
-                key = (key + keyShift) & 0x7F;
-                if (activeNotes.has(key)) {
-                    events.push({ tick, bytes: [0x80 | channel, key, 0] });
-                    activeNotes.delete(key);
-                }
+            case 0xCE: lastNoteCmd = cmd; emitEot(); continue;
+            case 0xCF: lastNoteCmd = cmd; emitTie(); continue;
+
+            default:
+                // Unknown commands: 0xB5-0xBA take 0 args, 0xC6-0xC7/0xC9-0xCD take 1 arg
+                if (cmd >= 0xB5 && cmd <= 0xBA) continue;
+                if ((cmd >= 0xC6 && cmd <= 0xC7) || (cmd >= 0xC9 && cmd <= 0xCD)) { pos++; continue; }
                 continue;
-            }
-
-            case 0xCF: { // TIE - note on (indefinite, ended by EOT)
-                // Arguments: key, vel
-                let key = lastKey, vel = lastVel;
-                if (pos < rom.length && rom[pos] < 0x80) { key = rom[pos++]; lastKey = key; }
-                if (pos < rom.length && rom[pos] < 0x80) { vel = rom[pos++]; lastVel = vel; }
-                key = (key + keyShift) & 0x7F;
-                vel = vel & 0x7F;
-
-                // Turn off previous note with same key
-                if (activeNotes.has(key)) {
-                    events.push({ tick, bytes: [0x80 | channel, key, 0] });
-                }
-                events.push({ tick, bytes: [0x90 | channel, key, vel] });
-                activeNotes.set(key, { offTick: -1 }); // -1 = indefinite
-                continue;
-            }
-
-            default: {
-                if (cmd >= 0xD0 && cmd <= 0xFF) {
-                    // Nxx - note with auto-duration
-                    const duration = LEN_TBL[cmd - 0xD0];
-                    let key = lastKey, vel = lastVel, gateExtra = 0;
-
-                    if (pos < rom.length && rom[pos] < 0x80) { key = rom[pos++]; lastKey = key; }
-                    if (pos < rom.length && rom[pos] < 0x80) { vel = rom[pos++]; lastVel = vel; }
-                    if (pos < rom.length && rom[pos] < 0x80) { gateExtra = rom[pos++]; }
-
-                    key = (key + keyShift) & 0x7F;
-                    vel = vel & 0x7F;
-                    const totalDur = duration + gateExtra;
-
-                    // Turn off previous note with same key
-                    if (activeNotes.has(key)) {
-                        events.push({ tick, bytes: [0x80 | channel, key, 0] });
-                        activeNotes.delete(key);
-                    }
-
-                    events.push({ tick, bytes: [0x90 | channel, key, vel] });
-
-                    // Schedule note-off
-                    const offTick = tick + totalDur;
-                    events.push({ tick: offTick, bytes: [0x80 | channel, key, 0] });
-                    // Don't add to activeNotes since we already scheduled the off
-                    continue;
-                }
-
-                // Unknown command in range 0xB5-0xBA, 0xC6-0xC7, 0xC9-0xCD
-                // Most take 0 or 1 argument. Skip 1 byte for safety.
-                if (cmd >= 0xB5 && cmd <= 0xBA) {
-                    // These don't take arguments in standard m4a
-                    continue;
-                }
-                if (cmd >= 0xC6 && cmd <= 0xCD) {
-                    pos++; // skip 1-byte argument
-                    continue;
-                }
-                continue;
-            }
         }
     }
 
-    // Safety: turn off remaining notes
-    for (const [key] of activeNotes) {
-        events.push({ tick, bytes: [0x80 | channel, key, 0] });
-    }
+    endTrack();
 }
