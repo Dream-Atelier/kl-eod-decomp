@@ -1,26 +1,26 @@
 #include "global.h"
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_08003dc0);
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_08005cf4);
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_08005fa4);
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_080070a0);
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_08009064);
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_080098c8);
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800a468);
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_08003dc0); /* DrawSpriteTiles — core sprite/tile VRAM writer */
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_08005cf4); /* RenderHUDTop */
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_08005fa4); /* RenderHUDBottom */
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_080070a0); /* RenderMenuUI */
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_08009064); /* RenderDialogBox */
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_080098c8); /* RenderDialogSprites */
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800a468); /* InitOamEntries */
 INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800a49c);
 INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800a5b8);
 INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800a71c);
 INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800a804);
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800ac34);
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800b3c0);
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800bef0);
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800ac34); /* UpdateUIState */
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800b3c0); /* RenderCharacterTiles */
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800bef0); /* UpdateTextScroll */
 INCLUDE_ASM("asm/nonmatchings/code_0", sub_0800BFF4);
 INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800c108);
 INCLUDE_ASM("asm/nonmatchings/code_0", sub_0800C45C);
 INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800c564);
 INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800c7ee);
 INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800c902);
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800ca0c);
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800ca0c); /* SetupDisplayConfig */
 INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800d0c6);
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800d188);
+INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800d188); /* TextStateMachine — master UI/text state machine */

@@ -25,10 +25,10 @@ INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08039d8c);
 INCLUDE_ASM("asm/nonmatchings/code_3", sub_0803A22C);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803a410);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803aaa0);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803ac18);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803ad94);
+INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803ac18); /* IsEntityActive */
+INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803ad94); /* UpdateEntityState */
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803ae88);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803af38);
+INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0803af38); /* UpdateEntityAnimation */
 /*
  * Iterates over entity slots 0-6 and updates active ones.
  * For each slot, checks if the entity is active via FUN_0803ac18.
@@ -72,8 +72,8 @@ INCLUDE_ASM("asm/nonmatchings/code_3", sub_08041F34);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08042024);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08042bee);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08042e66);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08043af4);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08043b34);
+INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08043af4); /* DecompressData */
+INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08043b34); /* CopyDataToVram */
 /*
  * Allocates a buffer and decompresses/copies data into it.
  * Reads the size from the first word of the source (masking off the top bit),
@@ -90,7 +90,7 @@ INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08043ba4);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080441c8);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080446fa);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08044bb8);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08044f6c);
+INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08044f6c); /* DecompressLZ77 */
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0804517c);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080452ea);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0804539a);
@@ -112,11 +112,11 @@ void GameUpdate(void) {
     FUN_08025ba4();
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_0804575c);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08045874);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08045f68);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08046288);
+INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08045874); /* UpdatePhysics */
+INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08045f68); /* UpdateCollision */
+INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08046288); /* UpdateCamera */
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080467f4);
-INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080468b0);
+INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080468b0); /* UpdateGameLogic */
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_080469fc);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08046a64);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08046b6c);
