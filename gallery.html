@@ -185,8 +185,9 @@
             These graphics assets were extracted from the ROM's data section using
             custom decompression tools that implement the game's Huffman+LZ77 pipeline
             (matching the GBA BIOS <code>HuffUnComp</code> and <code>LZ77UnCompWram</code>
-            syscalls). Assets are rendered as 4bpp tile sheets in grayscale; actual
-            in-game colors depend on palette selection at runtime.
+            syscalls). Assets are rendered as 4bpp tile sheets colorized with
+            their closest matching ROM palette. Actual in-game colors may vary
+            as palettes are selected dynamically at runtime.
         </p>
 
         <div class="stats-row">
@@ -224,7 +225,7 @@
                     <img src="gallery/backgrounds/gfx_00.png" alt="GFX Asset 0" loading="lazy">
                 </div>
                 <div class="info">
-                    <h3>gfx_00 (UI Elements)</h3>
+                    <h3>gfx_00 — Landscape / Platforms</h3>
                     <div class="meta">
                         <span>0x32DF0C</span>
                         <span>9,732 B</span>
@@ -237,7 +238,7 @@
                     <img src="gallery/backgrounds/gfx_01.png" alt="GFX Asset 1" loading="lazy">
                 </div>
                 <div class="info">
-                    <h3>gfx_01</h3>
+                    <h3>gfx_01 — Forest / Plants</h3>
                     <div class="meta">
                         <span>0x32ECF0</span>
                         <span>6,148 B</span>
@@ -250,7 +251,7 @@
                     <img src="gallery/backgrounds/gfx_02.png" alt="GFX Asset 2" loading="lazy">
                 </div>
                 <div class="info">
-                    <h3>gfx_02</h3>
+                    <h3>gfx_02 — Ice / Water</h3>
                     <div class="meta">
                         <span>0x32F6E8</span>
                         <span>6,148 B</span>
@@ -263,7 +264,7 @@
                     <img src="gallery/backgrounds/gfx_03.png" alt="GFX Asset 3" loading="lazy">
                 </div>
                 <div class="info">
-                    <h3>gfx_03</h3>
+                    <h3>gfx_03 — Buildings / Architecture</h3>
                     <div class="meta">
                         <span>0x33018C</span>
                         <span>10,244 B</span>
@@ -276,7 +277,7 @@
                     <img src="gallery/backgrounds/gfx_04.png" alt="GFX Asset 4" loading="lazy">
                 </div>
                 <div class="info">
-                    <h3>gfx_04</h3>
+                    <h3>gfx_04 — Temple / Palace</h3>
                     <div class="meta">
                         <span>0x330FC4</span>
                         <span>18,436 B</span>
@@ -289,7 +290,7 @@
                     <img src="gallery/backgrounds/gfx_06.png" alt="GFX Asset 6" loading="lazy">
                 </div>
                 <div class="info">
-                    <h3>gfx_06 (World Tiles)</h3>
+                    <h3>gfx_06 — Forest World Tiles</h3>
                     <div class="meta">
                         <span>0x331E48</span>
                         <span>114,692 B</span>
@@ -302,7 +303,7 @@
                     <img src="gallery/backgrounds/gfx_07.png" alt="GFX Asset 7" loading="lazy">
                 </div>
                 <div class="info">
-                    <h3>gfx_07 (World Tiles)</h3>
+                    <h3>gfx_07 — Cave / Ruins Tiles</h3>
                     <div class="meta">
                         <span>0x33A734</span>
                         <span>94,212 B</span>
@@ -315,7 +316,7 @@
                     <img src="gallery/backgrounds/gfx_08.png" alt="GFX Asset 8" loading="lazy">
                 </div>
                 <div class="info">
-                    <h3>gfx_08</h3>
+                    <h3>gfx_08 — Snow / Ice World</h3>
                     <div class="meta">
                         <span>0x341DF8</span>
                         <span>41,124 B</span>
@@ -328,7 +329,7 @@
                     <img src="gallery/backgrounds/gfx_09.png" alt="GFX Asset 9" loading="lazy">
                 </div>
                 <div class="info">
-                    <h3>gfx_09 (World Tiles)</h3>
+                    <h3>gfx_09 — Fire / Volcano Tiles</h3>
                     <div class="meta">
                         <span>0x3452A4</span>
                         <span>82,948 B</span>
@@ -341,7 +342,7 @@
                     <img src="gallery/backgrounds/gfx_10.png" alt="GFX Asset 10" loading="lazy">
                 </div>
                 <div class="info">
-                    <h3>gfx_10 (World Tiles)</h3>
+                    <h3>gfx_10 — Sky / Cloud Tiles</h3>
                     <div class="meta">
                         <span>0x34D190</span>
                         <span>73,732 B</span>
@@ -354,7 +355,7 @@
                     <img src="gallery/backgrounds/gfx_11.png" alt="GFX Asset 11" loading="lazy">
                 </div>
                 <div class="info">
-                    <h3>gfx_11 (World Tiles)</h3>
+                    <h3>gfx_11 — Final World Tiles</h3>
                     <div class="meta">
                         <span>0x354B2C</span>
                         <span>149,508 B</span>
