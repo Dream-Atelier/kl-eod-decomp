@@ -41,6 +41,10 @@ if [ "$ACTUAL_SHA1" != "$EXPECTED_SHA1" ]; then
 fi
 echo "baserom.gba: OK"
 
+# Clean generated files
+echo "Cleaning generated files..."
+rm -rf asm/matchings asm/nonmatchings asm/libgcc.s asm/rom_header.s build
+
 # Init submodules
 echo ""
 echo "Initializing submodules..."
