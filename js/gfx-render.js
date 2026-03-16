@@ -1,6 +1,10 @@
 /**
  * GBA 4bpp tile decode, tilemap compose, palette parse, canvas output.
- * Direct port of compose_bg() and related functions from extract_gfx.py.
+ *
+ * On GBA hardware, all BG layers share a single VRAM tile space. The game
+ * loads tile data from all layers sequentially into VRAM, and each layer's
+ * tilemap references tiles by absolute position in this combined space.
+ * We replicate this by building a unified tile buffer from all 3 layers.
  */
 
 import { readU16, readU32, romPtr, BG_TILE_TABLE, BG_TILEMAP_TABLE, BG_PALETTE_TABLE,
@@ -17,9 +21,8 @@ function rgb555to888(c16) {
 }
 
 /**
- * Parse GBA RGB555 palette into flat RGBA array.
- * Color index 0 is transparent (alpha=0), rest alpha=255.
- * @param {Uint8Array} data  raw palette bytes
+ * Parse GBA RGB555 palette bank into flat RGBA array.
+ * @param {Uint8Array} data  raw palette bytes (32 bytes = 16 colors)
  * @param {number} numColors
  * @returns {Uint8Array} RGBA array (numColors * 4 bytes)
  */
@@ -36,8 +39,7 @@ function parsePaletteRGBA(data, numColors) {
         rgba[off + 2] = b;
         rgba[off + 3] = 255;
     }
-    // Color 0 transparent
-    rgba[3] = 0;
+    rgba[3] = 0; // color index 0 = transparent
     return rgba;
 }
 
@@ -68,9 +70,42 @@ export function clearCache() {
 }
 
 /**
+ * Build a combined 1024-tile VRAM buffer from 3 layers' tile data.
+ *
+ * On GBA hardware, all BG layers share a single charblock (CBB=0).
+ * The game loads each layer's tile data into VRAM at specific offsets.
+ * We approximate this layout by placing:
+ *   - L0 tiles at the start (tile 0)
+ *   - L1 tiles right after L0
+ *   - L2 tiles right-aligned at the end (tile 1024 - L2_count)
+ * This ensures all 10-bit tile IDs (0-1023) used by any layer's tilemap
+ * can resolve to valid tile data in the combined buffer.
+ *
+ * @param {Uint8Array[]} tileDatas  array of 3 tile data buffers
+ * @returns {Uint8Array}  combined 1024-tile buffer (32768 bytes)
+ */
+function buildCombinedTiles(tileDatas) {
+    const nt = tileDatas.map(d => (d.length / 32) | 0);
+    const l2Base = 1024 - nt[2];
+    const l1End = nt[0] + nt[1];
+
+    // Build 1024-tile VRAM (32KB)
+    const vram = new Uint8Array(1024 * 32);
+
+    // L0 at tile 0
+    if (nt[0] > 0) vram.set(tileDatas[0].subarray(0, nt[0] * 32), 0);
+    // L1 right after L0
+    if (nt[1] > 0) vram.set(tileDatas[1].subarray(0, nt[1] * 32), nt[0] * 32);
+    // L2 right-aligned (may overlap L1 if space is tight — L2 wins)
+    if (nt[2] > 0) vram.set(tileDatas[2].subarray(0, nt[2] * 32), l2Base * 32);
+
+    return vram;
+}
+
+/**
  * Compose a GBA background from tiles + tilemap + palette.
  * Returns an offscreen canvas, or null on failure.
- * @param {Uint8Array} tilesRaw    4bpp tile charblock data
+ * @param {Uint8Array} tilesRaw    4bpp tile charblock data (can be combined)
  * @param {Uint8Array} tilemapRaw  screenblock entries (u16 per cell)
  * @param {Uint8Array} paletteRaw  512 bytes, 16 banks x 16 colors
  * @param {number} mapW  tilemap width in tiles
@@ -80,7 +115,6 @@ export function clearCache() {
 export function composeBg(tilesRaw, tilemapRaw, paletteRaw, mapW = 32, mapH = 32) {
     if (tilesRaw.length < 32 || tilemapRaw.length < 2) return null;
 
-    // Parse all 16 palette banks (16 colors each) as flat RGBA
     const palBanks = [];
     for (let bank = 0; bank < 16; bank++) {
         const bankData = paletteRaw.subarray(bank * 32, bank * 32 + 32);
@@ -134,7 +168,6 @@ export function composeBg(tilesRaw, tilemapRaw, paletteRaw, mapW = 32, mapH = 32
                     }
                     const dy = vflip ? (7 - ty) : ty;
 
-                    // Write pixel c0 (skip color index 0 = transparent)
                     if (c0 !== 0) {
                         const x0 = pxX + dx0, y0 = pxY + dy;
                         if (x0 >= 0 && x0 < width && y0 < height) {
@@ -144,7 +177,6 @@ export function composeBg(tilesRaw, tilemapRaw, paletteRaw, mapW = 32, mapH = 32
                             pixels[p+2] = pal[s+2]; pixels[p+3] = 255;
                         }
                     }
-                    // Write pixel c1 (skip color index 0 = transparent)
                     if (c1 !== 0) {
                         const x1 = pxX + dx1, y1 = pxY + dy;
                         if (x1 >= 0 && x1 < width && y1 < height) {
@@ -170,7 +202,6 @@ export function composeBg(tilesRaw, tilemapRaw, paletteRaw, mapW = 32, mapH = 32
  * @returns {HTMLCanvasElement|null}
  */
 export function compositeLayers(layers) {
-    // Find max dimensions
     let maxW = 0, maxH = 0;
     for (const c of layers) {
         if (c) { maxW = Math.max(maxW, c.width); maxH = Math.max(maxH, c.height); }
@@ -182,14 +213,11 @@ export function compositeLayers(layers) {
     canvas.height = maxH;
     const ctx = canvas.getContext('2d');
 
-    // Start with opaque black background (matching GBA hardware)
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, maxW, maxH);
 
-    // Draw layers back to front (0 first, 2 last)
     for (const c of layers) {
         if (!c) continue;
-        // Tile to fill if smaller
         for (let x = 0; x < maxW; x += c.width) {
             for (let y = 0; y < maxH; y += c.height) {
                 ctx.drawImage(c, x, y);
@@ -200,7 +228,85 @@ export function compositeLayers(layers) {
 }
 
 /**
- * Render a single BG layer from ROM.
+ * Determine tilemap dimensions from decompressed data size.
+ * @param {Uint8Array} tilemap  decompressed tilemap data
+ * @returns {{ mapW: number, mapH: number }}
+ */
+function tilemapDims(tilemap) {
+    const mapEntries = (tilemap.length / 2) | 0;
+    if (mapEntries >= 2048) return { mapW: 64, mapH: 32 };
+    if (mapEntries >= 1024) return { mapW: 32, mapH: 32 };
+    return { mapW: 32, mapH: Math.max(1, (mapEntries / 32) | 0) };
+}
+
+/**
+ * Render a composite of all 3 layers for a given vision/world.
+ *
+ * On GBA hardware, all BG layers share VRAM. The game loads each layer's
+ * tile data into consecutive VRAM regions. We replicate this by building
+ * a combined tile buffer (L0 tiles, then L1, then L2) so that each
+ * layer's tilemap can reference tiles from any layer's data.
+ *
+ * @param {Uint8Array} rom
+ * @param {DataView} dv
+ * @param {number} vision  1-6
+ * @param {number} world   0-8
+ * @returns {{ composite: HTMLCanvasElement|null, layers: (HTMLCanvasElement|null)[] }}
+ */
+export function renderScene(rom, dv, vision, world) {
+    const palIdx = (vision - 1) * 9 + world;
+    const palOff = romPtr(dv, BG_PALETTE_TABLE + palIdx * 4);
+    if (palOff === null) return { composite: null, layers: [null, null, null] };
+
+    let palRaw;
+    try { palRaw = getCachedDecomp(rom, palOff); }
+    catch (e) { return { composite: null, layers: [null, null, null] }; }
+
+    // Decompress all 3 layers' tile and tilemap data
+    const tileDatas = [];
+    const tilemapDatas = [];
+    for (let layer = 0; layer < 3; layer++) {
+        const bgIdx = (vision - 1) * 27 + world * 3 + layer;
+        const tileOff = romPtr(dv, BG_TILE_TABLE + bgIdx * 4);
+        const tmapOff = romPtr(dv, BG_TILEMAP_TABLE + bgIdx * 4);
+
+        if (tileOff === null || tmapOff === null) {
+            tileDatas.push(new Uint8Array(0));
+            tilemapDatas.push(new Uint8Array(0));
+            continue;
+        }
+        try {
+            tileDatas.push(getCachedDecomp(rom, tileOff));
+            tilemapDatas.push(getCachedDecomp(rom, tmapOff));
+        } catch (e) {
+            tileDatas.push(new Uint8Array(0));
+            tilemapDatas.push(new Uint8Array(0));
+        }
+    }
+
+    // Build combined 1024-tile VRAM buffer
+    const combined = buildCombinedTiles(tileDatas);
+
+    // Render each layer using the combined tile buffer
+    const layerCanvases = [];
+    for (let layer = 0; layer < 3; layer++) {
+        if (tilemapDatas[layer].length < 2) {
+            layerCanvases.push(null);
+            continue;
+        }
+        const { mapW, mapH } = tilemapDims(tilemapDatas[layer]);
+        layerCanvases.push(composeBg(combined, tilemapDatas[layer], palRaw, mapW, mapH));
+    }
+
+    return {
+        composite: compositeLayers(layerCanvases),
+        layers: layerCanvases,
+    };
+}
+
+/**
+ * Render a single BG layer from ROM (standalone, no combined tiles).
+ * Used for individual layer display.
  * @param {Uint8Array} rom
  * @param {DataView} dv
  * @param {number} bgIdx   index into tile/tilemap tables (0-161)
@@ -218,38 +324,10 @@ export function renderBgLayer(rom, dv, bgIdx, palIdx) {
         const tiles   = getCachedDecomp(rom, tileOff);
         const tilemap = getCachedDecomp(rom, tmapOff);
         const palRaw  = getCachedDecomp(rom, palOff);
-
-        // Determine tilemap dimensions from size
-        const mapEntries = (tilemap.length / 2) | 0;
-        let mapW, mapH;
-        if (mapEntries >= 2048) { mapW = 64; mapH = 32; }
-        else if (mapEntries >= 1024) { mapW = 32; mapH = 32; }
-        else { mapW = 32; mapH = Math.max(1, (mapEntries / 32) | 0); }
-
+        const { mapW, mapH } = tilemapDims(tilemap);
         return composeBg(tiles, tilemap, palRaw, mapW, mapH);
     } catch (e) {
         console.warn(`Failed to render BG layer ${bgIdx}:`, e);
         return null;
     }
-}
-
-/**
- * Render a composite of all 3 layers for a given vision/world.
- * @param {Uint8Array} rom
- * @param {DataView} dv
- * @param {number} vision  1-6
- * @param {number} world   0-8
- * @returns {{ composite: HTMLCanvasElement|null, layers: (HTMLCanvasElement|null)[] }}
- */
-export function renderScene(rom, dv, vision, world) {
-    const palIdx = (vision - 1) * 9 + world;
-    const layerCanvases = [];
-    for (let layer = 0; layer < 3; layer++) {
-        const bgIdx = (vision - 1) * 27 + world * 3 + layer;
-        layerCanvases.push(renderBgLayer(rom, dv, bgIdx, palIdx));
-    }
-    return {
-        composite: compositeLayers(layerCanvases),
-        layers: layerCanvases,
-    };
 }
