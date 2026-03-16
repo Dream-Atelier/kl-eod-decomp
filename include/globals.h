@@ -122,6 +122,33 @@
  * sequential tile/palette DMA transfers in scene setup. */
 #define gPaletteVramCursor       (*(u32 *)0x03005490)
 
+/* Pointer to decompressed collision/layout map data for current level. */
+#define gCollisionMapPtr         (*(u32 *)0x03005290)
+
+/* Level dimension bounds: +0x00=scrollX max, +0x02=scrollY max,
+ * +0x04=width, +0x06=height. Set by InitLevelBG. */
+#define gLevelBounds             ((u16 *)0x03005468)
+
+/* Pointer to per-level runtime state. Used by tilemap streaming. */
+#define gLevelStatePtr           (*(u32 *)0x030034A0)
+
+/* Tilemap work buffer (0x400 bytes): temporary staging for tilemap
+ * row/column streaming during BG scrolling. */
+#define gTilemapWorkBuffer       ((u8 *)0x03004DB0)
+
+/* Screenblock staging buffers in IWRAM: DMA'd to VRAM during VBlank.
+ * Each is 0x800 bytes (1024 halfwords = one 32x32 screenblock). */
+#define gScreenBufferA           ((u8 *)0x03000900)
+#define gScreenBufferB           ((u8 *)0x03001100)
+#define gScreenBufferC           ((u8 *)0x03001900)
+
+/* VBlank interrupt callback function pointer.
+ * Set to different handlers depending on scene:
+ *   FUN_080009D9 for normal levels
+ *   FUN_08000CE1 for mode-7
+ *   FUN_08000BD5 for title screen */
+#define gVBlankCallback          (*(u32 *)0x030047C0)
+
 /* ── UI / Text Rendering ── */
 
 /* Sprite attribute table for HUD/dialog rendering.
@@ -209,6 +236,31 @@
 #define ROM_BG_HEIGHT_TABLE      0x08051DBA
 #define ROM_BG_TILECOUNT_TABLE   0x08051EFE
 #define ROM_BG_STRIDE_TABLE      0x08052042
+
+/* BG control register flags lookup table.
+ * Used by InitLevelBG for REG_BG0CNT/BG1CNT/BG3CNT setup. */
+#define ROM_BG_CONTROL_FLAGS     0x08051BD4
+
+/* Extra BG tables for sublevel==0 (world map / special screens). */
+#define ROM_BG_EXTRA_TILES_A     0x0818955C
+#define ROM_BG_EXTRA_TILEMAPS_A  0x08189574
+#define ROM_BG_OBJ_TILESET_TABLE 0x08189544
+
+/* Per-level collision/layout map table. Decompressed into gCollisionMapPtr. */
+#define ROM_COLLISION_MAP_TABLE  0x0818B7AC
+
+/* Per-level parameter table, stored at 0x03005294. */
+#define ROM_LEVEL_PARAM_TABLE    0x08189A24
+
+/* Layer configuration sub-tables used by SetupLevelLayerConfig.
+ * Define per-layer charblock/screenblock/scroll/dimension properties. */
+#define ROM_LAYER_SCROLL_FLAGS   0x080576D4
+#define ROM_LAYER_WIDTH_TABLE    0x08057714
+#define ROM_LAYER_HEIGHT_TABLE   0x08057794
+#define ROM_LAYER_VSCROLL_TABLE  0x08057814
+#define ROM_LAYER_TILE_BPP       0x08057894
+#define ROM_LAYER_CHARBLOCK_IDX  0x080578D4
+#define ROM_LAYER_SCREENBLOCK    0x08057914
 
 /* ── Scene-Specific Shared Tilesets ── */
 

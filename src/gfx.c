@@ -80,8 +80,8 @@ void DecompressAndDmaCopy(u32 src, u32 dest, u32 size)
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", LoadBGTileData);
 INCLUDE_ASM("asm/nonmatchings/gfx", LoadBGTilemapData);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804b920);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bab4);
+INCLUDE_ASM("asm/nonmatchings/gfx", SetupLevelLayerConfig);
+INCLUDE_ASM("asm/nonmatchings/gfx", FinalizeLevelLayerSetup);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bad4);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bafc);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804bb12);
@@ -154,7 +154,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c60c);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c6a8);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c6e0);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c776);
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c798);
+INCLUDE_ASM("asm/nonmatchings/gfx", DispatchLevelLayerSetup);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804c7fc);
 /*
  * Reads a palette color entry from a data stream and writes it to BG palette RAM.
