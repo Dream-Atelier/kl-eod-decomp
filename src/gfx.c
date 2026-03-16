@@ -37,7 +37,15 @@ s16 ReadUnalignedS16(u8 *ptr) {
     return (s16)(ptr[0] + (ptr[1] << 8));
 }
 
-INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804b270);
+/*
+ * Reads an unsigned 32-bit value from a potentially unaligned address.
+ * Assembles four bytes in little-endian order.
+ *   ptr: pointer to the first of four consecutive bytes
+ *   returns: the reconstructed u32 value
+ */
+u32 ReadUnalignedU32(u8 *ptr) {
+    return ptr[0] + (ptr[1] << 8) + (ptr[2] << 16) + (ptr[3] << 24);
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804b28a);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804b2a0);
 INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804b2ec);

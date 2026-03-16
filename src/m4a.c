@@ -110,14 +110,18 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f1b6);
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f1c4);
 /*
- * MPlayMain: CORE music player tick — largest function in m4a (587 lines).
- * Called each frame to advance all active music tracks. Reads track bytecode,
- * processes MIDI commands, manages DMA transfers for PCM playback, and
- * updates channel state. Uses DMA for sample data streaming.
- *   587 lines, has DMA register writes
- *   calls: MidiProcessEvent, FUN_0804f6b6
+ * MPlayMain_SetAndProcess: stores a value into gSoundInfo[0xD]
+ * then calls MidiProcessEvent (FUN_0804f1c4).
+ *   r0: value to store
+ *   10 lines (split from former 587-line MPlayMain)
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f248);
+/*
+ * MPlayMain: CORE music player tick — largest function in m4a.
+ * Called each frame to advance all active music tracks. Reads track bytecode,
+ * processes MIDI commands, manages DMA transfers for PCM playback, and
+ * updates channel state.
+ */
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f25e);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f6ba);
 
