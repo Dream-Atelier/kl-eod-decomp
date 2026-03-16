@@ -72,7 +72,31 @@ INCLUDE_ASM("asm/nonmatchings/code_3", sub_08041F34);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08042024);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08042bee);
 INCLUDE_ASM("asm/nonmatchings/code_3", FUN_08042e66);
-INCLUDE_ASM("asm/nonmatchings/code_3", DecompressData); /* DecompressData */
+/**
+ * DecompressData: process a compressed asset's sub-header and decompress.
+ *
+ * If the first word of src is negative (bit 31 set), the data uses two-stage
+ * compression: first UnpackTilemap, then LZ77. Otherwise, it's LZ77 only.
+ * In both cases, data starts at src+4 (after the sub-header).
+ *
+ *   dest: destination buffer (pre-allocated)
+ *   src:  ROM pointer to compressed data with sub-header
+ */
+void DecompressData(u32 dest, u32 src)
+{
+    u32 *srcPtr = (u32 *)src;
+
+    if ((s32)srcPtr[0] < 0) {
+        /* Two-stage: Huffman/UnpackTilemap, then LZ77 */
+        u32 tmpBuf = thunk_FUN_080001e0(srcPtr[1] >> 8, 0);
+        UnpackTilemap((u8 *)src + 4, (u8 *)tmpBuf);
+        LZ77UnCompWram((u8 *)tmpBuf, (u8 *)dest);
+        thunk_FUN_0800020c(tmpBuf);
+    } else {
+        /* Single-stage: LZ77 only */
+        LZ77UnCompWram((u8 *)src + 4, (u8 *)dest);
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", DecompressAndCopyToPalette); /* CopyDataToVram */
 /*
  * Allocates a buffer and decompresses/copies data into it.
