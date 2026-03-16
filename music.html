@@ -160,13 +160,7 @@
                 loadBar.style.width = '50%';
 
                 statusEl.textContent = 'Loading audio worklet...';
-                // Fetch processor and load via Blob URL to avoid scope issues
-                const procResp = await fetch(PROCESSOR_URL);
-                const procText = await procResp.text();
-                const procBlob = new Blob([procText], { type: 'application/javascript' });
-                const procURL = URL.createObjectURL(procBlob);
-                await ctx.audioWorklet.addModule(procURL);
-                URL.revokeObjectURL(procURL);
+                await ctx.audioWorklet.addModule(PROCESSOR_URL);
                 loadBar.style.width = '70%';
 
                 statusEl.textContent = 'Initializing synthesizer...';
