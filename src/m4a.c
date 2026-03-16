@@ -230,6 +230,10 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MPlayChannelRelease);
  * SoundEffectUtil: sound effect utility / parameter setup.
  *   18 lines, leaf function
  */
+/**
+ * SoundEffectParamInit: initializes sound effect channel parameters.
+ * Clears volume and pan bytes, sets channel flags based on existing state.
+ */
 INCLUDE_ASM("asm/nonmatchings/m4a", SoundEffectParamInit);
 /*
  * SoundEffectProcess: process a sound effect playback chain.
@@ -436,7 +440,45 @@ INCLUDE_ASM("asm/nonmatchings/m4a", SoundChannelResetAll);
  * Called during fatal errors or system shutdown.
  *   59 lines, calls BitUnPack
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", DisableInterruptsForGfxSetup);
+/**
+ * m4aSoundShutdown: emergency shutdown of the sound system.
+ *
+ * Checks magic offset (0x978C92AD + magic <= 1 means active).
+ * Increments magic by 10 to lock, stops DMA1/DMA2 if active,
+ * sets DMA control to 0x0400 mode, then calls BitUnPack to
+ * clear the channel state array.
+ */
+void DisableInterruptsForGfxSetup(void)
+{
+    u32 scratch;
+    u32 *info = *(u32 **)0x03007FF0;
+    u32 magic = info[0];
+
+    if (magic + 0x978C92AD > 1)
+        return;
+
+    info[0] = magic + 10;
+
+    {
+        vu32 *dma1 = (vu32 *)0x040000C4;
+        if (*dma1 & 0x02000000) {
+            *dma1 = 0x84400004;
+        }
+    }
+
+    {
+        vu32 *dma2 = (vu32 *)0x040000D0;
+        if (*dma2 & 0x02000000) {
+            *dma2 = 0x84400004;
+        }
+    }
+
+    *(vu16 *)0x040000C6 = 0x0400;
+    *(vu16 *)0x040000D2 = 0x0400;
+
+    scratch = 0;
+    BitUnPack(&scratch, (u8 *)info + 0x350, (u32 *)0x05000318);
+}
 
 /* ── VBlank Sound Update Pipeline ── */
 
@@ -469,7 +511,34 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MPlayLoadSongData);
  * channel's hardware registers for the current frame.
  *   35 lines, calls SoundContextRef (SoundContextRef)
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayStop);
+/**
+ * MPlayStop: stops all tracks in a music player.
+ * Checks Sappy magic, locks engine, sets stop flag, iterates
+ * all tracks calling SoundContextRef, then restores magic.
+ */
+void MPlayStop(u32 *player)
+{
+    u32 magic = player[0x34 / 4];
+
+    if (magic != 0x68736D53)
+        return;
+
+    player[0x34 / 4] = magic + 1;
+    player[0x04 / 4] |= 0x80000000;
+
+    {
+        s32 numTracks = (s32)(u8)((u8 *)player)[0x08];
+        u8 *track = (u8 *)player[0x2C / 4];
+
+        while (numTracks > 0) {
+            SoundContextRef((u32)player, (u32)track);
+            numTracks--;
+            track += 0x50;
+        }
+    }
+
+    player[0x34 / 4] = 0x68736D53;
+}
 
 /* ── Volume, Pitch & CGB Sound Control ── */
 
