@@ -40,6 +40,9 @@ INCLUDE_ASM("asm/nonmatchings/engine", ScrollBGColumnLoad);
 INCLUDE_ASM("asm/nonmatchings/engine", InitVideoAndBG);
 INCLUDE_ASM("asm/nonmatchings/engine", ComputeRotationMatrix);
 INCLUDE_ASM("asm/nonmatchings/engine", ResetVideoRegisters); /* RenderFrame — per-frame rendering dispatch */
+/**
+ * ClearVideoState: zeroes all 99 OAM shadow entries then calls InitOamEntries.
+ */
 INCLUDE_ASM("asm/nonmatchings/engine", ClearVideoState);
 INCLUDE_ASM("asm/nonmatchings/engine", ClearOamBufferExtended);
 INCLUDE_ASM("asm/nonmatchings/engine", ClearOamEntries6Plus); /* DrawSpriteTilesFlipped */
