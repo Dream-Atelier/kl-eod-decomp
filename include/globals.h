@@ -286,6 +286,16 @@
  * 12-byte entries terminated by 0xFFFF. */
 #define ROM_SCENE_SPRITE_TABLE   0x08116590
 
+/* Per-level BG palette table.
+ * Indexed by level index; each entry is a ROM pointer to compressed
+ * 0x1C0-byte palette data for BG layers. Used by FinalizeLevelLayerSetup. */
+#define ROM_LEVEL_PALETTE_TABLE  0x08189B4C
+
+/* GFX data stream pointer table.
+ * Indexed by stream ID; each entry is a ROM pointer to compressed
+ * stream data. Used by LoadAndDecompressStream. */
+#define ROM_STREAM_TABLE         0x08189AFC
+
 /* World map BG tile data. */
 #define ROM_WORLDMAP_TILES       0x082EA584
 #define ROM_WORLDMAP_TILEMAP     0x082EA730

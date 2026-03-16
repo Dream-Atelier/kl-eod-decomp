@@ -91,6 +91,14 @@ void DecompressAndDmaCopy(u32 src, u32 dest, u32 size)
 INCLUDE_ASM("asm/nonmatchings/gfx", LoadBGTileData);
 INCLUDE_ASM("asm/nonmatchings/gfx", LoadBGTilemapData);
 INCLUDE_ASM("asm/nonmatchings/gfx", SetupLevelLayerConfig);
+/**
+ * FinalizeLevelLayerSetup: loads the level's BG palette into palette RAM.
+ *
+ * Looks up a compressed palette from ROM_LEVEL_PALETTE_TABLE (0x08189B4C)
+ * by index, decompresses and DMAs 0x1C0 bytes to palette RAM (0x05000000).
+ *
+ *   idx: level palette index (u8, shifted to u32 table offset)
+ */
 INCLUDE_ASM("asm/nonmatchings/gfx", FinalizeLevelLayerSetup);
 /**
  * LoadAndDecompressStream: decompress a data stream from a ROM table entry.
