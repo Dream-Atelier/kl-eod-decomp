@@ -367,6 +367,99 @@
                 <tr><td class="mono">0x0804B920</td><td>SetupLevelLayerConfig</td><td>gfx</td><td>Configures BG layer struct from lookup tables</td></tr>
                 <tr><td class="mono">0x0804BBD4</td><td>SetupWorldMapBG</td><td>gfx</td><td>World map / dialog background init</td></tr>
                 <tr><td class="mono">0x0804C798</td><td>DispatchLevelLayerSetup</td><td>gfx</td><td>Scripted dispatch calling all per-level BG setup functions</td></tr>
+                <tr><td class="mono">0x0804BAB4</td><td>FinalizeLevelLayerSetup</td><td>gfx</td><td>Loads level BG palette from ROM table to palette RAM</td></tr>
+                <tr><td class="mono">0x0804BAD4</td><td>LoadAndDecompressStream</td><td>gfx</td><td>Decompresses ROM stream data, sets global stream pointer</td></tr>
+                <tr><td class="mono">0x0804BAFC</td><td>FreeDecompStreamBuffer</td><td>gfx</td><td>Frees the decompressed stream buffer</td></tr>
+                <tr><td class="mono">0x0804BB12</td><td>ClearScreenBufferB</td><td>gfx</td><td>DMA-fills screenblock buffer B with 0xF000 (blank tilemap)</td></tr>
+                <tr><td class="mono">0x0804BB3C</td><td>AllocAndClearGfxBuffer</td><td>gfx</td><td>Allocates and zero-fills the 32-byte GFX state buffer</td></tr>
+                <tr><td class="mono">0x0804BB74</td><td>FreeGfxBuffer</td><td>gfx</td><td>Frees the GFX state buffer</td></tr>
+                <tr><td class="mono">0x0804BB88</td><td>AllocAndClearBuffer_52A4</td><td>gfx</td><td>Allocates and zero-fills the 0x480-byte scratch buffer</td></tr>
+            </tbody>
+        </table>
+
+        <!-- ===== Memory Management ===== -->
+        <h2>Memory Management</h2>
+
+        <p>
+            The graphics subsystem uses three dynamically allocated buffers,
+            each with a matching alloc/free pair:
+        </p>
+
+        <table>
+            <thead>
+                <tr><th>Buffer</th><th>Global</th><th>Size</th><th>Alloc Function</th><th>Free Function</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Decomp Stream</td>
+                    <td class="mono">gDecompBuffer</td>
+                    <td>Variable</td>
+                    <td class="mono">LoadAndDecompressStream</td>
+                    <td class="mono">FreeDecompStreamBuffer</td>
+                    <td>Holds decompressed graphics command stream data</td>
+                </tr>
+                <tr>
+                    <td>GFX State</td>
+                    <td class="mono">gGfxBufferPtr</td>
+                    <td>32 bytes</td>
+                    <td class="mono">AllocAndClearGfxBuffer</td>
+                    <td class="mono">FreeGfxBuffer</td>
+                    <td>Per-scene graphics state (palette indices, flags)</td>
+                </tr>
+                <tr>
+                    <td>Scratch Buffer</td>
+                    <td class="mono">gBuffer_52A4</td>
+                    <td>0x480 bytes</td>
+                    <td class="mono">AllocAndClearBuffer_52A4</td>
+                    <td class="mono">FreeBuffer_52A4</td>
+                    <td>Temporary workspace for graphics stream processing</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>
+            All three use the same pattern: allocate via <code>thunk_FUN_080001e0</code>,
+            DMA3-fill with zeros using fixed-source mode, then store the pointer in an
+            IWRAM global. The free functions simply call <code>thunk_FUN_0800020c</code>
+            on the stored pointer.
+        </p>
+
+        <!-- ===== Decompilation Status ===== -->
+        <h2>Decompilation Status</h2>
+
+        <p>
+            Functions in this subsystem that have been fully decompiled to matching C:
+        </p>
+
+        <table>
+            <thead>
+                <tr><th>Function</th><th>Status</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="mono">DecompressData</td><td>Matched</td><td>Two-stage (Huffman+LZ77) or single-stage decompression</td></tr>
+                <tr><td class="mono">DecompressAndDmaCopy</td><td>Matched</td><td>Decompress + DMA to VRAM + free</td></tr>
+                <tr><td class="mono">DecompressAndCopyToPalette</td><td>Matched</td><td>Decompress + 16-bit DMA to palette</td></tr>
+                <tr><td class="mono">AllocAndDecompress</td><td>Matched</td><td>Alloc buffer + decompress into it</td></tr>
+                <tr><td class="mono">FreeDecompStreamBuffer</td><td>Matched</td><td>Simple free wrapper</td></tr>
+                <tr><td class="mono">FreeBuffer_52A4</td><td>Matched</td><td>Simple free wrapper</td></tr>
+            </tbody>
+        </table>
+
+        <p>Functions that are understood but blocked by agbcc code generation differences:</p>
+
+        <table>
+            <thead>
+                <tr><th>Function</th><th>Blocker</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="mono">LoadBGTileData</td><td>Register allocation: compiler uses <code>push {lr}</code> instead of <code>push {r4,r5,lr}</code></td></tr>
+                <tr><td class="mono">LoadAndDecompressStream</td><td>Instruction reorder: <code>ldr</code> before ALU vs after</td></tr>
+                <tr><td class="mono">FinalizeLevelLayerSetup</td><td>Same <code>ldr</code>-before-ALU instruction swap</td></tr>
+                <tr><td class="mono">ClearOamBufferExtended</td><td>Hand-written <code>bx lr</code> leaf (no stack frame)</td></tr>
+                <tr><td class="mono">FreeGfxBuffer</td><td>Hand-written <code>bx lr</code> leaf</td></tr>
+                <tr><td class="mono">AllocAndClearGfxBuffer</td><td>DMA3 with stack-allocated source: register allocation around <code>sp</code></td></tr>
+                <tr><td class="mono">AllocAndClearBuffer_52A4</td><td>Same DMA3 stack-source pattern</td></tr>
+                <tr><td class="mono">ClearScreenBufferB</td><td>Non-word-aligned + <code>bx lr</code> leaf</td></tr>
             </tbody>
         </table>
 
