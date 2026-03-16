@@ -230,6 +230,10 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MPlayChannelRelease);
  * SoundEffectUtil: sound effect utility / parameter setup.
  *   18 lines, leaf function
  */
+/**
+ * SoundEffectParamInit: initializes sound effect channel parameters.
+ * Clears volume and pan bytes, sets channel flags based on existing state.
+ */
 INCLUDE_ASM("asm/nonmatchings/m4a", SoundEffectParamInit);
 /*
  * SoundEffectProcess: process a sound effect playback chain.
