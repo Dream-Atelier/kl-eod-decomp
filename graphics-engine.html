@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graphics Engine — Klonoa: EoD Decomp</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <a href="index.html" class="site-title">Klonoa: EoD Decomp</a>
+        <ul class="nav-links">
+            <li><a href="index.html">Overview</a></li>
+            <li><a href="sound.html">Sound Engine</a></li>
+            <li><a href="music.html">Music Player</a></li>
+            <li><a href="gallery.html">Graphics</a></li>
+            <li><a href="graphics-engine.html" class="active">Graphics Engine</a></li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <h1>Graphics Engine Documentation</h1>
+        <p class="subtitle">Background Layer System &amp; VRAM Management</p>
+
+        <p>
+            Klonoa: Empire of Dreams uses the GBA's four hardware background layers
+            in Mode 0. The graphics engine manages a pipeline of compressed ROM data
+            &rarr; decompression &rarr; DMA to VRAM, with runtime tilemap streaming
+            for smooth scrolling. This page documents the subsystem as understood from
+            decompilation so far.
+        </p>
+
+        <!-- ===== VRAM Layout ===== -->
+        <h2>VRAM Layout</h2>
+
+        <p>
+            Each of the three gameplay BG layers is assigned its own 16&thinsp;KB
+            <em>character base block</em> (charblock) in VRAM. This prevents tile
+            data from different layers from conflicting.
+        </p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Layer</th>
+                    <th>Charblock</th>
+                    <th>VRAM Address</th>
+                    <th>Screenblock</th>
+                    <th>Tilemap VRAM</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>BG0 (far)</td><td>0</td><td class="mono">0x06000000</td><td>28</td><td class="mono">0x0600E000</td></tr>
+                <tr><td>BG1 (mid)</td><td>1</td><td class="mono">0x06004000</td><td>29</td><td class="mono">0x0600E800</td></tr>
+                <tr><td>BG2 (near)</td><td>2</td><td class="mono">0x06008000</td><td>30</td><td class="mono">0x0600F000</td></tr>
+            </tbody>
+        </table>
+
+        <p>
+            The title screen uses all four charblocks (0&ndash;3), loading shared
+            tilesets for the HUD, item icons, and UI elements. During gameplay, charblock 3
+            (<code>0x0600C000</code>) holds additional shared graphics loaded by
+            <code>SetupSceneGfx</code>.
+        </p>
+
+        <!-- ===== ROM Data Tables ===== -->
+        <h2>ROM Data Tables</h2>
+
+        <h3>Level Background Tables</h3>
+        <p>
+            Three parallel pointer tables store compressed background data for every
+            level in the game. Each table is indexed by a combined
+            <em>vision/world/layer</em> formula.
+        </p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Table</th>
+                    <th>Address</th>
+                    <th>Entries</th>
+                    <th>Indexing</th>
+                    <th>Content</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>BG Tile Table</td>
+                    <td class="mono">0x08189034</td>
+                    <td>162</td>
+                    <td class="mono">(vision&minus;1)&times;27 + world&times;3 + layer</td>
+                    <td>Compressed 4bpp tile charblock data</td>
+                </tr>
+                <tr>
+                    <td>BG Tilemap Table</td>
+                    <td class="mono">0x081892BC</td>
+                    <td>162</td>
+                    <td class="mono">(vision&minus;1)&times;27 + world&times;3 + layer</td>
+                    <td>Compressed screenblock tilemap data</td>
+                </tr>
+                <tr>
+                    <td>BG Palette Table</td>
+                    <td class="mono">0x08188F5C</td>
+                    <td>54</td>
+                    <td class="mono">(vision&minus;1)&times;9 + world</td>
+                    <td>Compressed 512-byte RGB555 palette (shared by all 3 layers)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p>
+            There are <strong>6 visions &times; 9 worlds &times; 3 layers = 162</strong>
+            tile/tilemap entries and <strong>6 &times; 9 = 54</strong> palette entries
+            (one palette is shared across all three layers of each scene).
+        </p>
+
+        <h3>Layer Configuration Tables</h3>
+        <p>
+            A lookup table at <code>0x08057ACC</code> maps <code>(levelIdx, sublevel)</code>
+            to an entry index used by the tile/tilemap loaders. Seven additional sub-tables
+            define per-layer properties:
+        </p>
+
+        <table>
+            <thead>
+                <tr><th>Address</th><th>Name</th><th>Content</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="mono">0x08057ACC</td><td>Layer Config Lookup</td><td>Entry index + charblock config per level</td></tr>
+                <tr><td class="mono">0x080576D4</td><td>Scroll Flags</td><td>Scroll mode flags per layer</td></tr>
+                <tr><td class="mono">0x08057714</td><td>Layer Width</td><td>Tilemap width per layer config</td></tr>
+                <tr><td class="mono">0x08057794</td><td>Layer Height</td><td>Tilemap height per layer config</td></tr>
+                <tr><td class="mono">0x080578D4</td><td>Charblock Index</td><td>Which charblock base to use</td></tr>
+                <tr><td class="mono">0x08057914</td><td>Screenblock Index</td><td>Which screenblock base to use</td></tr>
+                <tr><td class="mono">0x08057894</td><td>Tile BPP</td><td>Tile color depth (4bpp/8bpp)</td></tr>
+            </tbody>
+        </table>
+
+        <!-- ===== Compression Format ===== -->
+        <h2>Compression Format</h2>
+
+        <p>
+            All background assets use the game's <code>DecompressData</code> pipeline
+            (at <code>0x08043AF4</code>). Each compressed blob has a 4-byte header
+            followed by the compressed payload:
+        </p>
+
+        <pre><code><span class="kw">struct</span> <span class="ty">CompressedAsset</span> {
+    <span class="ty">u32</span> header;      <span class="cm">// bit 31: Huffman flag, bits 0-30: decompressed size</span>
+    <span class="ty">u8</span>  payload[];   <span class="cm">// compressed data</span>
+};</code></pre>
+
+        <p>Two compression paths:</p>
+        <ul>
+            <li><strong>Bit 31 clear</strong> &mdash; LZ77 only (GBA BIOS SWI 0x11)</li>
+            <li><strong>Bit 31 set</strong> &mdash; Huffman (SWI 0x13) then LZ77</li>
+        </ul>
+
+        <p>
+            After decompression, the first 4 bytes of the result are a
+            <strong>sub-header</strong> that encodes the <code>BGCNT</code> register
+            template (screen size, screenblock base) and a DMA size hint. The
+            remaining bytes are the actual tile/tilemap data.
+        </p>
+
+        <pre><code><span class="kw">struct</span> <span class="ty">DecompressedBGAsset</span> {
+    <span class="ty">u16</span> bgcnt;       <span class="cm">// BGCNT register template (CBB always 0, filled at runtime)</span>
+    <span class="ty">u16</span> dmaHint;     <span class="cm">// approximate DMA size / 256</span>
+    <span class="ty">u8</span>  data[];      <span class="cm">// tile charblock or screenblock tilemap data</span>
+};</code></pre>
+
+        <h3>BGCNT Template Encoding</h3>
+        <p>
+            The <code>bgcnt</code> field follows the GBA hardware register format
+            but with <code>CBB = 0</code> always. The game's <code>InitLevelBG</code>
+            overrides the CBB field at runtime based on which charblock is assigned
+            to each layer.
+        </p>
+
+        <table>
+            <thead>
+                <tr><th>Bits</th><th>Field</th><th>Values Seen</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="mono">1&ndash;0</td><td>Priority</td><td>0&ndash;3</td></tr>
+                <tr><td class="mono">3&ndash;2</td><td>Char Base Block</td><td>Always 0 (overridden at runtime)</td></tr>
+                <tr><td class="mono">7</td><td>Color Mode</td><td>0 = 4bpp (16 colors), 1 = 8bpp (256 colors)</td></tr>
+                <tr><td class="mono">12&ndash;8</td><td>Screen Base Block</td><td>Typically 4</td></tr>
+                <tr><td class="mono">15&ndash;14</td><td>Screen Size</td><td>0 = 256&times;256, 1 = 512&times;256, 2 = 256&times;512, 3 = 512&times;512</td></tr>
+            </tbody>
+        </table>
+
+        <!-- ===== Function Pipeline ===== -->
+        <h2>Function Pipeline</h2>
+
+        <p>
+            Level background setup flows through a clear pipeline of functions.
+            Here is the call sequence from level entry to first frame:
+        </p>
+
+        <h3>1. Level Initialization</h3>
+        <pre><code><span class="fn">InitLevelBG</span>()                    <span class="cm">@ 0x08001158 — master level BG init</span>
+  ├─ Disables VBlank interrupt
+  ├─ Reads level/world from <span class="ty">gSceneControl</span>
+  ├─ For each of 3 layers:
+  │   ├─ Reads tile pointer from <span class="ty">BG_TILE_TABLE</span>[index]
+  │   ├─ <span class="fn">AllocAndDecompress</span>(tilePtr)
+  │   ├─ DMA tiles → VRAM charblock (CB0/CB1/CB2)
+  │   ├─ Reads tilemap pointer from <span class="ty">BG_TILEMAP_TABLE</span>[index]
+  │   ├─ <span class="fn">AllocAndDecompress</span>(tilemapPtr)
+  │   └─ DMA tilemap → IWRAM screen buffer
+  ├─ Reads palette from <span class="ty">BG_PALETTE_TABLE</span>[palIndex]
+  ├─ Sets <span class="ty">REG_BG0CNT</span>, <span class="ty">REG_BG1CNT</span>, <span class="ty">REG_BG2CNT</span>
+  ├─ DMAs screen buffers → VRAM screenbases
+  └─ Re-enables VBlank</code></pre>
+
+        <h3>2. Per-Level Tile/Tilemap Loading</h3>
+        <pre><code><span class="fn">DispatchLevelLayerSetup</span>()        <span class="cm">@ 0x0804C798 — scripted BG dispatch</span>
+  └─ For each sublevel:
+      ├─ <span class="fn">SetupLevelLayerConfig</span>(level, sub)  <span class="cm">@ 0x0804B920</span>
+      │   └─ Configures <span class="ty">gBGLayerState</span> from lookup tables
+      ├─ <span class="fn">LoadBGTileData</span>(level, sub)         <span class="cm">@ 0x0804B464</span>
+      │   └─ <span class="fn">DecompressAndDmaCopy</span>(romPtr, vramDest, size)
+      └─ <span class="fn">LoadBGTilemapData</span>(level, sub)      <span class="cm">@ 0x0804B4B0</span>
+          └─ <span class="fn">AllocAndDecompress</span> + DMA rows to screenblock</code></pre>
+
+        <h3>3. Runtime Scrolling</h3>
+        <pre><code><span class="fn">VBlankDmaTransfer</span>()              <span class="cm">@ 0x08000CE2 — called every VBlank</span>
+  ├─ DMA <span class="ty">gScreenBufferA</span> → VRAM 0x0600E000
+  ├─ DMA <span class="ty">gScreenBufferB</span> → VRAM 0x0600E800
+  ├─ DMA <span class="ty">gScreenBufferC</span> → VRAM 0x0600F000
+  └─ DMA OAM buffer → hardware OAM
+
+<span class="fn">ScrollBGLayer</span>(direction, delta)  <span class="cm">@ 0x08001CD0 — tilemap streaming</span>
+  ├─ Updates camera position in <span class="ty">gBGLayerState</span>
+  └─ Streams new tilemap rows/columns into screen buffers</code></pre>
+
+        <!-- ===== IWRAM Structures ===== -->
+        <h2>IWRAM Structures</h2>
+
+        <h3>BG Layer State (<code>0x03003430</code>)</h3>
+        <p>
+            Three 28-byte entries (one per gameplay BG layer) control VRAM destinations,
+            scroll positions, and tilemap dimensions.
+        </p>
+
+        <pre><code><span class="kw">struct</span> <span class="ty">BGLayerState</span> {           <span class="cm">// 28 (0x1C) bytes per entry</span>
+    <span class="ty">u32</span> tileVramDest;            <span class="cm">// +0x00  VRAM charblock address for tile DMA</span>
+    <span class="ty">u32</span> tmapVramDest;            <span class="cm">// +0x04  VRAM screenbase for tilemap DMA</span>
+    <span class="ty">u16</span> scrollX;                 <span class="cm">// +0x08  horizontal scroll (subpixel)</span>
+    <span class="ty">u16</span> scrollY;                 <span class="cm">// +0x0A  vertical scroll (subpixel)</span>
+    <span class="ty">u16</span> field_0C;                <span class="cm">// +0x0C</span>
+    <span class="ty">u16</span> field_0E;                <span class="cm">// +0x0E</span>
+    <span class="ty">u16</span> mapWidth;                <span class="cm">// +0x10  tilemap width in tiles</span>
+    <span class="ty">u16</span> mapHeight;               <span class="cm">// +0x12  tilemap height in tiles</span>
+    <span class="ty">u16</span> flags;                   <span class="cm">// +0x14</span>
+    <span class="ty">u16</span> dmaTileCount;            <span class="cm">// +0x16  tile rows for DMA transfer</span>
+    <span class="ty">u8</span>  dmaRowSize;              <span class="cm">// +0x18  bytes per DMA row</span>
+};
+
+<span class="cm">// gBGLayerState[0] = { .tileVramDest = 0x06000000, .tmapVramDest = 0x0600E000 }</span>
+<span class="cm">// gBGLayerState[1] = { .tileVramDest = 0x06004000, .tmapVramDest = 0x0600E800 }</span>
+<span class="cm">// gBGLayerState[2] = { .tileVramDest = 0x06008000, .tmapVramDest = 0x0600F000 }</span></code></pre>
+
+        <h3>Decompression Buffer Control (<code>0x03004790</code>)</h3>
+        <pre><code><span class="kw">struct</span> <span class="ty">DecompBufferCtrl</span> {
+    <span class="ty">u8</span> *buf0;   <span class="cm">// +0x00  tile data A / tilemap layer 0</span>
+    <span class="ty">u8</span> *buf1;   <span class="cm">// +0x04  tile data B / tilemap layer 1</span>
+    <span class="ty">u8</span> *buf2;   <span class="cm">// +0x08  tile data C</span>
+    <span class="ty">u8</span> *buf3;   <span class="cm">// +0x0C  tile data D</span>
+    <span class="ty">u8</span> *buf4;   <span class="cm">// +0x10</span>
+    <span class="ty">u8</span> *buf5;   <span class="cm">// +0x14  tilemap layer 2</span>
+};</code></pre>
+
+        <h3>Screen Staging Buffers</h3>
+        <p>
+            Three IWRAM buffers (each 2&thinsp;KB) act as staging areas for tilemap
+            data. During VBlank, <code>VBlankDmaTransfer</code> DMAs them to the
+            corresponding VRAM screenbases. This double-buffering prevents tearing.
+        </p>
+
+        <table>
+            <thead>
+                <tr><th>Buffer</th><th>IWRAM Address</th><th>VRAM Destination</th><th>Layer</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Screen Buffer A</td><td class="mono">0x03000900</td><td class="mono">0x0600E000</td><td>BG0</td></tr>
+                <tr><td>Screen Buffer B</td><td class="mono">0x03001100</td><td class="mono">0x0600E800</td><td>BG1</td></tr>
+                <tr><td>Screen Buffer C</td><td class="mono">0x03001900</td><td class="mono">0x0600F000</td><td>BG2</td></tr>
+            </tbody>
+        </table>
+
+        <!-- ===== Tilemap Format ===== -->
+        <h2>Tilemap Entry Format</h2>
+
+        <p>
+            Each tilemap cell is a standard GBA 16-bit screenblock entry:
+        </p>
+
+        <pre><code><span class="cm">// 16-bit tilemap entry (GBA BG screenblock format)</span>
+<span class="ty">u16</span> entry;
+<span class="ty">u16</span> tileId  = entry &amp; <span class="nu">0x3FF</span>;       <span class="cm">// bits 0-9:   tile index (0-1023)</span>
+<span class="ty">u16</span> hflip   = (entry >> <span class="nu">10</span>) &amp; <span class="nu">1</span>;   <span class="cm">// bit 10:     horizontal flip</span>
+<span class="ty">u16</span> vflip   = (entry >> <span class="nu">11</span>) &amp; <span class="nu">1</span>;   <span class="cm">// bit 11:     vertical flip</span>
+<span class="ty">u16</span> palBank = (entry >> <span class="nu">12</span>) &amp; <span class="nu">0xF</span>; <span class="cm">// bits 12-15: palette bank (0-15)</span></code></pre>
+
+        <p>
+            Tile IDs are relative to the layer's assigned charblock. Each 4bpp tile
+            is 32 bytes (8&times;8 pixels, 4 bits per pixel). A single charblock
+            holds up to 512 tiles.
+        </p>
+
+        <!-- ===== Scene Init ===== -->
+        <h2>Scene-Specific Shared Tilesets</h2>
+
+        <p>
+            <code>SetupSceneGfx</code> (<code>0x0804886C</code>) loads several
+            hardcoded tilesets into VRAM that are shared across all levels. These
+            provide the HUD, collectible icons, and UI elements that overlay the
+            per-level backgrounds.
+        </p>
+
+        <table>
+            <thead>
+                <tr><th>ROM Address</th><th>Description</th><th>VRAM Destination</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="mono">0x082F4D3C</td><td>Shared tiles &rarr; charblock 0</td><td class="mono">0x06000000</td></tr>
+                <tr><td class="mono">0x082F518C</td><td>Shared tiles &rarr; charblock 1</td><td class="mono">0x06004000</td></tr>
+                <tr><td class="mono">0x082F5D0C</td><td>Shared tiles &rarr; charblock 2</td><td class="mono">0x06008000</td></tr>
+                <tr><td class="mono">0x082F7D64</td><td>Shared tiles &rarr; charblock 3</td><td class="mono">0x0600C000</td></tr>
+                <tr><td class="mono">0x08366214</td><td>Large shared tileset (8 &times; 4&thinsp;KB blocks)</td><td>Via VRAM cursor</td></tr>
+                <tr><td class="mono">0x08367468</td><td>Small shared tileset (3 &times; 512-byte blocks)</td><td>Via VRAM cursor</td></tr>
+            </tbody>
+        </table>
+
+        <p>
+            When a level loads its per-layer tile data (<code>InitLevelBG</code>),
+            it overwrites the charblock regions with level-specific tiles. The
+            per-level tilemaps may reference both the level tiles (at low tile IDs)
+            and the shared tiles (at higher tile IDs that weren't overwritten).
+        </p>
+
+        <!-- ===== Named Functions ===== -->
+        <h2>Named Functions</h2>
+
+        <table>
+            <thead>
+                <tr><th>Address</th><th>Name</th><th>Module</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="mono">0x08001158</td><td>InitLevelBG</td><td>engine</td><td>Master level BG init: decompresses all tile/tilemap/palette data, DMAs to VRAM, configures BGCNT registers</td></tr>
+                <tr><td class="mono">0x08001CD0</td><td>ScrollBGLayer</td><td>engine</td><td>Runtime tilemap streaming during BG scrolling</td></tr>
+                <tr><td class="mono">0x08000CE2</td><td>VBlankDmaTransfer</td><td>engine</td><td>VBlank handler: DMAs screen buffers and OAM to VRAM</td></tr>
+                <tr><td class="mono">0x08003904</td><td>ResetVideoRegisters</td><td>engine</td><td>Full video init for level entry</td></tr>
+                <tr><td class="mono">0x08003D58</td><td>ClearVideoState</td><td>engine</td><td>Zeroes OAM shadow buffer</td></tr>
+                <tr><td class="mono">0x08003DC0</td><td>SetupOAMSprite</td><td>code_0</td><td>Configures a single OAM shadow entry</td></tr>
+                <tr><td class="mono">0x08043AF4</td><td>DecompressData</td><td>code_3</td><td>Processes sub-header, Huffman+LZ77 or LZ77-only decompression</td></tr>
+                <tr><td class="mono">0x08043B34</td><td>DecompressAndCopyToPalette</td><td>code_3</td><td>Decompress and DMA to palette/OBJ VRAM</td></tr>
+                <tr><td class="mono">0x0804886C</td><td>SetupSceneGfx</td><td>gfx</td><td>Title/intro scene setup: loads shared tilesets into all 4 charblocks</td></tr>
+                <tr><td class="mono">0x0804832C</td><td>UpdateBGScrollRegisters</td><td>gfx</td><td>Writes scroll positions to hardware registers</td></tr>
+                <tr><td class="mono">0x08048498</td><td>UpdateBGTileAnimation</td><td>gfx</td><td>Animates tile data (palette cycling, frame updates)</td></tr>
+                <tr><td class="mono">0x08049726</td><td>LoadBGPalette</td><td>gfx</td><td>Loads background palette from ROM table</td></tr>
+                <tr><td class="mono">0x0804B424</td><td>DecompressAndDmaCopy</td><td>gfx</td><td>Decompress ROM data and DMA to VRAM destination</td></tr>
+                <tr><td class="mono">0x0804B464</td><td>LoadBGTileData</td><td>gfx</td><td>Per-level tile data loader via lookup table</td></tr>
+                <tr><td class="mono">0x0804B4B0</td><td>LoadBGTilemapData</td><td>gfx</td><td>Per-level tilemap loader with multi-quadrant handling</td></tr>
+                <tr><td class="mono">0x0804B920</td><td>SetupLevelLayerConfig</td><td>gfx</td><td>Configures BG layer struct from lookup tables</td></tr>
+                <tr><td class="mono">0x0804BBD4</td><td>SetupWorldMapBG</td><td>gfx</td><td>World map / dialog background init</td></tr>
+                <tr><td class="mono">0x0804C798</td><td>DispatchLevelLayerSetup</td><td>gfx</td><td>Scripted dispatch calling all per-level BG setup functions</td></tr>
+            </tbody>
+        </table>
+
+    </div>
+
+    <footer>
+        Klonoa: Empire of Dreams Decompilation Research Project
+    </footer>
+</body>
+</html>
