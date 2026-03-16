@@ -80,7 +80,11 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804efde);
  *   102 lines, leaf function
  *   refs: gSoundInfo, gStreamPtr, gControlBlock (0x03004C20)
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f004);
+/**
+ * StreamCmd_SetSoundReverb: sets gSoundInfo reverb from stream nibble.
+ * (shares literal pool with FUN_0804f036 — can't decompile independently)
+ */
+INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_SetSoundReverb);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f036);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f04a);
 /*
@@ -88,7 +92,10 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f04a);
  * Sets up the per-channel state for all active sound channels.
  *   86 lines, calls FUN_08051868
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f0d0);
+/**
+ * StreamCmd_StopSoundAndSync: stops sound, syncs freq to BG scroll, advances by 2.
+ */
+INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_StopSoundAndSync);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f116);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f136);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f15a);
@@ -100,7 +107,14 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f15a);
  * Used to parse variable-length MIDI data from track bytecode.
  *   32 lines, calls ReadUnalignedU16
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f180);
+/**
+ * StreamCmd_SetSoundFreqs: sets two sound frequency values from stream data.
+ *
+ * Reads u16 from stream bytes[2-3] -> gSoundInfo[0x10],
+ * reads u16 from stream bytes[4-5] -> gSoundInfo[0x12].
+ * Advances stream by 6.
+ */
+INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_SetSoundFreqs);
 INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f1b6);
 /*
  * MidiProcessEvent: dispatch a MIDI note or control event.
@@ -299,11 +313,11 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080500c8);
  * Loops over 4 sound channels, calling MPlayChannelUpdate for each.
  * This is the main per-frame entry point for the sound engine.
  *   23 lines, refs: ROM_MUSIC_TABLE (0x08118AB4)
- *   calls: MPlayChannelUpdate (FUN_080507e0)
+ *   calls: MPlayChannelUpdate (MPlayStop)
  */
 /**
  * StopAllMusicPlayers: stops all 4 music player instances.
- * Iterates ROM_MUSIC_TABLE (0x08118AB4), calling FUN_080507e0 on each.
+ * Iterates ROM_MUSIC_TABLE (0x08118AB4), calling MPlayStop on each.
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", StopAllMusicPlayers);
 /*
@@ -448,7 +462,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080506fc);
  * channel's hardware registers for the current frame.
  *   35 lines, calls SoundContextRef (FUN_0804fb9c)
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080507e0);
+INCLUDE_ASM("asm/nonmatchings/m4a", MPlayStop);
 
 /* ── Volume, Pitch & CGB Sound Control ── */
 
@@ -568,7 +582,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_080511bc);
  *   r0: sound context, r1: channel struct
  *   16 lines, calls DispatchSoundCommand (FUN_08051870)
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08051314);
+INCLUDE_ASM("asm/nonmatchings/m4a", SoundCmd_Dispatch);
 /*
  * Dispatches a sound command through DispatchSoundCommand (FUN_08051870)
  * using the global sound table pointer.
