@@ -59,8 +59,7 @@ INCLUDE_ASM("asm/nonmatchings/code_1", TransitionInitLevelMusic);
 /**
  * TransitionToWorldMap: fades to black then sets up world map scene.
  */
-void TransitionToWorldMap(void)
-{
+void TransitionToWorldMap(void) {
     u32 a0 = 0x030034E4;
     u32 a1 = 0x03004C20;
     u8 *pauseFlag;
@@ -121,8 +120,7 @@ INCLUDE_ASM("asm/nonmatchings/code_1", TransitionToGameplayScreen);
 /**
  * TransitionSoftReset: fades to black then triggers soft reset after 16 frames.
  */
-void TransitionSoftReset(void)
-{
+void TransitionSoftReset(void) {
     u32 a0 = 0x030034E4;
     u32 a1 = 0x03004C20;
     u8 *pauseFlag;

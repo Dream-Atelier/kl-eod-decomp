@@ -14,8 +14,7 @@ void UpdateSceneTransition(void);
  * FadeOutController: manages screen fade-out, updating fade counter
  * and switching to scene transition when complete.
  */
-void FadeOutController(void)
-{
+void FadeOutController(void) {
     u32 a0 = 0x03004C20;
     u32 *sceneCtrl;
     asm("" : "=r"(sceneCtrl) : "0"(a0));
@@ -218,8 +217,7 @@ void VBlankCallback_MapScreen(void);
  * SetupGfxCallbacks: initializes VBlank/HBlank handlers and callback state
  * for the world map screen.
  */
-void SetupGfxCallbacks(void)
-{
+void SetupGfxCallbacks(void) {
     u32 a0 = 0x030047C0;
     u32 *vblankCbs;
     asm("" : "=r"(vblankCbs) : "0"(a0));

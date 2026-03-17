@@ -59,8 +59,7 @@ INCLUDE_ASM("asm/nonmatchings/code_3", SpawnEntitiesForVision);
  * Indexes into the entity data table at 0x081168E8 with stride 8,
  * copies bytes at offsets +5 and +6 to the entity state block.
  */
-void GetEntityLookupData(u32 idx)
-{
+void GetEntityLookupData(u32 idx) {
     u32 shifted = idx << 24;
     u32 a0 = 0x03005400;
     u32 a1 = 0x081168E8;

@@ -52,8 +52,7 @@ INCLUDE_ASM("asm/nonmatchings/system", LoadSpriteFrame);
  */
 void thunk_FUN_0800020c(u32);
 void InitSceneState(u32);
-void FreeAllDecompBuffers(void)
-{
+void FreeAllDecompBuffers(void) {
     u32 a0 = 0x03004790;
     u32 *bufs;
     asm("" : "=r"(bufs) : "0"(a0));
@@ -85,8 +84,7 @@ void FreeAllDecompBuffers(void)
  * FixedMul8: 8.8 fixed-point signed multiply (s16*s16 >> 8).
  * Rounds negative results toward zero by adding 255 before shift.
  */
-s16 FixedMul8(s16 a, s16 b)
-{
+s16 FixedMul8(s16 a, s16 b) {
     s32 result = (s32)a * (s32)b;
     register s32 shifted asm("r1");
     shifted = result;
