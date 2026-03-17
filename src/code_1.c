@@ -1,6 +1,13 @@
 #include "global.h"
 #include "include_asm.h"
 
+void ReadKeyInput(void);
+void InitOamEntries(void);
+void UpdateWorldMapScene(void);
+void TransitionWorldMapFadeOut(void);
+void VBlankCallback_Gameplay(void);
+void SoftReset(u32);
+
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityUpdateDispatch);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerMainUpdate);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerMovementPhysics);
@@ -49,7 +56,55 @@ INCLUDE_ASM("asm/nonmatchings/code_1", EntityMiniBossAlt);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutDisableIRQ);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeInBldAlpha);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionInitLevelMusic);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionToWorldMap);
+/**
+ * TransitionToWorldMap: fades to black then sets up world map scene.
+ */
+void TransitionToWorldMap(void)
+{
+    u32 a0 = 0x030034E4;
+    u32 a1 = 0x03004C20;
+    u8 *pauseFlag;
+    u32 *sceneCtrl;
+    u32 cleared;
+
+    asm("" : "=r"(pauseFlag) : "0"(a0));
+    *pauseFlag = 1;
+
+    asm("" : "=r"(sceneCtrl) : "0"(a1));
+    cleared = sceneCtrl[1] & 1;
+    if (cleared != 0)
+        return;
+
+    *(vu16 *)0x04000050 = 0xFF;
+
+    {
+        u32 a2 = 0x03005498;
+        u8 *fadeCounter;
+        asm("" : "=r"(fadeCounter) : "0"(a2));
+        *fadeCounter += 1;
+        if ((u8)*fadeCounter != 16)
+            return;
+    }
+
+    InitOamEntries();
+    sceneCtrl[0] = (u32)-1;
+
+    {
+        u32 a3 = 0x03003510;
+        u32 *callbackState;
+        asm("" : "=r"(callbackState) : "0"(a3));
+        callbackState[0x28 / 4] = (u32)ReadKeyInput;
+        callbackState[0x2C / 4] = (u32)UpdateWorldMapScene;
+        callbackState[0x30 / 4] = (u32)TransitionWorldMapFadeOut;
+        callbackState[0x34 / 4] = (u32)VBlankCallback_Gameplay;
+        callbackState[0x38 / 4] = 1;
+        {
+            u32 idx = *((u8 *)callbackState + 0x78) - 1;
+            callbackState[idx] = cleared;
+        }
+        *((u8 *)callbackState + 0x79) = 5;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionGameplayInit);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutWithMusic);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionWorldMapFadeOut);
@@ -63,7 +118,43 @@ INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutMusicAndReset);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionClearAndRestart);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeInRestoreWindows);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionToGameplayScreen);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionSoftReset);
+/**
+ * TransitionSoftReset: fades to black then triggers soft reset after 16 frames.
+ */
+void TransitionSoftReset(void)
+{
+    u32 a0 = 0x030034E4;
+    u32 a1 = 0x03004C20;
+    u8 *pauseFlag;
+    u32 *sceneCtrl;
+
+    asm("" : "=r"(pauseFlag) : "0"(a0));
+    *pauseFlag = 1;
+
+    asm("" : "=r"(sceneCtrl) : "0"(a1));
+    if (sceneCtrl[1] & 1)
+        return;
+
+    *(vu16 *)0x04000050 = 0xBF;
+
+    {
+        u32 a2 = 0x03005498;
+        u8 *fadeCounter;
+        asm("" : "=r"(fadeCounter) : "0"(a2));
+        *fadeCounter += 1;
+        if ((u8)*fadeCounter == 16) {
+            SoftReset(0xFF);
+            return;
+        }
+    }
+
+    {
+        u32 a3 = 0x030007D8;
+        u8 *bldy;
+        asm("" : "=r"(bldy) : "0"(a3));
+        *bldy += 1;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionSelfRemoveFadeIn);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionToSaveScreen);
 INCLUDE_ASM("asm/nonmatchings/code_1", SetPaletteAnimEntry);
