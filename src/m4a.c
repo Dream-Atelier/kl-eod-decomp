@@ -95,7 +95,32 @@ INCLUDE_ASM("asm/nonmatchings/m4a", SoundContextInit);
 /**
  * StreamCmd_StopSoundAndSync: stops sound, syncs freq to BG scroll, advances by 2.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_StopSoundAndSync);
+void FUN_08051868(u32);
+void StreamCmd_StopSoundAndSync(void)
+{
+    u32 a0 = 0x0300081C;
+    u32 *infoRef;
+    asm("" : "=r"(infoRef) : "0"(a0));
+
+    FUN_08051868(((u32 *)*infoRef)[0x24 / 4]);
+
+    ((u8 *)*infoRef)[0x09] = 0;
+    ((u8 *)*infoRef)[0x08] = 0;
+
+    {
+        u32 a1 = 0x03003430;
+        u16 *bgState;
+        u16 *info;
+        asm("" : "=r"(bgState) : "0"(a1));
+        info = (u16 *)*infoRef;
+        bgState[0x24 / 2] = info[0x10 / 2];
+        bgState[0x26 / 2] = info[0x12 / 2];
+        ((u32 *)info)[0x1C / 4] = ((u32 *)info)[0x20 / 4];
+        info[0x1A / 2] = info[0x18 / 2];
+    }
+
+    gStreamPtr += 2;
+}
 INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_StopAndAdvance);
 INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_ReadFreqParam);
 INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_SetChannelMode);
