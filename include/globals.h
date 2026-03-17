@@ -29,6 +29,10 @@
 /* Buffer freed by FreeBuffer_52A4. */
 #define gBuffer_52A4             (*(u32 *)0x030052A4)
 
+/* BLDY fade level counter. Incremented/decremented during transitions
+ * and written to REG_BLDY (0x04000054) by the VBlank handler. */
+#define gBldyFadeLevel           (*(u8 *)0x030007D8)
+
 /* ── Sound / Music (m4a / MusicPlayer2000 / Sappy engine) ── */
 
 /* Main sound info struct pointer. Contains channel state, mixer config,
@@ -359,5 +363,12 @@
 
 /* Sound configuration init data. */
 #define ROM_SOUND_INIT_DATA      0x081177E4
+
+/* ── Entity Data Tables ── */
+
+/* Entity data table: 8-byte entries indexed by entity type.
+ * Used by GetEntityLookupData to read behavior parameters.
+ * Offset +5: param A, offset +6: param B. */
+#define ROM_ENTITY_DATA_TABLE    0x081168E8
 
 #endif /* GUARD_GLOBALS_H */
