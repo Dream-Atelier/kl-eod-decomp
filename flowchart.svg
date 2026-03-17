@@ -213,8 +213,6 @@
   <!-- Done: transition -->
   <line x1="600" y1="1134" x2="600" y2="1160" stroke="#f59e0b" marker-end="url(#arrow)"/>
 
-  </g><!-- end main loop rect scope -->
-
   <!-- Free resources -->
   <g filter="url(#shadow)">
     <rect x="420" y="1160" width="360" height="36" rx="6" fill="#451a03" stroke="#f59e0b" stroke-width="1"/>
