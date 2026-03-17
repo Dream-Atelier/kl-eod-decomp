@@ -42,8 +42,7 @@ INCLUDE_ASM("asm/nonmatchings/engine", ResetVideoRegisters); /* RenderFrame — 
 /**
  * ClearVideoState: zeroes all 99 OAM shadow entries then calls InitOamEntries.
  */
-void ClearVideoState(void)
-{
+void ClearVideoState(void) {
     register u32 *p asm("r0");
     register s32 i asm("r1");
     register s32 zero asm("r2");
@@ -66,8 +65,7 @@ void ClearVideoState(void)
 /**
  * ClearOamBufferExtended: zero OAM shadow buffer entries 1-98.
  */
-void ClearOamBufferExtended(void)
-{
+void ClearOamBufferExtended(void) {
     register u32 *p asm("r0");
     register s32 i asm("r1");
     register s32 zero asm("r2");
@@ -89,8 +87,7 @@ void ClearOamBufferExtended(void)
 /**
  * ClearOamEntries6Plus: zero OAM shadow buffer entries 6-91.
  */
-void ClearOamEntries6Plus(void)
-{
+void ClearOamEntries6Plus(void) {
     register u32 *p asm("r0");
     register s32 i asm("r1");
     register s32 zero asm("r2");

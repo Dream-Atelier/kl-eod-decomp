@@ -96,8 +96,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", SoundContextInit);
  * StreamCmd_StopSoundAndSync: stops sound, syncs freq to BG scroll, advances by 2.
  */
 void FUN_08051868(u32);
-void StreamCmd_StopSoundAndSync(void)
-{
+void StreamCmd_StopSoundAndSync(void) {
     u32 a0 = 0x0300081C;
     u32 *infoRef;
     asm("" : "=r"(infoRef) : "0"(a0));
@@ -140,8 +139,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_SetChannelMode);
  * Advances stream by 6.
  */
 u32 ReadUnalignedU16(u8 *);
-void StreamCmd_SetSoundFreqs(void)
-{
+void StreamCmd_SetSoundFreqs(void) {
     u32 a0 = 0x03004D84;
     u8 **streamRef;
     u16 val;
@@ -176,8 +174,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MidiProcessEvent);
  *   10 lines (split from former 587-line MPlayMain)
  */
 u32 MidiProcessEvent(void);
-u32 MPlayMain_SetAndProcess(u32 val)
-{
+u32 MPlayMain_SetAndProcess(u32 val) {
     u32 a0 = 0x0300081C;
     u8 *info;
     asm("" : "=r"(info) : "0"(a0));
@@ -339,8 +336,7 @@ void SoundInit(void) {
  *   21 lines, calls MPlayLoadSongData
  */
 void MPlayLoadSongData(u32, u32);
-void InitSceneState(u32 idx)
-{
+void InitSceneState(u32 idx) {
     u32 shifted = idx << 16;
     u32 a0 = 0x08118AB4;
     u32 a1 = 0x08118AE4;
@@ -386,8 +382,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", m4aSongNumLoad);
 /**
  * m4aMPlayCommand: stops the player if it's playing the given song.
  */
-void m4aMPlayCommand(u32 idx)
-{
+void m4aMPlayCommand(u32 idx) {
     u32 shifted = idx << 16;
     u32 a0 = 0x08118AB4;
     u32 a1 = 0x08118AE4;
@@ -418,8 +413,7 @@ void m4aMPlayCommand(u32 idx)
  *   26 lines, calls MPlayChannelReset
  */
 void MPlayChannelReset(u32 *);
-void m4aSongNumStop(u32 idx)
-{
+void m4aSongNumStop(u32 idx) {
     u32 shifted = idx << 16;
     u32 a0 = 0x08118AB4;
     u32 a1 = 0x08118AE4;
@@ -789,8 +783,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MPlayCommandDispatch);
  *   16 lines, calls FUN_08051870
  */
 void FUN_08051870(u32, u32 *, u32);
-void SoundCmd_Dispatch(u32 ctx, u32 *channel)
-{
+void SoundCmd_Dispatch(u32 ctx, u32 *channel) {
     u8 *ptr = (u8 *)channel[0x40 / 4];
     u8 cmd = *ptr;
     channel[0x40 / 4] = (u32)(ptr + 1);
