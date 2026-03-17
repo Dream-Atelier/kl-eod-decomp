@@ -42,6 +42,70 @@ INCLUDE_ASM("asm/nonmatchings/engine", ResetVideoRegisters); /* RenderFrame — 
 /**
  * ClearVideoState: zeroes all 99 OAM shadow entries then calls InitOamEntries.
  */
-INCLUDE_ASM("asm/nonmatchings/engine", ClearVideoState);
-INCLUDE_ASM("asm/nonmatchings/engine", ClearOamBufferExtended);
-INCLUDE_ASM("asm/nonmatchings/engine", ClearOamEntries6Plus); /* DrawSpriteTilesFlipped */
+void ClearVideoState(void)
+{
+    register u32 *p asm("r0");
+    register s32 i asm("r1");
+    register s32 zero asm("r2");
+    u32 a = 0x03002920;
+
+    asm("" : "=r"(p) : "0"(a));
+    i = 0x63;
+    zero = 0;
+    do {
+        s32 j = 0x1C;
+        do {
+            p++;
+            j -= 4;
+            *p = zero;
+        } while (j != 0);
+        i--;
+    } while (i != 0);
+    InitOamEntries();
+}
+/**
+ * ClearOamBufferExtended: zero OAM shadow buffer entries 1-98.
+ */
+void ClearOamBufferExtended(void)
+{
+    register u32 *p asm("r0");
+    register s32 i asm("r1");
+    register s32 zero asm("r2");
+    u32 a = 0x0300293C;
+
+    asm("" : "=r"(p) : "0"(a));
+    i = 0x62;
+    zero = 0;
+    do {
+        s32 j = 0x1C;
+        do {
+            p++;
+            j -= 4;
+            *p = zero;
+        } while (j != 0);
+        i--;
+    } while (i != 0);
+}
+/**
+ * ClearOamEntries6Plus: zero OAM shadow buffer entries 6-91.
+ */
+void ClearOamEntries6Plus(void)
+{
+    register u32 *p asm("r0");
+    register s32 i asm("r1");
+    register s32 zero asm("r2");
+    u32 a = 0x03002A8C;
+
+    asm("" : "=r"(p) : "0"(a));
+    i = 0x56;
+    zero = 0;
+    do {
+        s32 j = 0x1C;
+        do {
+            p++;
+            j -= 4;
+            *p = zero;
+        } while (j != 0);
+        i--;
+    } while (i != 0);
+}
