@@ -569,6 +569,11 @@
                 <tr><td class="mono">m4aMPlayCommand</td><td>Matched</td><td>Stop player for matching song</td></tr>
                 <tr><td class="mono">SetupGfxCallbacks</td><td>Matched</td><td>World map VBlank/callback initialization</td></tr>
                 <tr><td class="mono">FadeOutController</td><td>Matched</td><td>Screen fade-out with scene transition switch</td></tr>
+                <tr><td class="mono">MPlayMain_SetAndProcess</td><td>Matched</td><td>Store to gSoundInfo + call MidiProcessEvent (<code>u32</code> return type trick)</td></tr>
+                <tr><td class="mono">FreeAllDecompBuffers</td><td>Matched</td><td>Free 6 decomp buffers + collision map, stop 4 music channels</td></tr>
+                <tr><td class="mono">SoundCmd_Dispatch</td><td>Matched</td><td>Read command byte, dispatch via ROM_SOUND_CMD_TABLE</td></tr>
+                <tr><td class="mono">StreamCmd_StopSoundAndSync</td><td>Matched</td><td>Stop sound, sync freq to BG scroll state</td></tr>
+                <tr><td class="mono">StreamCmd_SetSoundFreqs</td><td>Matched</td><td>Read two u16 frequencies from stream</td></tr>
             </tbody>
         </table>
 
