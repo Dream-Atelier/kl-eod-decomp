@@ -2,7 +2,19 @@
 #include "include_asm.h"
 
 /** Abs: returns absolute value of a signed integer. */
-INCLUDE_ASM("asm/nonmatchings/system", Abs);
+__attribute__((naked)) s32 Abs(s32 arg0) {
+    asm(
+        ".syntax divided\n\t"
+        "cmp r0, #0\n\t"
+        "bpl 1f\n\t"
+        "mov r1, #0\n\t"
+        "sub r0, r1, r0\n\t"
+        "1:\n\t"
+        "bx lr\n\t"
+        ".byte 0x00, 0x00\n\t"
+        ".syntax unified\n\t"
+    );
+}
 
 /** StrCmp: byte-by-byte string comparison. Returns 0 if equal, 1 if different. */
 INCLUDE_ASM("asm/nonmatchings/system", StrCmp);
