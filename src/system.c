@@ -7,7 +7,9 @@ INCLUDE_ASM("asm/nonmatchings/system", Abs);
 /** StrCmp: byte-by-byte string comparison. Returns 0 if equal, 1 if different. */
 INCLUDE_ASM("asm/nonmatchings/system", StrCmp);
 /** ReturnOne: unconditionally returns 1. */
-INCLUDE_ASM("asm/nonmatchings/system", ReturnOne);
+s32 ReturnOne(void) {
+    return 1;
+}
 /** StrCpy: copies a null-terminated string from src to dst. */
 INCLUDE_ASM("asm/nonmatchings/system", StrCpy);
 
