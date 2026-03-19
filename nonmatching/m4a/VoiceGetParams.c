@@ -1,0 +1,2 @@
+typedef unsigned char u8; typedef signed char s8; typedef unsigned short u16; typedef signed short s16; typedef unsigned int u32; typedef signed int s32; typedef volatile unsigned short vu16; typedef volatile unsigned int vu32;
+void VoiceGetParams(u32 *node) { u32 *parent = (u32 *)node[0x2C/4]; u32 *next; u32 *prev; if (parent == 0) return; next = (u32 *)node[0x34/4]; prev = (u32 *)node[0x30/4]; if (prev == 0) parent[0x20/4] = (u32)next; else prev[0x34/4] = (u32)next; if (next != 0) next[0x30/4] = (u32)prev; node[0x2C/4] = 0; }

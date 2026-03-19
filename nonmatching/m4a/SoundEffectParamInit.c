@@ -1,0 +1,2 @@
+typedef unsigned char u8; typedef signed char s8; typedef unsigned short u16; typedef signed short s16; typedef unsigned int u32; typedef signed int s32; typedef volatile unsigned short vu16; typedef volatile unsigned int vu32;
+void SoundEffectParamInit(u32 unused, u32 *track) { u8 *t = (u8 *)track; u8 val; t[0x16] = 0; t[0x1A] = 0; if (t[0x18] != 0) val = 0x03; else val = 0x0C; t[0x00] = t[0x00] | val; }

@@ -1,0 +1,2 @@
+typedef unsigned char u8; typedef signed char s8; typedef unsigned short u16; typedef signed short s16; typedef unsigned int u32; typedef signed int s32; typedef volatile unsigned short vu16; typedef volatile unsigned int vu32;
+void m4aSoundVSyncOn(void) { u32 *info = *(u32 **)0x03007FF0; u32 magic = info[0]; if (magic == 0x68736D53) return; { vu16 *tmr = (vu16 *)0x040000C6; u16 val = 0xB6 << 8; *tmr = val; tmr = (vu16 *)((u8 *)tmr + 12); *tmr = val; } ((u8 *)info)[4] = 0; info[0] = magic - 10; }
