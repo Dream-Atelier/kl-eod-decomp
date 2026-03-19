@@ -28,7 +28,7 @@ Build requires `arm-none-eabi` toolchain, Python 3.13+, and a legally obtained `
 
 Each source file in `src/` represents a module defined in `klonoa-eod-decomp.toml` with a start address. Non-decompiled functions use the `INCLUDE_ASM()` macro to inline generated assembly from `asm/nonmatchings/`. The link order in `ldscript.txt` is: rom_header → crt0 → system → math → engine → code_0 → code_1 → code_3 → gfx → m4a → syscalls → util → libgcc → data.
 
-**Modules** (src/): `system.c` (14 funcs), `math.c` (4), `engine.c` (25), `code_0.c` (51), `code_1.c` (121), `code_3.c` (142), `gfx.c` (137), `m4a.c` (38), `syscalls.c` (2), `util.c` (5).
+**Modules** (src/): `system.c` (10 funcs), `math.c` (7 funcs), `engine.c` (27 funcs), `code_0.c` (23 funcs), `code_1.c` (101 funcs), `code_3.c` (88 funcs), `gfx.c` (113 funcs), `m4a.c` (93 funcs), `syscalls.c` (5 funcs), `util.c` (9 funcs).
 
 ## Decompilation Workflow
 

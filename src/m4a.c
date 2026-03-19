@@ -184,11 +184,36 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MPlayTrackCallback);
  *   22 lines, leaf function
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", VoiceGetParams);
-/*
- * VoiceLookup: voice parameter lookup wrapper.
- *   28 lines, calls VoiceGetParams
+/**
+ * VoiceLookupAndApply: walk linked list of active voices and apply parameters.
+ *
+ * Iterates through the voice chain starting at info[0x20/4]. For each voice,
+ * if any status bits in 0xC7 are set (active/keyon/sustain/release), marks
+ * the voice as requiring update (sets bit 0x40). Then calls VoiceGetParams
+ * to apply the voice's current parameters. Finally clears the caller's
+ * status byte.
+ *
+ * @param unused   Unused first parameter (register r0 not referenced)
+ * @param info     Pointer to sound channel/track structure
+ *
+ * Decomp pattern: -ftst required. The original ROM uses tst (not ands+cmp)
+ * for the bitflag check, indicating this function was compiled with a
+ * TST-capable compiler revision.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", VoiceLookupAndApply);
+void VoiceLookupAndApply(u32 unused, u32 *info) {
+    u32 *node = (u32 *)info[0x20 / 4];
+
+    while (node != NULL) {
+        u8 status = *(u8 *)node;
+        if (status & 0xC7) {
+            *(u8 *)node = status | 0x40;
+        }
+        VoiceGetParams(node);
+        node = (u32 *)node[0x34 / 4];
+    }
+
+    *(u8 *)info = 0;
+}
 /*
  * InstrumentLookup: look up instrument data from ROM_INSTRUMENT_TABLE.
  * Given a program/voice number, returns a pointer to the instrument entry
@@ -547,6 +572,12 @@ void SoundClear(void) {
  * Increments magic by 10 to lock, stops DMA1/DMA2 if active,
  * sets DMA control to 0x0400 mode, then calls BitUnPack to
  * clear the channel state array.
+ *
+ * NOTE: This function uses ands+cmp (not tst) in the original ROM,
+ * but m4a.c is compiled with -ftst. Until we split m4a.c into
+ * separate compilation units matching the original build, this
+ * function must remain as INCLUDE_ASM. See GitHub issue #54.
+ *   43 lines, calls BitUnPack
  */
 void m4aSoundVSyncOff(void) {
     u32 scratch;

@@ -62,6 +62,9 @@ ASFLAGS  := -mcpu=arm7tdmi -mthumb-interwork
 CPPFLAGS := -nostdinc -I tools/agbcc/include -iquote include
 CC1FLAGS := -mthumb-interwork -Wimplicit -Wparentheses -O2 -fhex-asm -fprologue-bugfix
 
+# Per-file compiler flags (use target-specific variables)
+$(C_BUILDDIR)/m4a.o: CC1FLAGS += -ftst
+
 DECOMP_TOML := klonoa-eod-decomp.toml
 LDSCRIPT    := ldscript.txt
 LDSCRIPT_IN := ldscript.in.txt
