@@ -30,6 +30,7 @@ import hashlib
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tomllib
@@ -54,15 +55,18 @@ DATA_START = 0x52000
 
 
 def _load_config():
-    """Load modules and renames from klonoa-eod-decomp.toml."""
+    """Load modules, renames, and data regions from klonoa-eod-decomp.toml."""
     with open(DECOMP_TOML, "rb") as f:
         config = tomllib.load(f)
     modules = [(m["name"], m["start"]) for m in config["modules"]]
     renames = config.get("renames", {})
-    return modules, renames
+    data_regions = sorted(
+        (d["start"], d["size"]) for d in config.get("data_regions", [])
+    )
+    return modules, renames, data_regions
 
 
-MODULES, RENAMES = _load_config()
+MODULES, RENAMES, DATA_REGIONS = _load_config()
 
 # ---------------------------------------------------------------------------
 # Compiled regexes
@@ -136,13 +140,67 @@ def _line_byte_size(stripped: str) -> int:
     return 2
 
 
+# Matches Luvdis address labels like "_080005CE:" or "_080005CE: .4byte ..."
+_ADDR_LABEL_RE = re.compile(r"^_([0-9A-Fa-f]{7,8}):")
+
+
 def _compute_addresses(lines: list[str], start: int) -> list[int]:
-    """ROM address of each line, starting at *start*."""
+    """ROM address of each line by counting bytes from *start*."""
     addrs: list[int] = []
     addr = start
     for line in lines:
         addrs.append(addr)
         addr += _line_byte_size(line.strip())
+    return addrs
+
+
+_FUNC_LABEL_ADDR_RE = re.compile(r"^\w+:\s*@\s*([0-9A-Fa-f]{8})")
+
+
+def _line_byte_size_strict(stripped: str) -> int:
+    """Like ``_line_byte_size`` but handles labels with trailing comments.
+
+    ``FUN_08000470: @ 08000470`` → 0 (label only).
+    ``_08000630: .4byte 0x040000D4`` → 4 (label + data directive).
+    """
+    if not stripped or stripped.startswith("@"):
+        return 0
+    if _is_label_line(stripped):
+        after = stripped.split(":", 1)[1].strip() if ":" in stripped else ""
+        if ".4byte" in after:
+            return 4
+        if ".2byte" in after:
+            return 2
+        if ".byte" in after:
+            return after.split(".byte", 1)[1].count(",") + 1
+        return 0
+    # .inst emits a raw 16-bit value (Luvdis uses it for encodings it
+    # can't decode as standard Thumb instructions).
+    if stripped.startswith(".inst"):
+        return 2
+    return _line_byte_size(stripped)
+
+
+def _compute_addresses_anchored(lines: list[str], start: int) -> list[int]:
+    """ROM address of each line, anchored to embedded label addresses.
+
+    Resets the byte counter at ``_XXXXXXXX:`` and ``NAME: @ XXXXXXXX``
+    labels.  Uses ``_line_byte_size_strict`` which correctly sizes
+    label lines with trailing comments (0 bytes, not 2).
+    """
+    addrs: list[int] = []
+    addr = start
+    for line in lines:
+        s = line.strip()
+        m = _ADDR_LABEL_RE.match(s)
+        if m:
+            addr = int(m.group(1), 16)
+        else:
+            m = _FUNC_LABEL_ADDR_RE.match(s)
+            if m:
+                addr = int(m.group(1), 16)
+        addrs.append(addr)
+        addr += _line_byte_size_strict(s)
     return addrs
 
 
@@ -481,6 +539,324 @@ def _merge_fragments(func_entries):
 # ---------------------------------------------------------------------------
 
 
+def _is_gba_pointer(word: int, rom_size: int) -> bool:
+    """True if *word* looks like a valid GBA memory-mapped pointer."""
+    return (0x08000000 <= word < 0x08000000 + rom_size  # ROM
+            or 0x03000000 <= word <= 0x03007FFF          # IWRAM
+            or 0x02000000 <= word <= 0x0203FFFF          # EWRAM
+            or 0x04000000 <= word <= 0x040003FF)         # I/O registers
+
+
+# Regex for the lsrs instruction — extracts Rd and Rm register numbers.
+_LSRS_REG_RE = re.compile(r"lsrs\s+r(\d),\s*r(\d)")
+
+
+def _is_instruction_line(s: str) -> bool:
+    """True if *s* is an instruction mnemonic (not a directive/label/data)."""
+    if _line_byte_size(s) == 0:
+        return False
+    if ".4byte" in s or ".2byte" in s or ".byte" in s:
+        return False
+    if _is_label_line(s) or s.endswith(":"):
+        return False
+    if s.startswith(".") or s.startswith(("thumb_func_start",
+            "non_word_aligned_thumb_func_start")):
+        return False
+    return True
+
+
+def _next_instruction(func_lines: list[str], after: int) -> str:
+    """Return the stripped text of the next instruction line after *after*."""
+    for ni in range(after + 1, min(len(func_lines), after + 3)):
+        ns = func_lines[ni].strip()
+        if _line_byte_size(ns) > 0 and not _is_label_line(ns):
+            return ns
+    return ""
+
+
+def _rom_hw(rom_data: bytes, rom_offset: int) -> int:
+    """Read a little-endian 16-bit halfword from ROM."""
+    return struct.unpack_from("<H", rom_data, rom_offset)[0]
+
+
+def _rom_word(rom_data: bytes, rom_offset: int) -> int:
+    """Read a little-endian 32-bit word from ROM."""
+    return struct.unpack_from("<I", rom_data, rom_offset)[0]
+
+
+def _build_near_pool(func_lines: list[str], extra: set[int] = ()) -> set[int]:
+    """Line indices within ±5 of any data directive or *extra* entry."""
+    sources = set()
+    for i, line in enumerate(func_lines):
+        s = line.strip()
+        if ".4byte" in s or ".2byte" in s:
+            sources.add(i)
+    sources |= set(extra)
+    near = set()
+    for i in sources:
+        for j in range(max(0, i - 5), min(len(func_lines), i + 6)):
+            near.add(j)
+    return near
+
+
+def _find_high_halfwords(func_lines, addresses, rom_data, rom_size):
+    """Identify lines whose instruction is the HIGH halfword of a data pointer.
+
+    Detects two patterns:
+      - ``lsrs Rd, Rm, #0x20`` → encoding ``0x08XX`` (ROM pointer high)
+      - ``lsls r0, r0, #0x0C`` → encoding ``0x0300`` (IWRAM pointer high)
+
+    Returns the set of line indices to convert.
+    """
+    rom_base = 0x08000000
+    convert = set()
+
+    for i, line in enumerate(func_lines):
+        s = line.strip()
+        if not _is_instruction_line(s):
+            continue
+
+        rom_offset = addresses[i] - rom_base
+        if rom_offset < 0 or rom_offset + 2 > len(rom_data):
+            continue
+
+        hw = _rom_hw(rom_data, rom_offset)
+
+        # --- Pattern 1: lsrs Rd, Rm, #0x20 (encodes as 0x08XX) ---
+        if "lsrs" in s and "#0x20" in s:
+            if (hw >> 8) != 0x08:
+                continue  # address drifted
+
+            # If the NEXT instruction is 0x0300 (lsls r0, r0, #0x0C), this
+            # lsrs is a LOW halfword of an IWRAM pointer, not a high halfword.
+            if _next_instruction(func_lines, i) == "lsls r0, r0, #0x0C":
+                continue
+
+            # The preceding halfword + this halfword must form a valid pointer.
+            if rom_offset >= 2:
+                prev = _rom_hw(rom_data, rom_offset - 2)
+                if not _is_gba_pointer((hw << 16) | prev, rom_size):
+                    continue
+
+            # Verify encoding matches the register operands in the text.
+            m = _LSRS_REG_RE.search(s)
+            if m:
+                expected = 0x0800 | int(m.group(1)) | (int(m.group(2)) << 3)
+                if hw != expected:
+                    continue  # address drifted
+            convert.add(i)
+
+        # --- Pattern 2: lsls r0, r0, #0x0C (encodes as 0x0300) ---
+        elif s == "lsls r0, r0, #0x0C":
+            if hw != 0x0300:
+                continue  # address drifted
+            convert.add(i)
+
+    return convert
+
+
+def _find_low_halfwords(func_lines, addresses, rom_data, rom_size,
+                        convert, near_pool):
+    """Find low halfword partners for converted high halfwords.
+
+    For each high halfword in *convert* (or existing ``.2byte 0x08XX``),
+    look at the preceding line.  If it forms a valid GBA pointer pair,
+    mark it for conversion and record the low→high pairing.
+
+    Returns ``(low_halves, low_to_high)`` where:
+      - *low_halves*: set of line indices to add to convert
+      - *low_to_high*: dict mapping low line → high line (for .4byte merge)
+    """
+    rom_base = 0x08000000
+
+    # Also pair with existing .2byte 0x08XX entries (Luvdis pre-converted).
+    existing_high = set()
+    for i, line in enumerate(func_lines):
+        if re.match(r"\.2byte 0x08[0-9A-Fa-f]{2}$", line.strip()):
+            existing_high.add(i)
+
+    low_halves = set()
+    low_to_high: dict[int, int] = {}
+    already_high = set(low_to_high.values())
+
+    for i in sorted(convert | existing_high):
+        # Walk backwards to find the preceding data-bearing line.
+        for k in range(i - 1, max(0, i - 3), -1):
+            ks = func_lines[k].strip()
+            if _line_byte_size(ks) == 0 or _is_label_line(ks):
+                continue  # skip labels / zero-byte directives
+
+            # Already converted or a .4byte literal pool → not a low partner.
+            if k in convert or ".4byte" in ks:
+                break
+
+            is_existing_2byte = ".2byte" in ks
+            # Instruction lines must be near existing data (guards drift).
+            if not is_existing_2byte and k not in near_pool:
+                break
+
+            # Read the 32-bit word starting at k's address.
+            lo_off = addresses[k] - rom_base
+            if lo_off < 0 or lo_off + 4 > len(rom_data):
+                break
+            word = _rom_word(rom_data, lo_off)
+            if not _is_gba_pointer(word, rom_size):
+                break
+
+            if not is_existing_2byte:
+                low_halves.add(k)
+            # Record for .4byte merge only when directly adjacent
+            # (no label between them that would be misaligned).
+            if k == i - 1:
+                low_to_high[k] = i
+            break
+
+    return low_halves, low_to_high
+
+
+def _pair_consecutive_converts(convert, low_to_high, addresses, rom_data,
+                               rom_size):
+    """Pair adjacent convert entries that form a GBA pointer.
+
+    Handles the edge case where BOTH halfwords are ``lsrs #0x20``
+    (e.g. ``0x0808`` + ``0x0806`` = ``0x08060808``).  Neither was
+    picked up as a low partner in the previous pass because both
+    were in ``convert``.
+    """
+    rom_base = 0x08000000
+    already_paired = set(low_to_high) | set(low_to_high.values())
+    for k, i in zip(sorted(convert), sorted(convert)[1:]):
+        if k in already_paired or i in already_paired:
+            continue
+        if k != i - 1:
+            continue
+        lo_off = addresses[k] - rom_base
+        if lo_off < 0 or lo_off + 4 > len(rom_data):
+            continue
+        word = _rom_word(rom_data, lo_off)
+        if _is_gba_pointer(word, rom_size):
+            low_to_high[k] = i
+            already_paired.update((k, i))
+
+
+def _emit_conversions(func_lines, addresses, rom_data, rom_size,
+                      convert, low_to_high):
+    """Produce the final line list, replacing converted entries with data
+    directives and merging pointer pairs into ``.4byte``.
+    """
+    rom_base = 0x08000000
+    high_to_low = {h: k for k, h in low_to_high.items()}
+    is_low_partner = set(low_to_high)  # lines that should emit .4byte
+    is_high_partner = set(high_to_low)  # lines that may be skipped
+
+    merged_low = set()  # tracks which lows actually emitted .4byte
+    result = []
+
+    for i, line in enumerate(func_lines):
+        # --- High partner: skip if its low partner already emitted .4byte ---
+        if i in is_high_partner:
+            if high_to_low[i] in merged_low:
+                continue
+            # Low partner didn't merge → fall through and keep this line.
+
+        # --- Low partner (existing .2byte, not in convert) ---
+        if i not in convert and i in is_low_partner:
+            rom_offset = addresses[i] - rom_base
+            if 0 <= rom_offset and rom_offset + 4 <= len(rom_data):
+                word = _rom_word(rom_data, rom_offset)
+                if _is_gba_pointer(word, rom_size):
+                    result.append(f"\t.4byte 0x{word:08X}\n")
+                    merged_low.add(i)
+                    continue
+            result.append(line)
+            continue
+
+        # --- Not in convert → keep unchanged ---
+        if i not in convert:
+            result.append(line)
+            continue
+
+        # --- Converted line: emit data directive ---
+        rom_offset = addresses[i] - rom_base
+        s = line.strip()
+        line_size = _line_byte_size_strict(s)
+
+        if line_size == 2 and rom_offset + 2 <= len(rom_data):
+            hw = _rom_hw(rom_data, rom_offset)
+
+            # Safety: verify lsrs encoding still matches ROM.
+            if "lsrs" in s and "#0x20" in s and (hw >> 8) != 0x08:
+                result.append(line)  # address drift — keep original
+
+            elif i in is_low_partner:
+                # Low halfword → emit .4byte for the full pointer pair.
+                if rom_offset + 4 <= len(rom_data):
+                    word = _rom_word(rom_data, rom_offset)
+                    if _is_gba_pointer(word, rom_size):
+                        result.append(f"\t.4byte 0x{word:08X}\n")
+                        merged_low.add(i)
+                    else:
+                        result.append(line)
+                else:
+                    result.append(line)
+
+            else:
+                # Unpaired high halfword → emit .2byte.
+                result.append(f"\t.2byte 0x{hw:04X}\n")
+
+        elif line_size == 4 and rom_offset + 4 <= len(rom_data):
+            word = _rom_word(rom_data, rom_offset)
+            result.append(f"\t.4byte 0x{word:08X}\n")
+
+        else:
+            result.append(line)
+
+    return result
+
+
+def _apply_data_regions(func_lines: list[str], func_addr: int,
+                        rom_data: bytes) -> list[str]:
+    """Replace data-as-code instruction mnemonics with data directives.
+
+    Three-pass pipeline:
+      1. **High halfwords** — identify ``lsrs #0x20`` (0x08XX) and
+         ``lsls r0, r0, #0x0C`` (0x0300) entries.
+      2. **Low halfwords** — for each high, find its preceding partner
+         and verify the 32-bit ROM word is a valid GBA pointer.
+      3. **Consecutive pairs** — handle edge cases where both halfwords
+         are in the convert set (both encode as 0x08XX).
+
+    Adjacent low+high pairs are emitted as a single ``.4byte``;
+    unpaired high halfwords become ``.2byte``.
+    """
+    if not DATA_REGIONS:
+        return func_lines
+
+    rom_size = len(rom_data)
+    addresses = _compute_addresses_anchored(func_lines, func_addr)
+
+    # Pass 1: find high halfwords to convert.
+    convert = _find_high_halfwords(func_lines, addresses, rom_data, rom_size)
+
+    # Expand near_pool so low halfwords adjacent to converts are eligible.
+    near_pool = _build_near_pool(func_lines, extra=convert)
+
+    # Pass 2: find low halfword partners.
+    low_halves, low_to_high = _find_low_halfwords(
+        func_lines, addresses, rom_data, rom_size, convert, near_pool)
+    convert |= low_halves
+
+    # Pass 3: pair consecutive converts (both-0x08XX edge case).
+    _pair_consecutive_converts(convert, low_to_high, addresses, rom_data,
+                               rom_size)
+
+    if not convert:
+        return func_lines
+
+    return _emit_conversions(func_lines, addresses, rom_data, rom_size,
+                             convert, low_to_high)
+
+
 def _write_asm_files(merged_entries, libgcc_lines, pre_func):
     """Write asm/nonmatchings/**/*.s and asm/libgcc.s.
 
@@ -496,8 +872,16 @@ def _write_asm_files(merged_entries, libgcc_lines, pre_func):
         if mod_name != "libgcc":
             os.makedirs(os.path.join(nm_root, mod_name), exist_ok=True)
 
+    # Load ROM bytes for data region conversion
+    rom_data = b""
+    if DATA_REGIONS:
+        with open(BASEROM, "rb") as f:
+            rom_data = f.read()
+
     module_funcs = {}
     for name, addr, module, lines in merged_entries:
+        if DATA_REGIONS:
+            lines = _apply_data_regions(lines, addr, rom_data)
         with open(os.path.join(nm_root, module, f"{name}.s"), "w") as f:
             f.writelines(lines)
         module_funcs.setdefault(module, []).append((addr, name))
