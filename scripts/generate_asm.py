@@ -469,6 +469,61 @@ def _expand_sub_functions(func_entries):
 # Phase 3: Merge fragments
 # ---------------------------------------------------------------------------
 
+# Branch instructions targeting function-name labels (b, bl, blx, beq, …).
+_BRANCH_TO_FUNC_RE = re.compile(
+    r"^b(?:l|lx|eq|ne|cs|cc|mi|pl|vs|vc|hi|ls|ge|lt|gt|le)?\s+(\w+)"
+)
+
+
+def _collect_external_refs(func_entries):
+    """Return the set of function names that are b/bl targets from other funcs.
+
+    A function in this set is an independently callable entry point and
+    should not be absorbed during fragment merging — doing so would create
+    multi-entry-point .s files that cannot be decompiled to C.
+    """
+    func_names = {name for name, _, _, _ in func_entries}
+    refs = set()
+    for caller_name, _, _, lines in func_entries:
+        for line in lines:
+            m = _BRANCH_TO_FUNC_RE.match(line.strip())
+            if m:
+                target = m.group(1)
+                if target in func_names and target != caller_name:
+                    refs.add(target)
+    return refs
+
+
+def _has_cross_label_refs(first: list[str], second: list[str]) -> bool:
+    """True if either block references local labels defined in the other.
+
+    Checks both ldr pool references and branch targets in both directions.
+    When true, the two blocks MUST stay in the same assembly file because
+    the assembler cannot resolve short branches across separate inline-asm
+    blocks (separate INCLUDE_ASM invocations).
+    """
+    a_text, b_text = "".join(first), "".join(second)
+
+    a_labels = set(_LABEL_DEF_RE.findall(a_text))
+    b_labels = set(_LABEL_DEF_RE.findall(b_text))
+
+    # Collect all label references: ldr targets + branch targets
+    _all_ref_re = re.compile(
+        r"(?:\bldr\s+\w+,\s+(\w+)"
+        r"|\bb(?:l|lx|eq|ne|cs|cc|mi|pl|vs|vc|hi|ls|ge|lt|gt|le)?\s+(\w+))"
+    )
+
+    a_refs = {m.group(1) or m.group(2) for m in _all_ref_re.finditer(a_text)}
+    b_refs = {m.group(1) or m.group(2) for m in _all_ref_re.finditer(b_text)}
+
+    # Forward: first references labels in second
+    if (a_refs - a_labels) & b_labels:
+        return True
+    # Backward: second references labels in first
+    if (b_refs - b_labels) & a_labels:
+        return True
+    return False
+
 
 def _starts_with_prologue(lines: list[str]) -> bool:
     """True if the first real instruction in *lines* is ``push {… lr}``."""
@@ -492,12 +547,15 @@ def _merge_fragments(func_entries):
       - It doesn't end with a return (fall-through fragment), OR
       - Its literal pool references labels defined in the next function
 
-    Merging **stops** before absorbing a function that starts with
-    ``push {… lr}`` — that's a real function prologue, not a fragment.
+    Merging **stops** before absorbing a function that:
+      - starts with ``push {… lr}`` — a real function prologue
+      - is branched/called from other functions — an independent entry point
 
     Returns (merged_entries, merged_groups) where merged_groups maps
     each primary function name to all names in its group.
     """
+    external_refs = _collect_external_refs(func_entries)
+
     merged_entries = []
     merged_groups = {}
 
@@ -514,10 +572,21 @@ def _merge_fragments(func_entries):
             )
             if not next_same_module:
                 break
-            _, _, _, next_lines = func_entries[j + 1]
+            next_name = func_entries[j + 1][0]
+            next_lines = func_entries[j + 1][3]
             # Never absorb a function that starts with push {lr}
             if _starts_with_prologue(next_lines):
                 break
+            # Don't absorb a function that is called/branched to from
+            # other functions — it is an independent entry point that
+            # should remain separately decompilable.  Exception: if
+            # the merged code and the next function share cross-label
+            # references (e.g. backward branches into the merged block),
+            # they MUST stay in the same file for the assembler to
+            # resolve short branches.
+            if next_name in external_refs:
+                if not _has_cross_label_refs(merged, next_lines):
+                    break
             if (not _is_fragment(merged, is_last_in_module=False)
                     and not _has_unresolved_pool_refs(merged, next_lines)):
                 break
@@ -532,6 +601,40 @@ def _merge_fragments(func_entries):
         i = j + 1
 
     return merged_entries, merged_groups
+
+
+def _fix_non_word_aligned_starts(entries):
+    """Change ``thumb_func_start`` to ``non_word_aligned_thumb_func_start``
+    for functions whose ROM address is not 4-byte aligned.
+
+    ``thumb_func_start`` includes ``.align 2, 0`` which inserts padding to
+    the next word boundary.  Functions that follow a fall-through fragment
+    may sit at a 2-byte-aligned (but not 4-byte-aligned) address — padding
+    them would shift subsequent code and break the ROM match.
+    """
+    fixed = []
+    count = 0
+    for name, addr, module, lines in entries:
+        if addr % 4 != 0:
+            new_lines = []
+            changed = False
+            for line in lines:
+                m = _FUNC_MACRO_RE.match(line)
+                if m and m.group(1) == "thumb_func_start" and m.group(2) == name:
+                    new_lines.append(
+                        f"\tnon_word_aligned_thumb_func_start {name}\n"
+                    )
+                    changed = True
+                else:
+                    new_lines.append(line)
+            if changed:
+                count += 1
+            fixed.append((name, addr, module, new_lines))
+        else:
+            fixed.append((name, addr, module, lines))
+    if count:
+        print(f"    Fixed {count} non-word-aligned function start macros")
+    return fixed
 
 
 # ---------------------------------------------------------------------------
@@ -995,6 +1098,11 @@ def _update_c_sources(merged_groups, module_funcs):
         for func_list in module_funcs.values()
         for addr, name in func_list
     }
+    # Also map renamed names so address lookups work for C sources
+    # that already use the new names (e.g., MidiDecodeByte → 0x0804F758).
+    for old_name, new_name in RENAMES.items():
+        if old_name in name_to_addr:
+            name_to_addr[new_name] = name_to_addr[old_name]
 
     src_dir = os.path.join(ROOT, "src")
 
@@ -1002,6 +1110,12 @@ def _update_c_sources(merged_groups, module_funcs):
     # and decompiled function definitions
     module_to_c = {}
     existing_in_c = set()
+    renamed_names = set(RENAMES.values())
+    # Matches any function definition (return-type + name + open-paren)
+    # that starts at column 0 and is not an extern declaration.
+    _c_func_def_broad = re.compile(
+        r"^(?!extern\b)\w[\w\s\*]+\b(\w+)\s*\("
+    )
     for fname in os.listdir(src_dir):
         if not fname.endswith(".c"):
             continue
@@ -1011,17 +1125,27 @@ def _update_c_sources(merged_groups, module_funcs):
                 if m:
                     module_to_c.setdefault(m.group(1), fname)
                     existing_in_c.add(m.group(2))
-                else:
-                    m = _C_FUNC_DEF_RE.search(line)
-                    if m:
-                        existing_in_c.add(m.group(1))
+                    continue
+                m = _C_FUNC_DEF_RE.search(line)
+                if m:
+                    existing_in_c.add(m.group(1))
+                    continue
+                # Also detect decompiled functions with renamed names
+                m = _c_func_def_broad.match(line)
+                if m and m.group(1) in renamed_names:
+                    existing_in_c.add(m.group(1))
 
-    # New functions: in module_funcs but not in C, not absorbed, not renamed
+    # New functions: in module_funcs but not in C and not absorbed.
+    # For renamed functions, also check if the renamed version is in C.
     new_by_module = {}  # module -> [(addr, name)]
     for module, func_list in module_funcs.items():
         for addr, name in func_list:
-            if name not in existing_in_c and name not in absorbed and name not in RENAMES:
-                new_by_module.setdefault(module, []).append((addr, name))
+            if name in existing_in_c or name in absorbed:
+                continue
+            renamed = RENAMES.get(name)
+            if renamed and renamed in existing_in_c:
+                continue
+            new_by_module.setdefault(module, []).append((addr, name))
 
     total_removed = total_added = 0
 
@@ -2080,6 +2204,7 @@ def main():
     func_entries, libgcc_lines, pre_func = _parse_luvdis(luvdis_output)
     func_entries = _expand_sub_functions(func_entries)
     merged_entries, merged_groups = _merge_fragments(func_entries)
+    merged_entries = _fix_non_word_aligned_starts(merged_entries)
     module_funcs = _write_asm_files(merged_entries, libgcc_lines, pre_func)
 
     print("[5/9] Updating C sources...")

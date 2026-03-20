@@ -2,7 +2,9 @@
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/nonmatchings/util", SoftReset);
+INCLUDE_ASM("asm/nonmatchings/util", FUN_0805146c);
 INCLUDE_ASM("asm/nonmatchings/util", EepromTimerCallback);
+INCLUDE_ASM("asm/nonmatchings/util", FUN_080514d4);
 INCLUDE_ASM("asm/nonmatchings/util", EepromBeginTransfer);
 INCLUDE_ASM("asm/nonmatchings/util", EepromEndTransfer);
 INCLUDE_ASM("asm/nonmatchings/util", EepromDmaTransfer);

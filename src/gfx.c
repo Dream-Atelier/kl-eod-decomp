@@ -278,6 +278,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", DmaSpriteToObjVram);
  * Also contains SetSpriteTableFromIndex (0x0804C218) as an embedded sub-function.
  */
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_DmaSpriteData);
+INCLUDE_ASM("asm/nonmatchings/gfx", SetSpriteTableFromIndex);
 /*
  * Reads a command byte from the data stream and processes it via SetSpriteTableFromIndex.
  * Byte[2] is the command argument. Advances the stream pointer by 3.
@@ -385,6 +386,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ProcessScreenFade);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdatePaletteFadeStep);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessSceneTransitionOut);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGModeTiled);
+INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804e404);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ClearRenderMode);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleDisplayFlag);

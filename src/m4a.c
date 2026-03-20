@@ -175,6 +175,8 @@ u32 MPlayMain_SetAndProcess(u32 val) {
  * updates channel state.
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MPlayMain);
+INCLUDE_ASM("asm/nonmatchings/m4a", FixedPointMultiply);
+INCLUDE_ASM("asm/nonmatchings/m4a", InitSoundEngine);
 INCLUDE_ASM("asm/nonmatchings/m4a", MPlayTrackCallback);
 
 /* ── Voice / Instrument Utilities ── */
@@ -204,6 +206,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", InstrumentLookup);
  *   refs: ROM_INSTRUMENT_TABLE (0x081179E4)
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", InstrumentGetEntry);
+INCLUDE_ASM("asm/nonmatchings/m4a", MidiNoteDispatch);
 
 /* ── Sound Channel Control ── */
 
@@ -213,6 +216,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", InstrumentGetEntry);
  *   11 lines, leaf function
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MidiDecodeByte);
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f75a);
 /*
  * MidiNoteSetup: set up a MIDI note-on event on a sound channel.
  * Configures the channel's pitch, volume, and instrument for playback.
@@ -228,6 +232,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MidiNoteWithVelocity);
  *   192 lines, writes to REG_SOUND1CNT_L (0x04000060), REG_DMA1SAD (0x040000BC)
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MidiCommandHandler);
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f8e8);
 INCLUDE_ASM("asm/nonmatchings/m4a", TrackStop);
 
 /* ── Music Playback Engine ── */
@@ -658,6 +663,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", CgbSound);
  *       REG_SOUND3CNT_X (0x04000070), REG_SOUND4CNT_H (0x04000079)
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MidiKeyToCgbFreq);
+INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050a44);
 /*
  * CgbLookupUtil: CGB utility lookup for pitch/volume tables.
  *   59 lines, leaf function
