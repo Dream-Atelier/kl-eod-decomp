@@ -1,7 +1,6 @@
 [submodule "tools/agbcc"]
 	path = tools/agbcc
-	url = https://github.com/pret/agbcc.git
-	ignore = dirty
+	url = https://github.com/Dream-Atelier/agbcc.git
 
 [submodule "tools/luvdis"]
 	path = tools/luvdis
