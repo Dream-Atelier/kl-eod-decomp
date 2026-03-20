@@ -22,8 +22,12 @@ Matching decompilation is the art of converting assembly back into C source code
 ### Prerequisites
 
 - [ARM GNU Toolchain](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) (`arm-none-eabi-as`, `arm-none-eabi-ld`, `arm-none-eabi-objcopy`)
+- Host C compiler (GCC or compatible) — needed to build the agbcc compiler from source
 - GNU Make
+- Python 3.13+
 - A legally obtained copy of the USA ROM
+
+> **Compiler note:** This project uses a [custom fork of agbcc](https://github.com/Dream-Atelier/agbcc) (GCC 2.95 for GBA) with a `-ftst` flag that enables Thumb TST instruction generation. The `setup.sh` script builds it automatically from source.
 
 ### Building
 
