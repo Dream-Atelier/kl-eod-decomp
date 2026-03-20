@@ -449,7 +449,7 @@ void DispatchMusicStreamCommand(void) {
 /**
  * StreamCmd_StopSound: stream command to stop sound effects.
  * Calls StopSoundEffects, advances stream by 2.
- * (non_word_aligned — can't match from C due to alignment)
+ * (non_word_aligned — literal pool is shared with next function)
  */
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_StopSound);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_Nop3);

@@ -770,18 +770,37 @@ void SoundCommand_6450(u32 ctx, u32 channel) {
  *   118 lines, leaf function
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MPlayCmd_ReadU32Param);
-INCLUDE_ASM("asm/nonmatchings/m4a", ply_keysh);
-INCLUDE_ASM("asm/nonmatchings/m4a", ply_voice);
-INCLUDE_ASM("asm/nonmatchings/m4a", ply_vol);
-INCLUDE_ASM("asm/nonmatchings/m4a", ply_pan);
-INCLUDE_ASM("asm/nonmatchings/m4a", ply_bend);
-INCLUDE_ASM("asm/nonmatchings/m4a", ply_bendr);
 typedef struct {
     u8 unk00[0x1F];
     u8 unk1F;
-    u8 unk20[0x20];
+    u8 unk20[0x04];
+    u8 keyShift;
+    u8 unk25[0x08];
+    u8 unk2D;
+    u8 unk2E;
+    u8 unk2F[0x11];
     u8 *unk40;
 } TrackStruct;
+
+void ply_keysh(void *r0, TrackStruct *track) {
+    track->keyShift = *track->unk40;
+    track->unk40++;
+}
+asm(".align 2, 0");
+INCLUDE_ASM("asm/nonmatchings/m4a", ply_voice);
+
+void ply_vol(void *r0, TrackStruct *track) {
+    track->unk2D = *track->unk40;
+    track->unk40++;
+}
+
+void ply_pan(void *r0, TrackStruct *track) {
+    track->unk2E = *track->unk40;
+    track->unk40++;
+}
+asm(".align 2, 0");
+INCLUDE_ASM("asm/nonmatchings/m4a", ply_bend);
+INCLUDE_ASM("asm/nonmatchings/m4a", ply_bendr);
 
 void ply_lfos(void *r0, TrackStruct *r1) {
     u8 *ptr;
