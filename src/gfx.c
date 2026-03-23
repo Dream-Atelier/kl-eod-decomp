@@ -227,11 +227,58 @@ INCLUDE_ASM("asm/nonmatchings/gfx", SetupWorldMapBG);
 INCLUDE_ASM("asm/nonmatchings/gfx", SetupTextBGLayer);
 INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB_Alt);
 /**
- * InitLevelStateDefaults: sets default dimensions, scroll, window regs.
+ * InitLevelStateDefaults: set default level dimensions, scroll, and window regs.
+ *
  * Initializes map dimensions (0xE80 x 0xA00), scroll (0x700 x 0xA00),
- * REG_WININ=0x1F23, REG_WINOUT=0x003D, clears OBJ window in DISPCNT.
+ * calls UpdateAffineRegisters, sets REG_WININ=0x1F23, REG_WINOUT=0x003D,
+ * clears OBJ window enable (bit 14) in REG_DISPCNT.
  */
-INCLUDE_ASM("asm/nonmatchings/gfx", InitLevelStateDefaults);
+void InitLevelStateDefaults(void) {
+    u32 addr = 0x030034A0;
+    u32 *bufAddr;
+    register u16 *buf asm("r1");
+
+    asm("" : "=r"(bufAddr) : "0"(addr));
+    buf = *(u16 **)bufAddr;
+    {
+        u16 val = 0;
+        u16 scroll;
+        u16 dim;
+        buf[4] = val;
+        val = 0xE80;
+        buf[8] = val;
+        scroll = 0x700;
+        buf[5] = scroll;
+        dim = 0xA00;
+        buf[9] = dim;
+        buf[6] = scroll;
+        buf[11] = dim;
+    }
+    UpdateAffineRegisters();
+    {
+        u32 winAddr = 0x04000048;
+        u32 wiVal = 0x1F23;
+        register u16 *winin asm("r1");
+        register u32 wiConst asm("r2");
+        register u32 val asm("r0");
+        asm("" : "=r"(winin) : "0"(winAddr));
+        asm("" : "=r"(wiConst) : "0"(wiVal));
+        val = wiConst;
+        asm("" : "+r"(val));
+        *winin = val;
+        asm("add\t%0, #0x02" : "+r"(winin));
+        *winin = 0x3D;
+    }
+    {
+        volatile u16 *dispcnt = (volatile u16 *)(0x80 << 19);
+        u32 bfAddr = 0xBFFF;
+        u16 val = *dispcnt;
+        u16 mask;
+        asm("" : "=r"(mask) : "0"(bfAddr));
+        mask &= val;
+        *dispcnt = mask;
+    }
+}
 void VBlankHandler_WithWindowScroll(void);
 void UpdateBGScrollWithWave(void);
 void ReadKeyInput(void);
