@@ -517,7 +517,57 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitOscillation);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitOscillationExt);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitStaticScroll);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitFrameAnimation);
-INCLUDE_ASM("asm/nonmatchings/gfx", ProcessHBlankWait);
+/**
+ * ProcessHBlankWait: process HBlank wait timer for a stream entry.
+ *
+ * Enables HBlank interrupt (bit 1 in REG_IE) and VCount interrupt
+ * (bit 4 in REG_DISPSTAT). Checks the entry's timer at offset 0x14;
+ * if expired (negative after decrement), disables both interrupts
+ * and returns 0. If bit 7 of entry[3] is set or timer still positive,
+ * returns 1.
+ *
+ * @param idx  Stream entry index
+ * @return     1 if still waiting, 0 if timer expired
+ */
+u32 ProcessHBlankWait(u32 idx) {
+    u32 ieAddr = 0x04000200;
+    register volatile u16 *ie asm("r3");
+    u32 dsAddr = 0x04000004;
+    register volatile u16 *dispstat asm("r4");
+    u8 *buf;
+    u32 off;
+    u8 *entry;
+
+    asm("" : "=r"(ie) : "0"(ieAddr));
+    *ie |= 2;
+    asm("" : "=r"(dispstat) : "0"(dsAddr));
+    *dispstat |= 0x10;
+
+    {
+        u8 **bufPtr;
+        u32 bAddr = 0x030052A4;
+        asm("" : "=r"(bufPtr) : "0"(bAddr));
+        buf = *bufPtr;
+    }
+    off = idx * 9;
+    off <<= 2;
+    off += (u32)buf;
+    entry = (u8 *)off;
+
+    if (entry[3] >> 7) {
+        return 1;
+    }
+    {
+        u32 timer = *(u16 *)(entry + 0x14) - 1;
+        *(u16 *)(entry + 0x14) = timer;
+        if ((s32)(timer << 16) < 0) {
+            *ie &= 0xFFFD;
+            *dispstat &= 0xFFEF;
+            return 0;
+        }
+    }
+    return 1;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitHBlankWait);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitSpriteWave);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitButtonWait);
