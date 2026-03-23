@@ -148,10 +148,36 @@ void FreeDecompStreamBuffer(void) {
 INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB);
 
 /**
- * AllocAndClearGfxBuffer: allocates and zero-fills a 0x20-byte GFX buffer.
- * Stores pointer in gGfxBufferPtr, DMA3-fills with zeros.
+ * AllocAndClearGfxBuffer: allocate and DMA-fill a 32-byte GFX buffer.
+ *
+ * Allocates 32 bytes via thunk_FUN_080001e0 (malloc), stores the pointer
+ * at gGfxBufferPtr, then DMA3-fills the buffer with zero using a
+ * stack-local halfword as the fill source.
  */
-INCLUDE_ASM("asm/nonmatchings/gfx", AllocAndClearGfxBuffer);
+void AllocAndClearGfxBuffer(void) {
+    u16 zero_src;
+    u32 addr = 0x030034A0;
+    register u32 *gfxBuf asm("r4");
+    u32 *buf;
+    asm("" : "=r"(gfxBuf) : "0"(addr));
+    buf = (u32 *)thunk_FUN_080001e0(0x20, 0);
+    *gfxBuf = (u32)buf;
+    {
+        u32 dma_addr = 0x040000D4;
+        register volatile u32 *dma3 asm("r1");
+        u32 sp_ptr = (u32)&zero_src;
+        zero_src = 0;
+        asm("" : "=r"(dma3) : "0"(dma_addr));
+        dma3[0] = sp_ptr;
+        dma3[1] = (u32)buf;
+        {
+            u32 ctrl = 0x81000010;
+            asm("" : "=r"(ctrl) : "0"(ctrl));
+            dma3[2] = ctrl;
+            dma3[2];
+        }
+    }
+}
 
 /**
  * FreeGfxBuffer: frees the GFX buffer struct at gGfxBufferPtr.
