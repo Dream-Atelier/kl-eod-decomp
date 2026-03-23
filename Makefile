@@ -62,10 +62,12 @@ ASFLAGS  := -mcpu=arm7tdmi -mthumb-interwork
 CPPFLAGS := -nostdinc -I tools/agbcc/include -iquote include
 CC1FLAGS := -mthumb-interwork -Wimplicit -Wparentheses -O2 -fhex-asm -fprologue-bugfix
 
-# TST compilation unit: m4a_1.c is pre-compiled with -ftst into build/m4a_1_funcs.s,
-# then included as assembly in m4a.c via asm(".include ..."). This keeps all m4a
-# functions in one .text section (required by shared literal pools in the ROM assembly).
-TST_CC1FLAGS := $(CC1FLAGS) -ftst
+# TST compilation unit: m4a_1.c is pre-compiled with old_agbcc -ftst into
+# build/m4a_1_funcs.s, then included as assembly in m4a.c via asm(".include ...").
+# This keeps all m4a functions in one .text section (required by shared literal
+# pools in the ROM assembly). Uses old_agbcc (not agbcc) to match m4a's register
+# allocation behavior.
+TST_CC1FLAGS := -mthumb-interwork -O2 -ftst
 
 DECOMP_TOML := klonoa-eod-decomp.toml
 LDSCRIPT    := ldscript.txt
@@ -118,7 +120,7 @@ $(ASM_BUILDDIR)/%.o: $(ASM_SUBDIR)/%.s
 $(OBJ_DIR)/m4a_1_funcs.s: $(C_SUBDIR)/m4a_1.c
 	@echo "$(CC1) <flags> -ftst -o $@ $<"
 	@$(CPP) $(CPPFLAGS) $< -o $(OBJ_DIR)/m4a_1.i
-	@$(CC1) $(TST_CC1FLAGS) -o $(OBJ_DIR)/m4a_1_raw.s $(OBJ_DIR)/m4a_1.i
+	@$(CC1_OLD) $(TST_CC1FLAGS) -o $(OBJ_DIR)/m4a_1_raw.s $(OBJ_DIR)/m4a_1.i
 	@sed '/^@/d;/^\.code/d;/^\.gcc2_compiled/d;/^\.text$$/d;/^\.Lfe/d;/^[[:space:]]*\.size/d;/macros\.inc/d;s/\.L\([0-9]\)/.Lm4a1_\1/g' $(OBJ_DIR)/m4a_1_raw.s > $@
 
 # Compile m4a with old_agbcc — Nintendo's MusicPlayer2000 was prebuilt
