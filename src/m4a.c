@@ -63,27 +63,12 @@ INCLUDE_ASM("asm/nonmatchings/m4a", DmaControllerInit);
  *   73 lines, leaf function
  *   refs: gSoundInfo (0x0300081C), gStreamPtr (0x03004D84)
  */
-void SoundInfoInit(void) {
-    u8 *soundInfo = (u8 *)*(u32 *)0x0300081C;
-    u16 uval = *(u16 *)(soundInfo + 0x14);
-    s16 val = *(s16 *)(soundInfo + 0x14);
-
-    if (val <= 0) {
-        *(u16 *)(soundInfo + 0x14) = 0;
-        *(volatile u8 *)(soundInfo + 0x16) = *(volatile u8 *)(soundInfo + 0x16) & 0x7F;
-        return;
-    }
-
-    if ((u16)(uval - 1) <= 14) {
-        u16 *p = (u16 *)0x03003430;
-        p[0x26 / 2] += 1;
-        *(u16 *)(soundInfo + 0x14) -= 1;
-    } else {
-        u16 *p = (u16 *)0x03003430;
-        p[0x26 / 2] += 2;
-        *(u16 *)(soundInfo + 0x14) -= 2;
-    }
-}
+/*
+ * SoundInfoInit: update sound info timer and flags.
+ * Leaf function — original has no push {lr} but old_agbcc generates one.
+ * Must stay as INCLUDE_ASM until compiler leaf-function behavior is fixed.
+ */
+INCLUDE_ASM("asm/nonmatchings/m4a", SoundInfoInit);
 INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_GetStreamPtr);
 INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_ValidateStream);
 
@@ -392,16 +377,7 @@ void SoundInit(void) {
  * Looks up the song from gSongTable, finds the assigned music player
  * from gMPlayTable, then calls MPlayStart to begin playback.
  */
-void MPlayStart(u32, u32);
-void m4aSongNumStart(u16 idx) {
-    const struct MusicPlayer *mplayTable = gMPlayTable;
-    const struct Song *songTable = gSongTable;
-    const struct Song *song = &songTable[idx];
-    u16 playerIdx = song->ms;
-    u32 playerOff = (u32)playerIdx * 12;
-    playerOff += (u32)mplayTable;
-    MPlayStart(*(u32 *)playerOff, song->header);
-}
+INCLUDE_ASM("asm/nonmatchings/m4a", m4aSongNumStart);
 /*
  * m4aSongNumContinue: continue or queue a music track.
  * If the same song is already playing, does nothing.
@@ -423,37 +399,14 @@ INCLUDE_ASM("asm/nonmatchings/m4a", m4aSongNumLoad);
  * Looks up the song and its assigned player; if the player is currently
  * playing this song's header, calls MPlayStop to halt playback.
  */
-void m4aMPlayCommand(u16 idx) {
-    const struct MusicPlayer *mplayTable = gMPlayTable;
-    const struct Song *songTable = gSongTable;
-    const struct Song *song = &songTable[idx];
-    u16 playerIdx = song->ms;
-    u32 playerOff = (u32)playerIdx * 12;
-    u32 *player;
-    playerOff += (u32)mplayTable;
-    player = *(u32 **)playerOff;
-    if (player[0] == song->header)
-        MPlayStop(player);
-}
+INCLUDE_ASM("asm/nonmatchings/m4a", m4aMPlayCommand);
 /**
  * m4aSongNumStop: stops the given song if it's currently playing.
  *
  * Looks up the song and its player; if the player's current header
  * matches, calls MPlayChannelReset to stop and release channels.
  */
-void MPlayChannelReset(u32 *);
-void m4aSongNumStop(u16 idx) {
-    const struct MusicPlayer *mplayTable = gMPlayTable;
-    const struct Song *songTable = gSongTable;
-    const struct Song *song = &songTable[idx];
-    u16 playerIdx = song->ms;
-    u32 playerOff = (u32)playerIdx * 12;
-    u32 *player;
-    playerOff += (u32)mplayTable;
-    player = *(u32 **)playerOff;
-    if (player[0] == song->header)
-        MPlayChannelReset(player);
-}
+INCLUDE_ASM("asm/nonmatchings/m4a", m4aSongNumStop);
 /*
  * m4aSoundVSync: VBlank sound update — called every frame.
  * Loops over 4 sound channels, calling MPlayChannelUpdate for each.
@@ -950,94 +903,17 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MidiNoteLookup);
  *   20 lines, leaf function
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MidiUtilConvert);
-void MidiUtilConvert(u8 *);
 /**
  * MidiCommandEncode1: iterate active tracks in a MusicPlayerInfo,
  * write value to track[0x17] for each matching track bit, and call
  * MidiUtilConvert when value is zero.
  */
-void MidiCommandEncode1(u32 *player, u16 trackBits, u8 value) {
-    u32 ident;
-    s32 numTracks;
-    u8 *track;
-    u32 mask;
-    u8 val;
-
-    ident = player[0x34 / 4];
-    if (ident != SAPPY_MAGIC)
-        return;
-
-    player[0x34 / 4] = ident + 1;
-
-    numTracks = (s32)(u8)((u8 *)player)[0x08];
-    track = (u8 *)player[0x2C / 4];
-    mask = 1;
-
-    if (numTracks <= 0)
-        goto done;
-
-    val = value;
-
-    while (numTracks > 0) {
-        if (trackBits & mask) {
-            if (track[0x00] & 0x80) {
-                track[0x17] = value;
-                if (val == 0) {
-                    MidiUtilConvert(track);
-                }
-            }
-        }
-        numTracks--;
-        track += 0x50;
-        mask <<= 1;
-    }
-
-done:
-    player[0x34 / 4] = SAPPY_MAGIC;
-}
+INCLUDE_ASM("asm/nonmatchings/m4a", MidiCommandEncode1);
 /**
  * MidiCommandEncode2: same as MidiCommandEncode1 but writes to
  * track[0x19] instead of track[0x17].
  */
-void MidiCommandEncode2(u32 *player, u16 trackBits, u8 value) {
-    u32 ident;
-    s32 numTracks;
-    u8 *track;
-    u32 mask;
-    u8 val;
-
-    ident = player[0x34 / 4];
-    if (ident != SAPPY_MAGIC)
-        return;
-
-    player[0x34 / 4] = ident + 1;
-
-    numTracks = (s32)(u8)((u8 *)player)[0x08];
-    track = (u8 *)player[0x2C / 4];
-    mask = 1;
-
-    if (numTracks <= 0)
-        goto done;
-
-    val = value;
-
-    while (numTracks > 0) {
-        if (trackBits & mask) {
-            if (track[0x00] & 0x80) {
-                track[0x19] = value;
-                if (val == 0) {
-                    MidiUtilConvert(track);
-                }
-            }
-        }
-        numTracks--;
-        track += 0x50;
-        mask <<= 1;
-    }
-
-done:
-    player[0x34 / 4] = SAPPY_MAGIC;
-}
+INCLUDE_ASM("asm/nonmatchings/m4a", MidiCommandEncode2);
 /*
  * MPlayCommandDispatch: music player command dispatcher.
  * Reads a command byte from the track stream and dispatches to the
