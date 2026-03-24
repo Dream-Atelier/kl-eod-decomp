@@ -207,10 +207,14 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MPlayTrackCallback);
 /* ── Voice / Instrument Utilities ── */
 
 /*
- * VoiceUtil: minimal voice utility function.
- *   22 lines, leaf function
+ * VoiceGetParams (SDK: ClearChain): unlink a voice from the active chain.
+ * Compiled with ARM tcc -O1 in the original SDK (Norcroft Thumb C Compiler).
+ * C source is in src/m4a_3.c (TCC -O1 compilation unit).
+ * The build system pre-compiles m4a_3.c into build/m4a_3_funcs.s, which is
+ * included here as assembly so it stays in the same .text section as the
+ * other m4a functions (required due to shared literal pools).
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", VoiceGetParams);
+asm(".include \"build/m4a_3_funcs.s\"");
 /*
  * VoiceLookupAndApply: walk linked list of active voices and apply parameters.
  *
@@ -303,11 +307,15 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MPlayChannelRelease);
  * SoundEffectUtil: sound effect utility / parameter setup.
  *   18 lines, leaf function
  */
-/**
- * SoundEffectParamInit: initializes sound effect channel parameters.
- * Clears volume and pan bytes, sets channel flags based on existing state.
+/*
+ * SoundEffectParamInit (SDK: clear_modM): clear modulation state and set flags.
+ * Compiled with ARM tcc -O0 in the original SDK (Norcroft Thumb C Compiler).
+ * C source is in src/m4a_2.c (TCC compilation unit, compiled with -O0).
+ * The build system pre-compiles m4a_2.c into build/m4a_2_funcs.s, which is
+ * included here as assembly so it stays in the same .text section as the
+ * other m4a functions (required due to shared literal pools).
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", SoundEffectParamInit);
+asm(".include \"build/m4a_2_funcs.s\"");
 /*
  * SoundEffectProcess: process a sound effect playback chain.
  * Handles SFX queuing, priority, and channel assignment.
@@ -556,6 +564,8 @@ void PlaySoundWithContext_DC(u32 soundId) {
 
 /* ── Direct Sound & DMA Configuration ── */
 
+extern void MPlayNoteProcess(void);
+
 /*
  * DirectSoundFifoSetup: configure Direct Sound FIFO and DMA channels.
  * Sets up FIFO_A and FIFO_B for PCM sample streaming, configures
@@ -565,7 +575,70 @@ void PlaySoundWithContext_DC(u32 soundId) {
  *       DMA1/2 SAD/DAD/CNT, REG_SOUNDBIAS (0x04000089),
  *       REG_SOUNDCNT_X (0x04000084)
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", DirectSoundFifoSetup);
+/**
+ * DirectSoundFifoSetup (SDK: SoundInit_rev01): initialize sound system.
+ *
+ * Stops active DMA1/DMA2 if repeating, configures DMA channels for
+ * Direct Sound FIFO A/B, writes master sound control registers,
+ * zeroes the SoundInfo struct via BitUnPack, sets default channel count,
+ * master volume, note handler, dummy callbacks, instrument table, and
+ * sample frequency. Finishes by writing the Sappy magic marker.
+ */
+void DirectSoundFifoSetup(u32 soundInfoAddr) {
+    u32 *soundInfo = (u32 *)soundInfoAddr;
+    u32 scratch;
+    u32 zero = 0;
+    soundInfo[0] = zero;
+
+    if (*(vu32 *)0x040000C4 & 0x02000000)
+        *(vu32 *)0x040000C4 = 0x84400004;
+
+    if (*(vu32 *)0x040000D0 & 0x02000000)
+        *(vu32 *)0x040000D0 = 0x84400004;
+
+    *(vu16 *)0x040000C6 = 0x0400;
+    *(vu16 *)0x040000D2 = 0x0400;
+
+    *(vu16 *)0x04000084 = 0x8F;
+    *(vu16 *)0x04000082 = 0xA90E;
+
+    {
+        vu8 *bias = (vu8 *)0x04000089;
+        u8 val = *bias;
+        val &= 0x3F;
+        val |= 0x40;
+        *bias = val;
+    }
+
+    *(vu32 *)0x040000BC = (u32)soundInfo + 0x350;
+    *(vu32 *)0x040000C0 = 0x040000A0;
+    *(vu32 *)0x040000C8 = (u32)soundInfo + 0x980;
+    *(vu32 *)0x040000CC = 0x040000A4;
+
+    *(u32 **)0x03007FF0 = soundInfo;
+
+    scratch = 0;
+    BitUnPack((u32)&scratch, (u32)soundInfo, 0x050003EC);
+
+    ((u8 *)soundInfo)[6] = 8;
+    ((u8 *)soundInfo)[7] = 15;
+
+    soundInfo[0x38 / 4] = (u32)MPlayNoteProcess;
+    soundInfo[0x28 / 4] = 0x08051435;
+    soundInfo[0x2C / 4] = 0x08051435;
+    soundInfo[0x30 / 4] = 0x08051435;
+    soundInfo[0x3C / 4] = 0x08051435;
+
+    {
+        u32 *jumpTable = (u32 *)0x03006450;
+        InstrumentLookup((u32)jumpTable);
+        soundInfo[0x34 / 4] = (u32)jumpTable;
+    }
+
+    SampleFreqSet(0x40000);
+
+    soundInfo[0] = 0x68736D53;
+}
 /*
  * SampleFreqSet: configure timer for PCM sample rate.
  * Sets TM0/TM1 to generate interrupts at the mixing frequency,

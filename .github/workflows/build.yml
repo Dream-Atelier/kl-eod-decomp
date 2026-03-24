@@ -23,11 +23,11 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install ARM toolchain
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: gcc-arm-none-eabi binutils-arm-none-eabi
-          version: 1.0
+      - name: Install ARM toolchain and 32-bit libs
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-arm-none-eabi binutils-arm-none-eabi libc6:i386
 
       - name: Set up Python
         uses: actions/setup-python@v5

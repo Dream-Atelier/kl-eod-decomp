@@ -23,6 +23,8 @@ SHA1   := $(shell { command -v sha1sum || command -v shasum; } 2>/dev/null) -c
 PREFIX  := arm-none-eabi-
 CC1     := tools/agbcc/bin/agbcc$(EXE)
 CC1_OLD := tools/agbcc/bin/old_agbcc$(EXE)
+TCC     := tools/tcc/run_tcc.sh
+TCC2GAS := python3 tools/tcc/tcc2gas.py
 CPP     := $(PREFIX)cpp
 LD      := $(PREFIX)ld
 OBJCOPY := $(PREFIX)objcopy
@@ -47,7 +49,7 @@ DATA_BUILDDIR := $(OBJ_DIR)/$(DATA_SUBDIR)
 ASM_SRCS := $(wildcard $(ASM_SUBDIR)/*.s)
 ASM_OBJS := $(patsubst $(ASM_SUBDIR)/%.s,$(ASM_BUILDDIR)/%.o,$(ASM_SRCS))
 
-C_SRCS := $(filter-out $(C_SUBDIR)/m4a_1.c,$(wildcard $(C_SUBDIR)/*.c))
+C_SRCS := $(filter-out $(C_SUBDIR)/m4a_1.c $(C_SUBDIR)/m4a_2.c $(C_SUBDIR)/m4a_3.c,$(wildcard $(C_SUBDIR)/*.c))
 C_OBJS := $(patsubst $(C_SUBDIR)/%.c,$(C_BUILDDIR)/%.o,$(C_SRCS))
 
 DATA_SRCS := $(wildcard $(DATA_SUBDIR)/*.s)
@@ -68,6 +70,13 @@ CC1FLAGS := -mthumb-interwork -Wimplicit -Wparentheses -O2 -fhex-asm -fprologue-
 # pools in the ROM assembly). Uses old_agbcc (not agbcc) to match m4a's register
 # allocation behavior.
 TST_CC1FLAGS := -mthumb-interwork -O2 -ftst
+
+# TCC compilation unit: m4a_2.c is pre-compiled with ARM's Norcroft tcc -O0 into
+# build/m4a_2_funcs.s, then included as assembly in m4a.c. The m4a library was
+# originally split between GCC-compiled and tcc-compiled functions. tcc at -O0
+# preserves parameter registers, producing the correct register allocation.
+TCC_FLAGS    := -O0 -apcs /interwork -S
+TCC_O1_FLAGS := -O1 -apcs /interwork -S
 
 DECOMP_TOML := klonoa-eod-decomp.toml
 LDSCRIPT    := ldscript.txt
@@ -123,9 +132,37 @@ $(OBJ_DIR)/m4a_1_funcs.s: $(C_SUBDIR)/m4a_1.c
 	@$(CC1_OLD) $(TST_CC1FLAGS) -o $(OBJ_DIR)/m4a_1_raw.s $(OBJ_DIR)/m4a_1.i
 	@sed '/^@/d;/^\.code/d;/^\.gcc2_compiled/d;/^\.text$$/d;/^\.Lfe/d;/^[[:space:]]*\.size/d;/macros\.inc/d;s/\.L\([0-9]\)/.Lm4a1_\1/g' $(OBJ_DIR)/m4a_1_raw.s > $@
 
+# Pre-compile TCC functions (m4a_2.c → build/m4a_2_funcs.s)
+# Uses ARM's Norcroft tcc at -O0, then converts ARM asm syntax to GAS.
+# If m4a_2.c contains no function definitions, produce an empty output.
+$(OBJ_DIR)/m4a_2_funcs.s: $(C_SUBDIR)/m4a_2.c
+	@$(CPP) -P $(CPPFLAGS) $< -o $(OBJ_DIR)/m4a_2.i
+	@if grep -qE '^(void|u8|u16|u32|s8|s16|s32|int|static) ' $<; then \
+		echo "tcc <flags> -O0 -o $@ $<"; \
+		$(TCC) $(TCC_FLAGS) -o $(OBJ_DIR)/m4a_2_tcc.s $(OBJ_DIR)/m4a_2.i && \
+		$(TCC2GAS) $(OBJ_DIR)/m4a_2_tcc.s $(OBJ_DIR)/m4a_2_converted.s && \
+		sed '/^\.syntax/d;/^\.code/d;/^\.include/d;/macros\.inc/d;s/\.LF/\.Lm2F/g' $(OBJ_DIR)/m4a_2_converted.s > $@; \
+	else \
+		: > $@; \
+	fi
+
+# Pre-compile TCC -O1 functions (m4a_3.c → build/m4a_3_funcs.s)
+# Some m4a SDK functions were compiled at -O1 instead of -O0, which reuses
+# dead parameter registers for temporaries (tighter code, no push/pop).
+$(OBJ_DIR)/m4a_3_funcs.s: $(C_SUBDIR)/m4a_3.c
+	@$(CPP) -P $(CPPFLAGS) $< -o $(OBJ_DIR)/m4a_3.i
+	@if grep -qE '^(void|u8|u16|u32|s8|s16|s32|int|static) ' $<; then \
+		echo "tcc <flags> -O1 -o $@ $<"; \
+		$(TCC) $(TCC_O1_FLAGS) -o $(OBJ_DIR)/m4a_3_tcc.s $(OBJ_DIR)/m4a_3.i && \
+		$(TCC2GAS) $(OBJ_DIR)/m4a_3_tcc.s $(OBJ_DIR)/m4a_3_converted.s && \
+		sed '/^\.syntax/d;/^\.code/d;/^\.include/d;/macros\.inc/d;s/\.LF/\.Lm3F/g' $(OBJ_DIR)/m4a_3_converted.s > $@; \
+	else \
+		: > $@; \
+	fi
+
 # Compile m4a with old_agbcc — Nintendo's MusicPlayer2000 was prebuilt
 # with an older GCC as part of the GBA SDK.
-$(C_BUILDDIR)/m4a.o: $(C_SUBDIR)/m4a.c $(OBJ_DIR)/m4a_1_funcs.s
+$(C_BUILDDIR)/m4a.o: $(C_SUBDIR)/m4a.c $(OBJ_DIR)/m4a_1_funcs.s $(OBJ_DIR)/m4a_2_funcs.s $(OBJ_DIR)/m4a_3_funcs.s
 	@echo "$(CC1_OLD) <m4a flags> -o $@ $<"
 	@$(CPP) $(CPPFLAGS) $< -o $(C_BUILDDIR)/m4a.i
 	@$(CC1_OLD) -mthumb-interwork -O2 -o $(C_BUILDDIR)/m4a.s $(C_BUILDDIR)/m4a.i

@@ -75,6 +75,24 @@ else
     echo "$AGBCC_COMMIT" > "$AGBCC_CACHE_FILE"
 fi
 
+# Check tcc (ARM Norcroft Thumb C Compiler for m4a)
+echo ""
+if [ -f tools/tcc/bin/tcc_linux ]; then
+    echo "tcc: OK (ARM SDT 2.51 Norcroft Thumb C Compiler)"
+else
+    echo "Error: tools/tcc/bin/tcc_linux not found."
+    echo "The ARM Norcroft tcc compiler is required for m4a decompilation."
+    exit 1
+fi
+
+# On Linux x86_64, check for 32-bit library support (tcc is a 32-bit binary)
+if [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
+    if ! ldconfig -p 2>/dev/null | grep -q "libc.so.6.*i386"; then
+        echo "Note: tcc requires 32-bit libraries. Install with:"
+        echo "  sudo dpkg --add-architecture i386 && sudo apt install libc6:i386"
+    fi
+fi
+
 # Set up Python venv for Luvdis
 echo ""
 echo "Setting up Python environment for Luvdis..."
