@@ -89,13 +89,13 @@
         <!-- ===== Current State ===== -->
         <h2>Current State by Module</h2>
         <table class="count-table">
-            <tr><td>system.c</td><td>7 of 12 matched</td><td>(ReadKeyInput, FixedMul8, FreeAllDecompBuffers, ...)</td></tr>
-            <tr><td>math.c</td><td>8 of 9 matched</td><td>(FixedDivShift8, FixedReciprocal, FixedMul4, FixedDivUnit, ...)</td></tr>
+            <tr><td>system.c</td><td>5 of 10 matched</td><td>(ReadKeyInput, FixedMul8, FreeAllDecompBuffers, ...)</td></tr>
+            <tr><td>math.c</td><td>6 of 7 matched</td><td>(FixedDivShift8, FixedReciprocal, FixedMul4, FixedDivUnit, ...)</td></tr>
             <tr><td>engine.c</td><td>5 of 27 matched</td><td>(OAM clears, video state, fade effect, UpdateWindowCircleEffect, ...)</td></tr>
             <tr><td>code_0.c</td><td>1 of 24 matched</td><td>(InitOamEntries)</td></tr>
-            <tr><td>code_1.c</td><td>8 of 109 matched</td><td>(TransitionToWorldMap, TransitionSoftReset, ...)</td></tr>
+            <tr><td>code_1.c</td><td>2 of 103 matched</td><td>(TransitionToWorldMap, TransitionSoftReset, ...)</td></tr>
             <tr><td>code_3.c</td><td>8 of 88 matched</td><td>(IsSelectButtonPressed, GetEntityLookupData, RollRandomLevelVariant, ...)</td></tr>
-            <tr><td>gfx.c</td><td>48 of 124 matched</td><td>(DMA-fill, stream commands, scroll, level defaults, HBlank wait, ...)</td></tr>
+            <tr><td>gfx.c</td><td>41 of 115 matched</td><td>(DMA-fill, stream commands, scroll, level defaults, HBlank wait, ...)</td></tr>
             <tr><td>m4a.c + m4a_1.c</td><td>52 of 113 matched</td><td>(SoundContextRef, SoundInfoInit, VoiceLookupAndApply, ply_*, ...)</td></tr>
             <tr><td>syscalls.c</td><td>5 of 5 matched</td><td>(all BIOS call wrappers)</td></tr>
             <tr><td>util.c</td><td>1 of 11 matched</td><td>(EepromTimerCallback; rest blocked by loop patterns)</td></tr>
@@ -317,7 +317,7 @@ buf[8] = val;     // movs r0, #0xE8; lsls r0, #4; strh r0, [r1, #16]
         <!-- ===== Remaining Blockers ===== -->
         <h2>Remaining Blockers</h2>
         <p>
-            These patterns prevent matching the remaining ~379 functions. Each affects a different
+            These patterns prevent matching the remaining ~378 functions. Each affects a different
             subset of the codebase. Solving any one of them would unlock dozens of new matches.
         </p>
 
@@ -491,13 +491,13 @@ DeadCode:             ; now 2 bytes later!
 
         <!-- ===== Breakdown ===== -->
         <h2>Function Breakdown</h2>
-        <p>Approximate categorization of all 522 functions:</p>
+        <p>Approximate categorization of all 489 functions:</p>
         <table>
             <thead>
                 <tr><th>Category</th><th>Count</th><th>Status</th></tr>
             </thead>
             <tbody>
-                <tr><td>Matched to C</td><td>143</td><td class="tag-solved">Done</td></tr>
+                <tr><td>Matched to C</td><td>111</td><td class="tag-solved">Done</td></tr>
                 <tr><td>Blocked by <code>tst</code> vs <code>ands</code></td><td>~60</td><td class="tag-partial">Partially solved (<code>-ftst -fcmp-elim</code>)</td></tr>
                 <tr><td>Blocked by leaf prologue</td><td>~40</td><td class="tag-partial">Many actually match (see InitOamEntries)</td></tr>
                 <tr><td>Non-word-aligned</td><td>~20</td><td class="tag-blocker">Impossible from C</td></tr>
