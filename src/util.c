@@ -63,9 +63,9 @@ u32 InitEepromTimer(u8 timerIdx, u32 *callbackPtr) {
 void EepromBeginTransfer(u16 *desc) {
     u32 zeroVal = 0;
     register u32 zero asm("r5");
-    u32 imeAddr = 0x04000208;
+    u32 imeAddr = (u32)&REG_IME;
     register vu16 *ime asm("r3");
-    u32 ieAddr = 0x04000200;
+    u32 ieAddr = (u32)&REG_IE;
     register vu16 *ie asm("r4");
 
     {
@@ -78,7 +78,7 @@ void EepromBeginTransfer(u16 *desc) {
 
     asm("" : "=r"(ie) : "0"(ieAddr));
     {
-        u32 tidxAddr = 0x03000378;
+        u32 tidxAddr = (u32)&gEepromTimerIdx;
         register u32 timerIdx asm("r1");
         asm("" : "=r"(timerIdx) : "0"(tidxAddr));
         timerIdx = *(vu8 *)timerIdx;
@@ -93,7 +93,7 @@ void EepromBeginTransfer(u16 *desc) {
 
     *ime = 1;
     gEepromStateFlag = zero;
-    *(u16 *)0x0300037A = desc[0];
+    gEepromTransferSize = desc[0];
 
     desc++;
     {

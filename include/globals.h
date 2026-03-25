@@ -70,6 +70,9 @@
 /* Saved IME state, stored before disabling interrupts for EEPROM I/O. */
 #define gEepromSavedIME       (*(u16 *)0x03000384)
 
+/* EEPROM transfer size (halfword count for the current DMA operation). */
+#define gEepromTransferSize   (*(u16 *)0x0300037A)
+
 /* EEPROM transfer state flag. Cleared at start, set on completion. */
 #define gEepromStateFlag      (*(u8 *)0x0300037C)
 
