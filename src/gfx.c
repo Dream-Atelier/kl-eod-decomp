@@ -683,7 +683,75 @@ u32 ProcessHBlankWait(u32 idx) {
     }
     return 1;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitHBlankWait);
+/**
+ * StreamCmd_InitHBlankWait: initialize an HBlank wait entry from stream data.
+ */
+void StreamCmd_InitHBlankWait(void) {
+    s16 timerVal;
+    u32 spAddr = 0x03004D84;
+    register u8 **streamPP asm("r5");
+    u32 bAddr = 0x030052A4;
+    register u8 **basePP asm("r6");
+
+    asm("" : "=r"(streamPP) : "0"(spAddr));
+    timerVal = ReadUnalignedS16(*streamPP + 3);
+
+    {
+        u8 *sp;
+        u8 idx;
+        u8 *base;
+
+        sp = *streamPP;
+        idx = sp[2];
+        asm("" : "=r"(basePP) : "0"(bAddr));
+        base = *basePP;
+
+        {
+            u32 off = (u32)(idx * 9) * 4;
+            off += (u32)base;
+            *(s16 *)(off + 0x14) = timerVal;
+        }
+
+        idx = sp[2];
+        {
+            u32 off = (u32)(idx * 9) * 4;
+            off += (u32)base;
+            {
+                u8 *entry = (u8 *)off;
+                s16 val = *(s16 *)(entry + 0x14);
+                u32 signBit = ((u32)val >> 31) << 7;
+                entry[3] = (entry[3] & 0x7F) | signBit;
+            }
+        }
+    }
+
+    {
+        u8 *sp = *streamPP;
+        u8 idx = sp[2];
+        u8 *base = *basePP;
+
+        {
+            u32 off = (u32)(idx * 9) * 4;
+            off += (u32)base;
+            *(u32 *)(off + 0x20) = (u32)ProcessHBlankWait;
+        }
+
+        idx = sp[2];
+        {
+            u32 off = (u32)(idx * 9) * 4;
+            off += (u32)base;
+            {
+                u8 *entry = (u8 *)off;
+                u8 flags = entry[0];
+                s32 mask = -8;
+                mask &= flags;
+                entry[0] = mask | 1;
+            }
+        }
+    }
+
+    *streamPP += 5;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitSpriteWave);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitButtonWait);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_StopMotion);
