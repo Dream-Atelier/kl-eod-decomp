@@ -1,90 +1,86 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working with this repository.
 
-## Project Overview
-
-Matching decompilation of **Klonoa: Empire of Dreams** (GBA, USA). The goal is to produce C source that compiles to a byte-for-byte identical ROM using `agbcc` (GCC 2.95 fork for GBA).
-
-## Build Commands
+## Quick Reference
 
 ```bash
-make                # Build ROM and verify SHA1 match (same as `make compare`)
+make                # Build ROM and verify SHA1 match
 make tidy           # Clean build artifacts
-make format         # Auto-format C/H files with clang-format
-make check_format   # Check formatting without modifying (used in CI)
+make format         # Auto-format C/H files (run before committing)
+make compare        # Same as `make` — build + SHA1 verify
 make ctx            # Generate ctx.c for decomp.me/m2c/mizuchi
 ```
 
-Build requires `arm-none-eabi` toolchain, Python 3.13+, and a legally obtained `baserom.gba` placed at the project root. First-time setup: run `./setup.sh` after cloning with `--recurse-submodules`.
+Setup: `./setup.sh` after cloning with `--recurse-submodules`. Requires `arm-none-eabi` toolchain, Python 3.13+, legally obtained `baserom.gba`.
 
-## Toolchain
+## Project Overview
 
-- **Compiler**: `agbcc` (tools/agbcc/) — GCC 2.95 targeting ARM7TDMI, Thumb interwork, `-O2`
-- **Assembler/Linker**: `arm-none-eabi-as` / `arm-none-eabi-ld`
-- **Disassembler**: Luvdis (tools/luvdis/) — generates asm/ from baserom.gba
-
-## Architecture
-
-Each source file in `src/` represents a module defined in `klonoa-eod-decomp.toml` with a start address. Non-decompiled functions use the `INCLUDE_ASM()` macro to inline generated assembly from `asm/nonmatchings/`. The link order in `ldscript.txt` is: rom_header → crt0 → system → math → engine → code_0 → code_1 → code_3 → gfx → m4a → syscalls → util → libgcc → data.
-
-**Modules** (src/): `system.c` (10 funcs), `math.c` (7 funcs), `engine.c` (27 funcs), `code_0.c` (24 funcs), `code_1.c` (103 funcs), `code_3.c` (88 funcs), `gfx.c` (115 funcs), `m4a.c` (99 funcs), `syscalls.c` (5 funcs), `util.c` (11 funcs).
-
-## Decompilation Workflow
-
-1. Pick an `INCLUDE_ASM("asm/nonmatchings/...", FUN_XXXXXXXX)` call in a `src/*.c` file
-2. Replace it with equivalent C code that compiles to matching assembly
-3. Add a rename entry in `klonoa-eod-decomp.toml` under `[renames]`: `FUN_XXXXXXXX = "MeaningfulName"`
-4. Run `make compare` to verify byte-exact match
-5. Rerun `python3 scripts/generate_asm.py` to update assembly labels
-
-## Code Style
-
-- 4-space indentation, 120-char line limit, K&R braces
-- Right-aligned pointers (`u8 *ptr`)
-- Types from `include/global.h`: `u8/u16/u32`, `s8/s16/s32`, volatile variants (`vu8`, etc.)
-- `TRUE`/`FALSE`/`NULL` defined as 1/0/0
-- Include order must never be reordered (affects matching)
-- Format with `make format` before committing
+Matching decompilation of **Klonoa: Empire of Dreams** (GBA, USA). Goal: C source that compiles to a byte-for-byte identical ROM using `agbcc` (GCC 2.95 fork for GBA).
 
 ## Policies
 
-- **Always use the Python venv.** Never install packages globally. Activate before any `python3` or `pip` command:
-  ```bash
-  source .venv/bin/activate
-  ```
-  If `.venv` doesn't exist yet, run `./setup.sh` which creates it and installs dependencies.
+### Code Quality
+- **Every decompiled function must have a semantic name and docstring.** No `FUN_XXXXXXXX` in committed C code. Add rename in `klonoa-eod-decomp.toml` and `/** docstring */` above the function.
+- **Run `make format` before every commit** touching C/H files. CI enforces `make check_format`.
+- **One commit per matched function.** Descriptive message explaining the matching technique.
+- **All policies must be public.** Add to this CLAUDE.md, not just memory.
 
-- **Run `make format` before every commit** that touches C or header files. CI enforces `make check_format`.
+### Workflow
+- **Always use the Python venv.** `source .venv/bin/activate` before `python3`/`pip`.
+- **Check GitHub issues before decompiling.** Reference issues in commits/PRs. Post findings on success or failure.
+- **Issue closing comments must reference the fix commit** (e.g., "Fixed in abc1234").
+- **PRs use feature branches** from `main`. Delete after merge. Never push directly to `main`.
+- **PR titles must stay accurate** when updated with new commits.
 
-- **One commit per matched function.** Each successfully decompiled function gets its own commit with a descriptive message explaining the matching technique used.
+### Documentation
+- **Update the website** (gh-pages) when learning about architecture/subsystems.
+- **Always push gh-pages immediately** after every commit so changes go live.
+- **"decomp more"** = expand from known functions, name symbols, write docstrings.
+- **"more symbols"** = name ALL addressable things (functions, globals, data tables, struct fields, constants).
 
-- **Every decompiled function must have a semantic name and docstring.** No `FUN_XXXXXXXX` names in committed C code. Add a rename in `klonoa-eod-decomp.toml` and a `/** docstring */` above the function.
+### Environment
+- **Keep the terminal title updated.** `printf '\033]0;DESCRIPTION\007'`
+- **Drop caches regularly.** `sudo /usr/local/sbin/drop-caches` during long sessions (virtiofs).
 
-- **Check GitHub issues before decompiling.** Reference issues in commits/PRs. Post findings (techniques, blockers) on relevant issues when a match succeeds or fails.
+## Decompilation Workflow
 
-- **Issue closing comments must reference the fix commit.** When closing an issue because its function was decompiled or bug was fixed, the comment must cite the specific commit that introduced the fix (e.g., "Fixed in abc1234").
+1. Pick an `INCLUDE_ASM("asm/nonmatchings/...", FUN_XXXXXXXX)` in `src/*.c`
+2. Replace with equivalent C that compiles to matching assembly
+3. Add rename in `klonoa-eod-decomp.toml`: `FUN_XXXXXXXX = "MeaningfulName"`
+4. `make compare` → verify `klonoa-eod.gba: OK`
+5. `python3 scripts/generate_asm.py` → update assembly labels
 
-- **PRs use feature branches.** Create a branch from `main`, push, open PR against upstream. Never push work directly to `main`. Delete branches after merge.
+## Code Style
 
-- **PR titles must stay accurate.** When updating a PR with new commits, review and edit the title so it still accurately describes the full contents.
+- 4-space indent, 120-char line limit, K&R braces
+- Right-aligned pointers (`u8 *ptr`)
+- Types: `u8/u16/u32`, `s8/s16/s32`, `vu8` etc. from `include/global.h`
+- `TRUE`/`FALSE`/`NULL` = 1/0/0
+- Include order must never be reordered (affects matching)
 
-- **Update the website when learning about architecture.** When decompilation reveals how a subsystem works, update the gh-pages documentation (graphics-engine.html, game-engine.html, sound.html, matching.html, etc.).
+## Architecture
 
-- **Always push gh-pages immediately.** Every commit to the gh-pages branch must be pushed right away (`git push origin gh-pages`) so the website goes live without delay.
+Modules in `src/` defined in `klonoa-eod-decomp.toml`. Link order: rom_header → crt0 → system → math → engine → code_0 → code_1 → code_3 → gfx → m4a → syscalls → util → libgcc → data.
 
-- **"decomp more" means:** look for related functions near already-matched ones, assign semantic symbols, write docstrings, try matching with known techniques.
+### Toolchain
+- **agbcc** (tools/agbcc/) — GCC 2.95 for ARM7TDMI Thumb, `-O2`
+- **old_agbcc** — older compiler variant, used for m4a module
+- **arm-none-eabi-as/ld** — assembler and linker
+- **Luvdis** (tools/luvdis/) — disassembler
 
-- **"more symbols" means:** name ALL addressable things — functions, sub-function entry points, IWRAM globals, ROM data tables, struct fields, constants.
+### Split Compilation Units
+Some m4a functions need different compiler flags. They're compiled separately and `.include`'d into m4a.c:
+- **m4a_1.c** — compiled with `old_agbcc -ftst` (TST instruction optimization)
+- **m4a_tst_*.c** — per-function `-ftst` units (e.g., SoundContextRef)
+- **m4a_nopush_*.c** — per-function `-fprologue-bugfix` units (leaf functions without push lr)
 
-- **Keep the terminal title updated.** Use `printf '\033]0;DESCRIPTION\007'` to show the current task in the gnome-terminal title bar.
+## Key Files
 
-- **All policies must be public.** Every strict policy must be added to this CLAUDE.md file so that all collaborators can see and follow them. Never store policies only in Claude's memory.
-
-## Key Configuration Files
-
-- **klonoa-eod-decomp.toml**: Module start addresses and function renames
-- **functions_merged.cfg**: Function boundary addresses for Luvdis disassembly
-- **ldscript.txt**: Linker script defining ROM memory layout at 0x8000000
-- **mizuchi.yaml**: Config for Mizuchi AI-assisted decompilation tool
-- **config.mk**: ROM metadata (title: KLONOA, game code: AKLE, maker: AF)
+- **klonoa-eod-decomp.toml** — module addresses + function renames
+- **functions_merged.cfg** — function boundaries for Luvdis
+- **ldscript.txt** — linker script (ROM at 0x08000000)
+- **mizuchi.yaml** — Mizuchi AI decompilation config
+- **config.mk** — ROM metadata (KLONOA, AKLE, AF)
+- **scripts/generate_asm.py** — generates asm/ from baserom.gba
+- **scripts/update_stats.py** — auto-updates website stats
