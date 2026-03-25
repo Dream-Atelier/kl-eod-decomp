@@ -13,11 +13,11 @@ INCLUDE_ASM("asm/nonmatchings/util", SoftReset);
 u32 SelectTimerTableByMode(u16 mode) {
     u32 result = 0;
     if (mode == 4) {
-        *(u32 *)0x030066F0 = 0x08188DE4;
+        *(u32 *)&gEepromConfigTable = ROM_EEPROM_CONFIG_STD;
     } else if (mode == 0x40) {
-        *(u32 *)0x030066F0 = 0x08188DF0;
+        *(u32 *)&gEepromConfigTable = ROM_EEPROM_CONFIG_ALT;
     } else {
-        *(u32 *)0x030066F0 = 0x08188DE4;
+        *(u32 *)&gEepromConfigTable = ROM_EEPROM_CONFIG_STD;
         result = 1;
     }
     return result;
@@ -101,7 +101,7 @@ INCLUDE_ASM("asm/nonmatchings/util", EepromWriteSector);
 u16 EepromVerifySector(u16 sector, u16 *expected) {
     u16 buf[4];
     u16 result = 0;
-    u16 *table = *(u16 **)0x030066F0;
+    u16 *table = gEepromConfigTable;
 
     if (sector >= table[2])
         return 0x80FF;
