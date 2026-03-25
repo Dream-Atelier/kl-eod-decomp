@@ -81,10 +81,9 @@
 #define ROM_EEPROM_CONFIG_STD 0x08188DE4
 #define ROM_EEPROM_CONFIG_ALT 0x08188DF0
 
-/* GBA hardware register addresses. */
-#define REG_TM0CNT            0x04000100
-#define REG_IE                (*(vu16 *)0x04000200)
-#define REG_IME               (*(vu16 *)0x04000208)
+/* GBA hardware register base address for timer index computation.
+ * REG_IE, REG_IME, and individual timer regs are defined in gba.h. */
+#define REG_TM0CNT_BASE       0x04000100
 
 /* ── Input System ── */
 
@@ -104,7 +103,7 @@
 /* ── Game State ── */
 
 /* Pause flag: when non-zero, GameUpdate skips the main update loop. */
-#define gPauseFlag            (*(u8 *)0x030034E4)
+#define gPauseFlag            (*(vu8 *)0x030034E4)
 
 /* Frame/tick counter — decremented each frame, byte-sized. */
 #define gFrameCounter         (*(u8 *)0x03005498)

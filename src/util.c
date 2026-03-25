@@ -1,4 +1,5 @@
 #include "global.h"
+#include "gba.h"
 #include "globals.h"
 #include "include_asm.h"
 
@@ -49,7 +50,7 @@ u32 InitEepromTimer(u8 timerIdx, u32 *callbackPtr) {
         return 1;
 
     gEepromTimerIdx = timerIdx;
-    gEepromTimerRegPtr = REG_TM0CNT + gEepromTimerIdx * 4;
+    gEepromTimerRegPtr = REG_TM0CNT_BASE + gEepromTimerIdx * 4;
     *callbackPtr = (u32)EepromTimerCallback;
     return 0;
 }

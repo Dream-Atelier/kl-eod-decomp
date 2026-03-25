@@ -1,4 +1,5 @@
 #include "global.h"
+#include "gba.h"
 #include "globals.h"
 #include "include_asm.h"
 
@@ -68,17 +69,17 @@ void TransitionToWorldMap(void) {
     u32 *callbackState;
     u32 slotIdx;
 
-    *(vu8 *)0x030034E4 = 1;
+    gPauseFlag = 1;
 
     sceneCtrl = (u32 *)0x03004C20;
     isActive = sceneCtrl[1] & 1;
     if (isActive != 0)
         return;
 
-    *(vu16 *)0x04000050 = 0xFF;
+    REG_BLDCNT = 0xFF;
 
-    *(u8 *)0x03005498 += 1;
-    if (*(u8 *)0x03005498 != 16)
+    gFrameCounter += 1;
+    if (gFrameCounter != 16)
         return;
 
     InitOamEntries();
@@ -113,21 +114,21 @@ INCLUDE_ASM("asm/nonmatchings/code_1", TransitionToGameplayScreen);
 void TransitionSoftReset(void) {
     u32 *sceneCtrl;
 
-    *(vu8 *)0x030034E4 = 1;
+    gPauseFlag = 1;
 
     sceneCtrl = (u32 *)0x03004C20;
     if (sceneCtrl[1] & 1)
         return;
 
-    *(vu16 *)0x04000050 = 0xBF;
+    REG_BLDCNT = 0xBF;
 
-    *(u8 *)0x03005498 += 1;
-    if (*(u8 *)0x03005498 == 16) {
+    gFrameCounter += 1;
+    if (gFrameCounter == 16) {
         SoftReset(0xFF);
         return;
     }
 
-    *(u8 *)0x030007D8 += 1;
+    gBldyFadeLevel += 1;
 }
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionSelfRemoveFadeIn);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionToSaveScreen);

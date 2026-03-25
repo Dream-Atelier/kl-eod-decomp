@@ -77,7 +77,7 @@ INCLUDE_ASM("asm/nonmatchings/code_3", SetupEntitySpawnTable);
  * difficulty parity and a random modulo, and stores it to the level state.
  */
 void RollRandomLevelVariant(void) {
-    u8 *state = (u8 *)0x03005400;
+    u8 *state = gGameFlags;
     u8 difficulty = state[0x0C];
     register u32 d asm("r4") = (u8)(difficulty - 1);
     u32 rng;

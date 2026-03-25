@@ -533,7 +533,7 @@ void StreamCmd_EnableMosaic(void) {
     bg2cnt++;
     *bg2cnt |= 0x40;
 
-    *(u8 *)0x030007D8 = gStreamPtr[2] & 0x0F;
+    gBldyFadeLevel = gStreamPtr[2] & 0x0F;
     gStreamPtr += 3;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetSpriteAttrs);
