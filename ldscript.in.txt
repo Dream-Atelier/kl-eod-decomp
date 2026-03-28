@@ -10,6 +10,7 @@ gSoundCmdTable = 0x08117C8C;
 gGameFlagsPtr = 0x03005400;
 gVBlankCallbackArray = 0x030047C0;
 gCallbackStateArray = 0x03003510;
+gEntityArray = 0x03002920;
 gOamBuffer0 = 0x03002920;
 gOamBuffer1 = 0x0300293C;
 gOamBuffer6 = 0x03002A8C;

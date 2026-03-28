@@ -169,7 +169,7 @@ struct GfxStreamEntry {
 
 /* Base of the main entity/sprite struct array (~36 bytes per element).
  * Most-referenced address in the entire codebase (1634 refs). */
-#define gEntityArray          ((u8 *)0x03002920)
+extern u8 gEntityArray[];
 
 /* OAM shadow buffer entry pointers (used by ClearVideoState and friends).
  * Linker symbols for specific offsets into gEntityArray. */

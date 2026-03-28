@@ -34,7 +34,103 @@ INCLUDE_ASM("asm/nonmatchings/code_1", EntityPositionFromLevelTable);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityGravityAndFloorCheck);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityThrowUpdate);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityPlatformRide);
-INCLUDE_ASM("asm/nonmatchings/code_1", EntityDeathAnimation);
+/**
+ * Entity struct used by EntityDeathAnimation. 28-byte entries in
+ * gEntityArray (0x03002920). Index pattern: (slot * 7) * 4 = slot * 28.
+ */
+typedef struct EntityDeathStruct {
+    u16 x; /* +0x00: screen-space X */
+    u16 y; /* +0x02: screen-space Y */
+    u8 unk04;
+    u8 unk05;
+    u8 unk06;
+    u8 unk07;
+    u8 phase; /* +0x08: death phase counter (decrements each cycle) */
+    u8 timer; /* +0x09: frame countdown (resets to 25 on underflow) */
+    u8 slotIdx; /* +0x0A */
+    u8 unk0B;
+    u8 unk0C;
+    u8 unk0D;
+    u8 unk0E;
+    u8 typeId; /* +0x0F: entity type (0x1C = inactive) */
+    u8 subState; /* +0x10 */
+    u8 behaviorId; /* +0x11 */
+    u8 direction; /* +0x12 */
+    u8 unk13[9];
+} EntityDeathStruct;
+
+extern void SpawnEntityAtPosition(u16 x, u16 y, u8 type, u8 slot);
+extern u8 FUN_08051a0c(u8 a, u8 b);
+extern u8 FUN_08051a84(u8 a, u8 b);
+extern void m4aSongNumStart(u16 n);
+extern void LoadSpriteFrame(u8 frame, u8 tilesetIdx);
+
+/**
+ * EntityDeathAnimation: multi-frame death/destruction animation.
+ *
+ * Each frame, decrements a timer. When the timer underflows (wraps to 0xFF),
+ * resets it to 25 frames and advances the death phase:
+ *   phase > 5: spawns a visual effect entity (type = phase + 0x0C)
+ *   phase > 0: plays SFX 0x56, updates sprite frames for the dying
+ *              and paired entities via FUN_08051a0c / FUN_08051a84
+ *   phase == 0: spawns a final entity (type 0x02) at the parent position
+ *
+ * Every frame (regardless of phase), copies position from the parent entity
+ * (slot - offset) with a 32-pixel upward Y shift. If phase > 9, also
+ * positions a paired entity (slot + offset) with a 3-pixel X offset.
+ *
+ * Uses gEntityDeathState[0] as the slot offset between linked entity pairs.
+ */
+void EntityDeathAnimation(u8 slot) {
+    u8 phase;
+    register int mask asm("r4");
+    u8 pairedSlot;
+    int val;
+    EntityDeathStruct *entities = (EntityDeathStruct *)gEntityArray;
+    EntityDeathStruct *entity;
+    register int ents asm("r3") = (int)gEntityArray;
+    EntityDeathStruct *ent;
+    int tmp;
+
+    entity = &entities[slot];
+    entity->timer = entity->timer - 1;
+    mask = 0xFF;
+    if ((u8)entity->timer == 0xFF) {
+        entity->timer = 25;
+        phase = entity->phase;
+        if (phase <= 5) {
+            SpawnEntityAtPosition(entities[slot - *gEntityDeathState].x, entities[slot - *gEntityDeathState].y, (u8)(phase + 0x0C), 0);
+        }
+        val = entity->phase - 1;
+        entity->phase = val;
+        if ((val & mask) == 0) {
+            SpawnEntityAtPosition(entities[slot - *gEntityDeathState].x, entities[slot - *gEntityDeathState].y, 2,
+                                  (u8)(slot - *gEntityDeathState));
+        } else {
+            m4aSongNumStart(0x56);
+            if (entity->phase > 9) {
+                entities[slot + *gEntityDeathState].typeId = 0;
+                pairedSlot = (u8)(slot + *gEntityDeathState);
+                LoadSpriteFrame(pairedSlot, FUN_08051a0c(entity->phase, 0x0A));
+            }
+            LoadSpriteFrame(slot, FUN_08051a84(entity->phase, 0x0A));
+            if (entity->phase == 9) {
+                entities[slot + *gEntityDeathState].typeId = 0x1C; /* inactive */
+                entities[slot + *gEntityDeathState].subState = 0;
+            }
+        }
+    }
+    ents = (int)gEntityArray;
+    tmp = slot * sizeof(EntityDeathStruct);
+    ent = (EntityDeathStruct *)(tmp + ents);
+    ent->x = ((EntityDeathStruct *)ents)[slot - *gEntityDeathState].x;
+    ent->y = ((EntityDeathStruct *)ents)[slot - *gEntityDeathState].y - 0x20;
+    if (ent->phase > 9) {
+        ((EntityDeathStruct *)ents)[slot + *gEntityDeathState].x = ((EntityDeathStruct *)ents)[slot - *gEntityDeathState].x - 3;
+        ((EntityDeathStruct *)ents)[slot + *gEntityDeathState].y = ((EntityDeathStruct *)ents)[slot - *gEntityDeathState].y - 0x20;
+        ent->x = ent->x + 3;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityBounceOffWall);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityFloatPath);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityPickupCollect);
