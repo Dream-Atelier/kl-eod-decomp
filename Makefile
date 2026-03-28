@@ -131,7 +131,7 @@ NOPUSH_ASM  := $(patsubst $(C_SUBDIR)/m4a_nopush_%.c,$(OBJ_DIR)/m4a_nopush_%.s,$
 $(OBJ_DIR)/m4a_nopush_%.s: $(C_SUBDIR)/m4a_nopush_%.c
 	@echo "$(CC1_OLD) <nopush flags> -o $@ $<"
 	@$(CPP) $(CPPFLAGS) $< -o $(OBJ_DIR)/m4a_nopush_$*.i
-	@$(CC1_OLD) -mthumb-interwork -O2 -fprologue-bugfix -o $(OBJ_DIR)/m4a_nopush_$*_raw.s $(OBJ_DIR)/m4a_nopush_$*.i
+	@$(CC1_OLD) -mthumb-interwork -O2 -o $(OBJ_DIR)/m4a_nopush_$*_raw.s $(OBJ_DIR)/m4a_nopush_$*.i
 	@sed '/^@/d;/^\.code/d;/^\.gcc2_compiled/d;/^\.text$$/d;/^\.Lfe/d;/^[[:space:]]*\.size/d;/macros\.inc/d;s/\.L\([0-9]\)/.Lnp$*_\1/g' $(OBJ_DIR)/m4a_nopush_$*_raw.s > $@
 
 # Pre-compile per-function TST units (functions needing -ftst individually)

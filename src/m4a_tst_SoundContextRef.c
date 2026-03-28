@@ -13,8 +13,11 @@ void SoundChannelRelease(void);
 void SoundContextRef(u32 unused, u8 *track) {
     u8 *chan;
     u8 zero;
-    register u8 st asm("r1") = track[0];
-    register u32 m asm("r0") = 0x80;
+    register u8 st asm("r1");
+    register u32 m asm("r0");
+    st = track[0];
+    asm("" : "=r"(st) : "0"(st));
+    m = 0x80;
     st &= m;
     if (!st)
         goto end;
@@ -24,8 +27,11 @@ void SoundContextRef(u32 unused, u8 *track) {
     zero = 0;
     do {
         if (chan[0]) {
-            register u32 type asm("r0") = chan[1];
-            register u32 mask asm("r3") = 7;
+            register u32 type asm("r0");
+            register u32 mask asm("r3");
+            type = chan[1];
+            asm("" : "=r"(type) : "0"(type));
+            mask = 7;
             type &= mask;
             if (type) {
                 u32 addr = 0x03007FF0;

@@ -1802,6 +1802,21 @@ def _apply_renames():
                 with open(cpath, "w") as f:
                     f.write(content.replace(old_name, new_name))
 
+    # Update references in standalone asm files (libgcc.s, rom_header.s, etc.)
+    asm_root = os.path.join(ROOT, "asm")
+    for fname in os.listdir(asm_root):
+        if not fname.endswith(".s"):
+            continue
+        fpath = os.path.join(asm_root, fname)
+        with open(fpath) as f:
+            content = f.read()
+        updated = content
+        for old_name, new_name in RENAMES.items():
+            updated = updated.replace(old_name, new_name)
+        if updated != content:
+            with open(fpath, "w") as f:
+                f.write(updated)
+
     if RENAMES:
         print(f"  Applied {len(RENAMES)} function renames")
 
