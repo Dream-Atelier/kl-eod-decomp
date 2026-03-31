@@ -626,12 +626,18 @@ extern const u32 gSoundCmdTable[];
  * Used by GetEntityLookupData to read behavior parameters.
  * Offset +5: param A, offset +6: param B. */
 extern const u8 gEntityDataTable[];
-#define ROM_ENTITY_DATA_TABLE   0x081168E8
+#define ROM_ENTITY_DATA_TABLE 0x081168E8
 
 /* Entity animation/behavior data table (172 refs, most-referenced unnamed ROM address).
  * Halfword-indexed: value >> 2 + 0xC0 or byte + 0x40, scaled ×2.
  * Used by EntityBoss*, FUN_080158ac, FUN_0801af28, and many entity behavior functions. */
-#define ROM_ENTITY_ANIM_TABLE   0x080D8E14
+extern const s16 gEntityAnimTable[];
+#define ROM_ENTITY_ANIM_TABLE 0x080D8E14
+
+/* Item drop velocity parameter table (2 bytes per entry, indexed by item type).
+ * Provides horizontal velocity [+0x00] and vertical amplitude [+0x01].
+ * State 3 reads at base offset, state 4 at base+0x0A. */
+extern const u8 gItemDropParamTable[];
 
 /* Entity sprite attribute table (129 refs).
  * Used by PlayerFollowEntityMovement and entity rendering.
