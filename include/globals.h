@@ -637,7 +637,11 @@ extern const s16 gEntityAnimTable[];
 /* Item drop velocity parameter table (2 bytes per entry, indexed by item type).
  * Provides horizontal velocity [+0x00] and vertical amplitude [+0x01].
  * State 3 reads at base offset, state 4 at base+0x0A. */
-extern const u8 gItemDropParamTable[];
+struct ItemDropParamTable {
+    u8 unk_0[5][2];
+    u8 unk_A[5][2];
+};
+extern const struct ItemDropParamTable gItemDropParamTable;
 
 /* Entity sprite attribute table (129 refs).
  * Used by PlayerFollowEntityMovement and entity rendering.

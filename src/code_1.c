@@ -140,194 +140,91 @@ INCLUDE_ASM("asm/nonmatchings/code_1", EntityHitReaction);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntitySpriteFlipAndLoad);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityPositionFromROMTable);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityScrollBoundsCheck);
-/**
- * EntityItemDrop: item drop behavior when an entity is defeated.
- *
- * State machine driven by entity[0x0F]:
- *   3 / 4: initialization — positions relative to player, loads velocity from ROM table
- *   0:     arc animation  — sine-based Y trajectory, X velocity, phase timer
- *   0x1C:  inactive / collected
- *
- * arg0 encodes slot index (low byte) and item type (arg0 + 0xE4, wrapped).
- * Entity array at 0x03002920, 28 bytes per entry (slot*7*4).
- */
+struct EntityBase {
+    u16 unk_0;
+    u16 unk_2;
+    u8 pad_4[0x8 - 0x4];
+    s8 unk_8;
+    s8 unk_9;
+    u8 pad_A[0xC - 0xA];
+    u8 unk_C_0 : 2;
+    u8 pad_D[0xF - 0xD];
+    u8 unk_F;
+    u8 unk_10;
+    u8 pad_11[0x14 - 0x11];
+    u16 unk_14;
+    u8 unk_16;
+    u8 pad_17[0x1C - 0x17];
+}; /* size = 0x1C */
+
+struct Entity {
+    struct EntityBase base[1]; // TODO: size
+    u8 pad_C[0x1F8 - 0x1C];
+    u16 unk_1F8;
+    u16 unk_1FA;
+    u8 pad_1FA[0x204 - 0x1FC];
+    u32 unk_204_0 : 2;
+    u32 unk_204_2 : 2;
+};
+
+extern struct Entity gEntity;
+
 void EntityItemDrop(u8 arg0) {
-    u32 shifted = (u32)arg0 << 24;
-    register u32 slot asm("r4") = shifted >> 24;
-    register u8 itemType asm("r5") = (shifted + ((u32)0xE4 << 24)) >> 24;
-    u8 *base;
-    register u8 *entity asm("r3");
-    register u32 shl3 asm("r2");
-    register u32 offs asm("r1");
-    u8 state;
-    register u8 *arrayBase asm("r12");
+    u8 itemType = arg0 + 0xE4;
 
-    asm("" : "=r"(slot) : "0"(slot));
-
-    /* Early despawn if global flag is set */
     if (gGameFlagsPtr[0x0A] == 1) {
-        u8 *b;
-        u8 *e;
-        u8 zero;
-
-        b = gEntityArray;
-        e = b + ((slot << 3) - slot) * 4;
-        zero = 0;
-        e[0x0F] = 0x1C;
-        e[0x10] = zero;
+        gEntity.base[arg0].unk_F = 0x1C;
+        gEntity.base[arg0].unk_10 = 0;
         return;
     }
 
-    base = gEntityArray;
-    shl3 = slot << 3;
-    offs = (shl3 - slot) << 2;
-    entity = (u8 *)(offs + (u32)base);
-    state = entity[0x0F];
-    arrayBase = base;
-
-    switch (state) {
-        /* State 3: fast item drop initialization (step = 4) */
+    switch (gEntity.base[arg0].unk_F) {
         case 3: {
-            u8 one;
-            u8 zero;
-            register u8 *ent asm("r1");
-            u32 dir;
-            register u32 yp asm("r0");
-            register u8 *tbl asm("r2");
-            register u32 idx asm("r3");
+            gEntity.base[arg0].unk_F = 0;
+            gEntity.base[arg0].unk_14 = 0;
+            gEntity.base[arg0].unk_10 = 1;
+            gEntity.base[arg0].unk_C_0 = 0;
 
-            zero = 0;
-            entity[0x0F] = zero;
-            *(u16 *)(entity + 0x14) = zero;
-            one = 1;
-            entity[0x10] = one;
-            entity[0x0C] = (one - 5) & entity[0x0C];
-
-            /* Position relative to player direction */
-            dir = *(u8 *)(arrayBase + 0x204);
-            dir = (dir << 0x1C) >> 0x1E;
-            if (dir == 0) {
-                u16 xp = *(u16 *)(arrayBase + 0x1F8);
-                xp += 0x10;
-                *(u16 *)(entity) = xp;
+            if (gEntity.unk_204_2 == 0) {
+                gEntity.base[arg0].unk_0 = gEntity.unk_1F8 + 0x10;
             } else {
-                u16 xp = *(u16 *)(arrayBase + 0x1F8);
-                xp -= 0x10;
-                *(u16 *)(entity) = xp;
+                gEntity.base[arg0].unk_0 = gEntity.unk_1F8 - 0x10;
             }
 
-            /* Copy player Y position */
-            ent = arrayBase + (shl3 - slot) * 4;
-            yp = 0xFD;
-            yp <<= 1;
-            yp += (u32)arrayBase;
-            *(u16 *)(ent + 0x02) = *(u16 *)yp;
-
-            /* Load velocity parameters from ROM table (offset +0) */
-            tbl = (u8 *)gItemDropParamTable;
-            idx = (u32)itemType << 1;
-            ent[0x08] = *((u8 *)(idx + (u32)tbl));
-            tbl++;
-            idx = idx + (u32)tbl;
-            ent[0x09] = *(u8 *)idx;
-            ent[0x16] = 4;
+            gEntity.base[arg0].unk_2 = gEntity.unk_1FA;
+            gEntity.base[arg0].unk_8 = gItemDropParamTable.unk_0[itemType][0];
+            gEntity.base[arg0].unk_9 = gItemDropParamTable.unk_0[itemType][1];
+            gEntity.base[arg0].unk_16 = 4;
             break;
         }
 
-        /* State 4: slow item drop initialization (step = 2) */
         case 4: {
-            u8 one;
-            u8 zero;
-            register u8 *ent asm("r1");
-            u32 dir;
-            register u32 yp asm("r0");
-            register u8 *tbl asm("r2");
-            register u32 idx asm("r3");
-            u8 *tblA;
+            gEntity.base[arg0].unk_F = 0;
+            gEntity.base[arg0].unk_14 = 0;
+            gEntity.base[arg0].unk_10 = 1;
+            gEntity.base[arg0].unk_C_0 = 0;
 
-            zero = 0;
-            entity[0x0F] = zero;
-            *(u16 *)(entity + 0x14) = zero;
-            one = 1;
-            entity[0x10] = one;
-            entity[0x0C] = (one - 5) & entity[0x0C];
-
-            /* Position relative to player direction */
-            dir = *(u8 *)(arrayBase + 0x204);
-            dir = (dir << 0x1C) >> 0x1E;
-            if (dir == 0) {
-                u16 xp = *(u16 *)(arrayBase + 0x1F8);
-                xp += 0x10;
-                *(u16 *)(entity) = xp;
+            if (gEntity.unk_204_2 == 0) {
+                gEntity.base[arg0].unk_0 = gEntity.unk_1F8 + 0x10;
             } else {
-                u16 xp = *(u16 *)(arrayBase + 0x1F8);
-                xp -= 0x10;
-                *(u16 *)(entity) = xp;
+                gEntity.base[arg0].unk_0 = gEntity.unk_1F8 - 0x10;
             }
 
-            /* Copy player Y position */
-            ent = arrayBase + (shl3 - slot) * 4;
-            yp = 0xFD;
-            yp <<= 1;
-            yp += (u32)arrayBase;
-            *(u16 *)(ent + 0x02) = *(u16 *)yp;
-
-            /* Load velocity parameters from ROM table (offset +0x0A) */
-            tbl = (u8 *)gItemDropParamTable;
-            idx = (u32)itemType << 1;
-            tblA = (u8 *)((u32)tbl + 0x0A);
-            ent[0x08] = *((u8 *)(idx + (u32)tblA));
-            tbl += 0x0B;
-            idx = idx + (u32)tbl;
-            ent[0x09] = *(u8 *)idx;
-            ent[0x16] = 2;
+            gEntity.base[arg0].unk_2 = gEntity.unk_1FA;
+            gEntity.base[arg0].unk_8 = gItemDropParamTable.unk_A[itemType][0];
+            gEntity.base[arg0].unk_9 = gItemDropParamTable.unk_A[itemType][1];
+            gEntity.base[arg0].unk_16 = 2;
             break;
         }
 
-        /* State 0: arc animation — sine-based vertical movement */
         case 0: {
-            register s32 amplitude asm("r2") = 0x09;
-            register s16 *sineTable asm("r1");
-            s32 sineVal;
-            s32 yOffset;
-            register s32 amp asm("r1");
-            register u32 baseY asm("r2");
-            register u32 result asm("r0");
-            s8 xVel;
-            u16 xPos;
-            u8 step;
-            u16 phase;
-            u32 nextPhase;
+            gEntity.base[arg0].unk_2 = 0x10C - ((gEntity.base[arg0].unk_9 * gEntityAnimTable[gEntity.base[arg0].unk_14]) >> 8);
+            gEntity.base[arg0].unk_0 += gEntity.base[arg0].unk_8;
 
-            amplitude = ((s8 *)entity)[amplitude];
-            sineTable = gEntityAnimTable;
-
-            /* Load sine value for current phase */
-            sineVal = sineTable[*(u16 *)(entity + 0x14)];
-
-            /* Compute Y = 0x10C - (amplitude * sine) >> 8 */
-            asm("" : "=r"(amp) : "0"((s32)amplitude));
-            yOffset = (amp * sineVal) >> 8;
-            baseY = 0x86;
-            baseY <<= 1;
-            asm("" : "=r"(result) : "0"(baseY));
-            *(u16 *)(entity + 0x02) = (u16)(result - yOffset);
-
-            /* Update X position by horizontal velocity */
-            xVel = ((s8 *)entity)[0x08];
-            xPos = *(u16 *)(entity);
-            *(u16 *)(entity) = (u16)(xVel + xPos);
-
-            /* Advance arc phase timer; transition to 0x1C when done */
-            step = entity[0x16];
-            phase = *(u16 *)(entity + 0x14);
-            nextPhase = (u32)phase + step;
-            *(u16 *)(entity + 0x14) = nextPhase;
-            if ((u16)nextPhase == 0x88) {
-                u8 z;
-                entity[0x0F] = 0x1C;
-                asm("" : "=r"(z) : "0"(0));
-                entity[0x10] = z;
+            gEntity.base[arg0].unk_14 += gEntity.base[arg0].unk_16;
+            if (gEntity.base[arg0].unk_14 == 0x88) {
+                gEntity.base[arg0].unk_F = 0x1C;
+                gEntity.base[arg0].unk_10 = 0;
             }
             break;
         }
