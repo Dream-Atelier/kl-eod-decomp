@@ -6,3 +6,6 @@
 [submodule "tools/luvdis"]
 	path = tools/luvdis
 	url = https://github.com/aarant/luvdis.git
+[submodule "tools/transmuter"]
+	path = tools/transmuter
+	url = git@github.com:macabeus/transmuter.git

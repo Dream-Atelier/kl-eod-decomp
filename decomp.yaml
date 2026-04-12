@@ -1,0 +1,25 @@
+platform: gba
+
+tools:
+  transmuter:
+    # Shell command template for compiling a candidate source.
+    # Use the placeholders `{{inputPath}}`, `{{outputPath}}`, and `{{functionName}}` as needed.
+    compiler: |
+      ASM_DIR="$(dirname "{{outputPath}}")"
+      BASENAME="$(basename "{{outputPath}}" .o)"
+      PRE_FILE="$ASM_DIR/$BASENAME.i"
+      ASM_FILE="$ASM_DIR/$BASENAME.s"
+
+      arm-none-eabi-cpp \
+        -nostdinc -I tools/agbcc/include -iquote include \
+        "{{inputPath}}" -o "$PRE_FILE"
+
+      ./tools/agbcc/bin/agbcc \
+        "$PRE_FILE" -o "$ASM_FILE" \
+        -mthumb-interwork -Wimplicit -Wparentheses -Werror \
+        -O2 -fhex-asm -fprologue-bugfix -fno-fold-addr
+
+      printf ".text\n\t.align\t2, 0\n" >> "$ASM_FILE"
+
+      arm-none-eabi-as -mcpu=arm7tdmi -mthumb-interwork \
+        "$ASM_FILE" -o "{{outputPath}}"
