@@ -73,7 +73,7 @@ DECOMP_TOML := klonoa-eod-decomp.toml
 LDSCRIPT    := ldscript.txt
 LDSCRIPT_IN := ldscript.in.txt
 
-LIBS := tools/agbcc/lib/libgcc.a tools/agbcc/lib/libc.a
+LIBS :=
 
 ### FORMATTER ###
 
@@ -100,7 +100,7 @@ rom: $(ROM)
 
 $(ELF): $(OBJS) $(LDSCRIPT)
 	@echo "$(LD) -T $(LDSCRIPT) -Map $(MAP) <objects> -o $@"
-	@cd $(OBJ_DIR) && $(LD) -T ../$(LDSCRIPT) -Map ../$(MAP) $(OBJS_REL) -o ../$(ELF)
+	@cd $(OBJ_DIR) && $(LD) -T ../$(LDSCRIPT) -Map ../$(MAP) $(OBJS_REL) -o ../$(ELF) $(LIBS)
 
 $(ROM): $(ELF)
 	$(OBJCOPY) -O binary $< $@

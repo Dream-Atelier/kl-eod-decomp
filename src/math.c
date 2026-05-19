@@ -4,45 +4,51 @@
 extern s16 FUN_080518a4(s32, s16);
 
 /**
- * FixedDivShift8: fixed-point division with 8-bit left shift.
+ * DivideQ8: fixed-point division with 8-bit left shift.
  * Computes FUN_080518a4(arg0 << 8, arg1).
  */
-s16 FixedDivShift8(s16 arg0, s16 arg1) {
-    return FUN_080518a4((s32)arg0 << 8, arg1);
+s16 DivideQ8(s16 num1, s16 num2) {
+    return (num1 << 8) / num2;
 }
 
 /**
- * FixedReciprocal: fixed-point reciprocal (1.0 / arg0).
+ * ReciprocalQ8: fixed-point reciprocal (1.0 / arg0).
  * Computes FUN_080518a4(0x10000, arg0) = 65536 / arg0.
  */
-s16 FixedReciprocal(s16 arg0) {
-    return FUN_080518a4(0x10000, arg0);
+s16 ReciprocalQ8(s16 num1) {
+    s32 numerator = 0x10000;
+    return (numerator / num1);
 }
 
-/** FixedMul4: 4.4 fixed-point signed multiply (s16*s16 >> 4). */
-s16 FixedMul4(s16 a, s16 b) {
-    s32 result = (s32)a * (s32)b;
-    register s32 shifted asm("r1") = result;
-    if (result < 0) {
-        shifted += 0x0F;
+/** MultiplyQ4: 4.4 fixed-point signed multiply (s16*s16 >> 4). */
+s16 MultiplyQ4(s16 num1, s16 num2) {
+    s32 product;
+    s32 rounded;
+
+    product = num1 * num2;
+    rounded = product;
+    if (rounded < 0) {
+        rounded += 0xF;
     }
-    return (s16)(shifted >> 4);
+    product = rounded >> 4;
+    return product;
 }
 
 /**
- * FixedMulShift4: fixed-point multiply with 4-bit left shift.
+ * DivideQ4: fixed-point multiply with 4-bit left shift.
  * Computes FUN_080518a4(arg0 << 4, arg1).
  */
-s16 FixedMulShift4(s16 arg0, s16 arg1) {
-    return FUN_080518a4((s32)arg0 << 4, arg1);
+s16 DivideQ4(s16 num1, s16 num2) {
+    return ((num1 << 4) / num2);
 }
 
 /**
- * FixedDivUnit: fixed-point division by unit scale (256).
+ * ReciprocalQ4: fixed-point division by unit scale (256).
  * Computes FUN_080518a4(0x100, arg0) = 256 / arg0.
  */
-s16 FixedDivUnit(s16 arg0) {
-    return FUN_080518a4(0x100, arg0);
+s16 ReciprocalQ4(s16 num1) {
+    s32 numerator = 0x100;
+    return (numerator / num1);
 }
 
 /**

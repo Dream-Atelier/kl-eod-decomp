@@ -22,6 +22,9 @@ gEepromReady = 0x0300037C;
 gNumMusicPlayers = 4;
 SoundMainRAM = 0x0804F319;
 
+/* libgcc helpers: route compiler-emitted runtime calls to the in-ROM blobs in asm/libgcc.s. */
+__divsi3 = FUN_080518a4;
+
 SECTIONS {
     . = 0x8000000;
     ROM : ALIGN(4) {
