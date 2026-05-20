@@ -47,7 +47,7 @@ DATA_BUILDDIR := $(OBJ_DIR)/$(DATA_SUBDIR)
 ASM_SRCS := $(wildcard $(ASM_SUBDIR)/*.s)
 ASM_OBJS := $(patsubst $(ASM_SUBDIR)/%.s,$(ASM_BUILDDIR)/%.o,$(ASM_SRCS))
 
-C_SRCS := $(filter-out $(C_SUBDIR)/m4a_1.c $(wildcard $(C_SUBDIR)/m4a_nopush_*.c) $(wildcard $(C_SUBDIR)/m4a_tst_*.c),$(wildcard $(C_SUBDIR)/*.c))
+C_SRCS := $(filter-out $(wildcard $(C_SUBDIR)/m4a_nopush_*.c),$(wildcard $(C_SUBDIR)/*.c))
 C_OBJS := $(patsubst $(C_SUBDIR)/%.c,$(C_BUILDDIR)/%.o,$(C_SRCS))
 
 DATA_SRCS := $(wildcard $(DATA_SUBDIR)/*.s)
@@ -61,13 +61,6 @@ OBJS_REL := $(patsubst $(OBJ_DIR)/%,%,$(OBJS))
 ASFLAGS  := -mcpu=arm7tdmi -mthumb-interwork
 CPPFLAGS := -nostdinc -I tools/agbcc/include -iquote include
 CC1FLAGS := -mthumb-interwork -Wimplicit -Wparentheses -O2 -fhex-asm -fprologue-bugfix -fno-fold-addr
-
-# TST compilation unit: m4a_1.c is pre-compiled with old_agbcc -ftst into
-# build/m4a_1_funcs.s, then included as assembly in m4a.c via asm(".include ...").
-# This keeps all m4a functions in one .text section (required by shared literal
-# pools in the ROM assembly). Uses old_agbcc (not agbcc) to match m4a's register
-# allocation behavior.
-TST_CC1FLAGS := -mthumb-interwork -O2 -ftst
 
 DECOMP_TOML := klonoa-eod-decomp.toml
 LDSCRIPT    := ldscript.txt
@@ -116,13 +109,6 @@ $(ASM_BUILDDIR)/%.o: $(ASM_SUBDIR)/%.s
 	@echo "$(AS) <flags> -o $@ $<"
 	@$(AS) $(ASFLAGS) -o $@ $<
 
-# Pre-compile TST functions (m4a_1.c → build/m4a_1_funcs.s)
-$(OBJ_DIR)/m4a_1_funcs.s: $(C_SUBDIR)/m4a_1.c
-	@echo "$(CC1) <flags> -ftst -o $@ $<"
-	@$(CPP) $(CPPFLAGS) $< -o $(OBJ_DIR)/m4a_1.i
-	@$(CC1_OLD) $(TST_CC1FLAGS) -o $(OBJ_DIR)/m4a_1_raw.s $(OBJ_DIR)/m4a_1.i
-	@sed '/^@/d;/^\.code/d;/^\.gcc2_compiled/d;/^\.text$$/d;/^\.Lfe/d;/^[[:space:]]*\.size/d;/macros\.inc/d;s/\.L\([0-9]\)/.Lm4a1_\1/g' $(OBJ_DIR)/m4a_1_raw.s > $@
-
 # Pre-compile nopush functions (leaf functions that need -fprologue-bugfix)
 # Each produces a .s snippet .include'd at the correct position in m4a.c.
 NOPUSH_SRCS := $(wildcard $(C_SUBDIR)/m4a_nopush_*.c)
@@ -134,19 +120,9 @@ $(OBJ_DIR)/m4a_nopush_%.s: $(C_SUBDIR)/m4a_nopush_%.c
 	@$(CC1_OLD) -mthumb-interwork -O2 -o $(OBJ_DIR)/m4a_nopush_$*_raw.s $(OBJ_DIR)/m4a_nopush_$*.i
 	@sed '/^@/d;/^\.code/d;/^\.gcc2_compiled/d;/^\.text$$/d;/^\.Lfe/d;/^[[:space:]]*\.size/d;/macros\.inc/d;s/\.L\([0-9]\)/.Lnp$*_\1/g' $(OBJ_DIR)/m4a_nopush_$*_raw.s > $@
 
-# Pre-compile per-function TST units (functions needing -ftst individually)
-TST_FUNC_SRCS := $(wildcard $(C_SUBDIR)/m4a_tst_*.c)
-TST_FUNC_ASM  := $(patsubst $(C_SUBDIR)/m4a_tst_%.c,$(OBJ_DIR)/m4a_tst_%.s,$(TST_FUNC_SRCS))
-
-$(OBJ_DIR)/m4a_tst_%.s: $(C_SUBDIR)/m4a_tst_%.c
-	@echo "$(CC1_OLD) <flags> -ftst -o $@ $<"
-	@$(CPP) $(CPPFLAGS) $< -o $(OBJ_DIR)/m4a_tst_$*.i
-	@$(CC1_OLD) $(TST_CC1FLAGS) -o $(OBJ_DIR)/m4a_tst_$*_raw.s $(OBJ_DIR)/m4a_tst_$*.i
-	@sed '/^@/d;/^\.code/d;/^\.gcc2_compiled/d;/^\.text$$/d;/^\.Lfe/d;/^[[:space:]]*\.size/d;/macros\.inc/d;s/\.L\([0-9]\)/.Lm4atst$*_\1/g' $(OBJ_DIR)/m4a_tst_$*_raw.s > $@
-
 # Compile m4a with old_agbcc — Nintendo's MusicPlayer2000 was prebuilt
 # with an older GCC as part of the GBA SDK.
-$(C_BUILDDIR)/m4a.o: $(C_SUBDIR)/m4a.c $(OBJ_DIR)/m4a_1_funcs.s $(NOPUSH_ASM) $(TST_FUNC_ASM)
+$(C_BUILDDIR)/m4a.o: $(C_SUBDIR)/m4a.c $(NOPUSH_ASM)
 	@echo "$(CC1_OLD) <m4a flags> -o $@ $<"
 	@$(CPP) $(CPPFLAGS) $< -o $(C_BUILDDIR)/m4a.i
 	@$(CC1_OLD) -mthumb-interwork -O2 -o $(C_BUILDDIR)/m4a.s $(C_BUILDDIR)/m4a.i

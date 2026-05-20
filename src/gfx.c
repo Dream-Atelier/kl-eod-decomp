@@ -337,7 +337,7 @@ void InitLevelStateDefaults(void) {
 void VBlankHandler_WithWindowScroll(void);
 void UpdateBGScrollWithWave(void);
 void ReadKeyInput(void);
-void SoundMain(void);
+void sub_0804EB64(void);
 void VBlankCallback_MapScreen(void);
 /**
  * SetupGfxCallbacks: initializes VBlank/HBlank handlers and callback state
@@ -352,7 +352,7 @@ void SetupGfxCallbacks(void) {
 
     callbackState = (u32 *)0x03003510;
     callbackState[0x28 / 4] = (u32)ReadKeyInput;
-    callbackState[0x2C / 4] = (u32)SoundMain;
+    callbackState[0x2C / 4] = (u32)sub_0804EB64;
     callbackState[0x30 / 4] = (u32)VBlankCallback_MapScreen;
     callbackState[0x34 / 4] = 1;
     slotIdx = *((u8 *)callbackState + 0x78) - 1;

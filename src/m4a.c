@@ -18,13 +18,13 @@ extern char gNumMusicPlayers[];
 /* ── Sound System Initialization & Shutdown ── */
 
 /*
- * SoundMain: top-level sound system initialization.
+ * sub_0804EB64: top-level sound system initialization.
  * Sets up gSoundInfo, initializes the stream/gfx subsystems,
  * and prepares the sound engine for playback.
  *   248 lines, calls UpdateCursorBlink/ProcessScreenFade/UpdatePaletteFadeStep
  *   refs: gSoundInfo (0x0300081C), gGfxBufferPtr (0x030034A0)
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", SoundMain);
+INCLUDE_ASM("asm/nonmatchings/m4a", sub_0804EB64);
 /*
  * SoundDmaInit: DMA controller setup for sound data transfers.
  * Configures DMA channels for PCM sample streaming to FIFO.
@@ -196,35 +196,15 @@ u32 MPlayMain_SetAndProcess(u32 val) {
  * updates channel state.
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MPlayMain);
-INCLUDE_ASM("asm/nonmatchings/m4a", FixedPointMultiply);
-INCLUDE_ASM("asm/nonmatchings/m4a", InitSoundEngine);
+INCLUDE_ASM("asm/nonmatchings/m4a", umul3232H32);
+INCLUDE_ASM("asm/nonmatchings/m4a", SoundMain);
 INCLUDE_ASM("asm/nonmatchings/m4a", MPlayTrackCallback);
+INCLUDE_ASM("asm/nonmatchings/m4a", MP2KClearChain);
+INCLUDE_ASM("asm/nonmatchings/m4a", MP2K_event_fine);
+INCLUDE_ASM("asm/nonmatchings/m4a", MPlayJumpTableCopy);
 
-/* ── Voice / Instrument Utilities ── */
+/* ── Instrument Utilities ── */
 
-/*
- * VoiceUtil: minimal voice utility function.
- *   22 lines, leaf function
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", VoiceGetParams);
-/*
- * VoiceLookupAndApply: walk linked list of active voices and apply parameters.
- *
- * C source is in src/m4a_1.c (TST compilation unit, compiled with -ftst).
- * The build system pre-compiles m4a_1.c into build/m4a_1_funcs.s, which is
- * included here as assembly so it stays in the same .text section as the
- * other m4a functions (required due to shared literal pools). See issue #54.
- *   28 lines, calls VoiceGetParams
- */
-asm(".include \"build/m4a_1_funcs.s\"");
-/*
- * InstrumentLookup: look up instrument data from ROM_INSTRUMENT_TABLE.
- * Given a program/voice number, returns a pointer to the instrument entry
- * (12-byte voice struct: type, key, samplePtr, ADSR).
- *   14 lines, calls MidiNoteDispatch
- *   refs: ROM_INSTRUMENT_TABLE (0x081179E4)
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", InstrumentLookup);
 /*
  * InstrumentGetEntry: get a specific instrument entry from ROM.
  * Indexes into the voice/instrument table and returns the entry data.
@@ -250,6 +230,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f75a);
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MidiNoteSetup);
 INCLUDE_ASM("asm/nonmatchings/m4a", MidiNoteWithVelocity);
+INCLUDE_ASM("asm/nonmatchings/m4a", MP2K_event_rept);
 /*
  * MidiCommandHandler: MIDI command dispatch table handler.
  * Processes track bytecode commands (0xB1-0xCF): tempo, voice select,
@@ -257,9 +238,8 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MidiNoteWithVelocity);
  * for CGB channel control.
  *   192 lines, writes to REG_SOUND1CNT_L (0x04000060), REG_DMA1SAD (0x040000BC)
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", MidiCommandHandler);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f8e8);
-INCLUDE_ASM("asm/nonmatchings/m4a", TrackStop);
+INCLUDE_ASM("asm/nonmatchings/m4a", m4aSoundVSync);
+INCLUDE_ASM("asm/nonmatchings/m4a", MP2KPlayerMain);
 
 /* ── Music Playback Engine ── */
 
@@ -271,41 +251,14 @@ INCLUDE_ASM("asm/nonmatchings/m4a", TrackStop);
  *   calls: PlaySoundWithContext_D8/DC, CgbModVol
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MPlayContinue);
-/**
- * SoundContextRef: release all active sound channels on a track.
- *
- * Compiled with -ftst in separate unit (src/m4a_tst_SoundContextRef.c)
- * to produce tst instruction for the 0x80 status check without
- * affecting other m4a functions.
- */
-asm(".include \"build/m4a_tst_SoundContextRef.s\"");
-/*
- * MPlayStop_Channel: stop playback on a single music channel.
- * Silences one channel without affecting other active tracks.
- *   28 lines, leaf function
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayStop_Channel);
-/*
- * MPlayStop: stop all music playback across all tracks.
- * Silences all channels, resets playback state, and releases
- * voice allocations. Third largest function in m4a (313 lines).
- *   313 lines
- *   calls: PlaySoundWithContext_D8
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayNoteProcess);
+INCLUDE_ASM("asm/nonmatchings/m4a", TrackStop);
+INCLUDE_ASM("asm/nonmatchings/m4a", ChnVolSetAsm);
+INCLUDE_ASM("asm/nonmatchings/m4a", MP2K_event_nxx);
 INCLUDE_ASM("asm/nonmatchings/m4a", MPlayChannelRelease);
+INCLUDE_ASM("asm/nonmatchings/m4a", clear_modM);
 
 /* ── Sound Effect Processing ── */
 
-/*
- * SoundEffectUtil: sound effect utility / parameter setup.
- *   18 lines, leaf function
- */
-/**
- * SoundEffectParamInit: initializes sound effect channel parameters.
- * Clears volume and pan bytes, sets channel flags based on existing state.
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", SoundEffectParamInit);
 /*
  * SoundEffectProcess: process a sound effect playback chain.
  * Handles SFX queuing, priority, and channel assignment.
@@ -375,7 +328,7 @@ void m4aSoundInit(void) {
  *   no return value
  */
 void SoundInit(void) {
-    InitSoundEngine();
+    SoundMain();
 }
 /**
  * m4aSongNumStart: start playing a music track by song index.
@@ -805,7 +758,8 @@ void m4aSoundVSyncOn(void) {
  * linked list.  Clamps trackCount to 16, zeroes each track's flags byte,
  * and chains the player into the MPlayMain callback list.
  */
-void TrackStop(void);
+void MP2KPlayerMain(void);
+void TrackStop(u32, u32);
 void MPlayOpen(u32 *mplayInfo, u8 *tracks, u8 trackCount) {
     u32 *soundInfo;
     u32 ident;
@@ -843,7 +797,7 @@ void MPlayOpen(u32 *mplayInfo, u8 *tracks, u8 trackCount) {
     }
 
     soundInfo[0x24 / 4] = (u32)mplayInfo;
-    soundInfo[0x20 / 4] = (u32)TrackStop;
+    soundInfo[0x20 / 4] = (u32)MP2KPlayerMain;
     soundInfo[0] = SAPPY_MAGIC;
     mplayInfo[0x34 / 4] = SAPPY_MAGIC;
 }
@@ -874,7 +828,7 @@ void MPlayStop(u32 *player) {
     track = (u8 *)player[0x2C / 4];
 
     while (numTracks > 0) {
-        SoundContextRef((u32)player, (u32)track);
+        TrackStop((u32)player, (u32)track);
         numTracks--;
         track += 0x50;
     }

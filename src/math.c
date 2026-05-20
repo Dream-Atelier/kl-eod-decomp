@@ -64,11 +64,11 @@ INCLUDE_ASM("asm/nonmatchings/math", VBlankHandler);
  * VBlankHandlerMinimal: simplified VBlank for scene transitions.
  * Calls sound update + SoundInit, sets IME.
  */
-void FUN_0804f8e8(void);
+void m4aSoundVSync(void);
 void SoundInit(void);
 
 void VBlankHandlerMinimal(void) {
-    FUN_0804f8e8();
+    m4aSoundVSync();
     SoundInit();
     *(vu16 *)0x03007FF8 = 1;
 }
