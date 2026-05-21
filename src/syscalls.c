@@ -45,3 +45,5 @@ u32 BiosSquareRoot(u32 val) {
 void VBlankIntrWait(void) {
     asm("movs r2, #0\n\tswi #5");
 }
+
+INCLUDE_ASM("asm/nonmatchings/syscalls", SoftResetRom);

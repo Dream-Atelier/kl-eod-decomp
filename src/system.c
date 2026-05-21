@@ -65,7 +65,7 @@ void ReadKeyInput(void) {
     *prevKeys = pressed;
     pressed &= 0x0F;
     if (pressed == 0x0F) {
-        SoftReset(0xFF);
+        SoftResetRom(0xFF);
     }
     {
         u16 cur = *prevKeys;

@@ -19,4 +19,6 @@ typedef volatile s32 vs32;
 #define FALSE 0
 #define NULL  0
 
+#include "gba.h"
+
 #endif // GUARD_GLOBAL_H

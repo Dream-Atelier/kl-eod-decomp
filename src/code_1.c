@@ -8,7 +8,7 @@ void InitOamEntries(void);
 void UpdateWorldMapScene(void);
 void TransitionWorldMapFadeOut(void);
 void VBlankCallback_Gameplay(void);
-void SoftReset(u32);
+void SoftResetRom(u32);
 
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityUpdateDispatch);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerMainUpdate);
@@ -312,7 +312,7 @@ void TransitionSoftReset(void) {
 
     gFrameCounter += 1;
     if (gFrameCounter == 16) {
-        SoftReset(0xFF);
+        SoftResetRom(0xFF);
         return;
     }
 

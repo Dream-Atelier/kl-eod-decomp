@@ -109,8 +109,16 @@
 #define REG_DMA3SAD                (*(vu32 *)0x040000D4)
 #define REG_DMA3DAD                (*(vu32 *)0x040000D8)
 #define REG_DMA3CNT                (*(vu32 *)0x040000DC)
+#define REG_DMA3CNT_H              (*(vu16 *)0x040000DE)
+
+#define REG_WAITCNT                (*(vu16 *)0x04000204)
+#define WAITCNT_WS2_N_MASK         (3 << 8)
+#define WAITCNT_WS2_S_MASK         (1 << 10)
 
 /* ── Timer Registers ── */
+
+#define REG_ADDR_TMCNT             0x04000100
+#define REG_TMCNT(n)               (*(vu32 *)(REG_ADDR_TMCNT + ((n) * 4)))
 
 #define REG_TM0CNT_L               (*(vu16 *)0x04000100)
 #define REG_TM0CNT_H               (*(vu16 *)0x04000102)
@@ -137,7 +145,7 @@
 
 /* ── DMA control flags ── */
 
-#define DMA_ENABLE                 0x80000000
+#define DMA_ENABLE                 0x8000
 #define DMA_32BIT                  0x04000000
 #define DMA_FIXED_SOURCE           0x01000000
 

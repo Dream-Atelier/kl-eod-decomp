@@ -129,6 +129,15 @@ $(C_BUILDDIR)/m4a.o: $(C_SUBDIR)/m4a.c $(NOPUSH_ASM)
 	@printf ".text\n\t.align\t2, 0\n" >> $(C_BUILDDIR)/m4a.s
 	@$(AS) $(ASFLAGS) -o $@ $(C_BUILDDIR)/m4a.s
 
+# Compile eeprom with old_agbcc -O1
+$(C_BUILDDIR)/eeprom.o: $(C_SUBDIR)/eeprom.c
+	@echo "$(CC1_OLD) <eeprom flags> -o $@ $<"
+	@$(CPP) $(CPPFLAGS) $< -o $(C_BUILDDIR)/eeprom.i
+	@$(CC1_OLD) -mthumb-interwork -O1 -fhex-asm -o $(C_BUILDDIR)/eeprom_raw.s $(C_BUILDDIR)/eeprom.i
+	@awk '/^[[:space:]]*\.section[[:space:]]+\.rodata/{drop=1; next} drop && /^\.text/{drop=0; print; next} !drop' $(C_BUILDDIR)/eeprom_raw.s > $(C_BUILDDIR)/eeprom.s
+	@printf ".text\n\t.align\t2, 0\n" >> $(C_BUILDDIR)/eeprom.s
+	@$(AS) $(ASFLAGS) -o $@ $(C_BUILDDIR)/eeprom.s
+
 # Compile C files (with INCLUDE_ASM support)
 $(C_BUILDDIR)/%.o: $(C_SUBDIR)/%.c
 	@echo "$(CC1) <flags> -o $@ $<"

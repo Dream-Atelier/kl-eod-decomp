@@ -39,8 +39,8 @@ name = "syscalls"
 start = 0x08051438
 
 [[modules]]
-name = "util"
-start = 0x08051450
+name = "eeprom"
+start = 0x0805146C
 
 [[modules]]
 name = "libgcc"
@@ -77,12 +77,13 @@ FUN_08051438 = "BitUnPack"
 FUN_08051440 = "LZ77UnCompWram"
 FUN_08051444 = "BiosSquareRoot"
 FUN_08051448 = "VBlankIntrWait"
+FUN_08051450 = "SoftResetRom"
 FUN_0804e7a0 = "DispatchMusicStreamCommand"
 FUN_0804e884 = "EnableVBlankAndDispatchMusic"
 FUN_0804b270 = "ReadUnalignedU32"
 FUN_0804b424 = "DecompressAndDmaCopy"
-FUN_0805146c = "SelectTimerTableByMode"
-FUN_080514d4 = "InitEepromTimer"
+FUN_0805146c = "IdentifyEeprom"
+FUN_080514d4 = "SetEepromTimerIntr"
 
 # Background graphics subsystem
 FUN_08001158 = "InitLevelBG"
@@ -529,15 +530,14 @@ FUN_08047eca = "UpdateScreenWipe"
 FUN_0804802a = "UpdateWorldMapLogic"
 
 # Util functions
-FUN_08051450 = "SoftReset"
-FUN_080514b2 = "EepromTimerCallback"
-FUN_0805150c = "EepromBeginTransfer"
-FUN_08051570 = "EepromEndTransfer"
-FUN_080515b4 = "EepromDmaTransfer"
-FUN_08051634 = "EepromReadSector"
-FUN_080516ec = "EepromWriteSector"
-FUN_080517d0 = "EepromVerifySector"
-FUN_08051828 = "SaveGameRetry"
+FUN_080514b2 = "EepromTimerIntr"
+FUN_0805150c = "StartEepromTimer"
+FUN_08051570 = "StopEepromTimer"
+FUN_080515b4 = "Dma3Transmit"
+FUN_08051634 = "ReadEepromDword"
+FUN_080516ec = "ProgramEepromDword"
+FUN_080517d0 = "VerifyEepromDword"
+FUN_08051828 = "ProgramEepromDwordEx"
 
 # Math functions
 FUN_08000960 = "DivideQ8"
