@@ -12,12 +12,12 @@ INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_WithWindowScroll);
  * UpdateFadeEffect: applies brightness fade using REG_BLDY.
  *
  * Reads REG_VCOUNT and entity brightness value, computes fade level
- * via FUN_08051a0c, then writes to REG_BLDY if within valid range (<=16).
+ * via sub_08051A0C, then writes to REG_BLDY if within valid range (<=16).
  */
 void UpdateFadeEffect(void) {
     vu8 *vcount_reg = (vu8 *)0x04000006;
     u8 *entity = (u8 *)0x03002920;
-    u8 fade = FUN_08051a0c(*vcount_reg, entity[0x08]);
+    u8 fade = sub_08051A0C(*vcount_reg, entity[0x08]);
 
     if (fade <= 16) {
         *(vu16 *)0x04000052 = ((u32)fade << 8) | fade;

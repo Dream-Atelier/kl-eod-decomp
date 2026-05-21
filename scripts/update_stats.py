@@ -143,14 +143,14 @@ def compute_stats():
             "unmatched": asm_count,
         }
 
-    # Named = source functions that have semantic names (no FUN_/sub_ prefix)
+    # Named = source functions that have semantic names (no sub_ prefix)
     named_functions = sum(
         1 for n in all_src_names
-        if not n.startswith("FUN_") and not n.startswith("sub_")
+        if not n.startswith("sub_")
     )
     unnamed_functions = sum(
         1 for n in all_src_names
-        if n.startswith("FUN_") or n.startswith("sub_")
+        if n.startswith("sub_")
     )
 
     # Count named globals from globals.h
@@ -465,7 +465,7 @@ def main():
     print(f"Unmatched:          {stats['total_unmatched']}")
     print(f"Match %:            {stats['match_pct']}%")
     print(f"Named Functions:    {stats['named_functions']} (semantic names in source)")
-    print(f"Unnamed Functions:  {stats['unnamed_functions']} (still FUN_/sub_ in source)")
+    print(f"Unnamed Functions:  {stats['unnamed_functions']} (still sub_ in source)")
     print(f"TOML Renames:       {stats['toml_renames']}")
     print(f"IWRAM Globals:      {stats['iwram_globals']}")
     print(f"ROM Data Tables:    {stats['rom_globals']}")

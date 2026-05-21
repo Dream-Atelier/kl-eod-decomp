@@ -1,6 +1,6 @@
 """GBA BIOS decompression routines (LZ77 + Huffman) for Klonoa: Empire of Dreams.
 
-Implements the decompression pipeline used by FUN_08043af4 (DecompressData):
+Implements the decompression pipeline used by sub_08043AF4 (DecompressData):
   - If header bit 31 is set: Huffman (4-bit) then LZ77
   - Otherwise: LZ77 only
   - Decompressed size = header & 0x7FFFFFFF
@@ -150,7 +150,7 @@ def bios_huffman_decompress(data, offset=0):
 
 
 def decompress_asset(data, offset=0):
-    """Decompress a Klonoa asset using the FUN_08043af4 pipeline.
+    """Decompress a Klonoa asset using the sub_08043AF4 pipeline.
 
     The first 4 bytes are a header:
       - Bit 31: if set, data is Huffman-then-LZ77 compressed

@@ -86,13 +86,13 @@ void RollRandomLevelVariant(void) {
     register u32 parity asm("r5");
     u8 randByte;
     u32 variant;
-    rng = thunk_FUN_080002a0();
+    rng = thunk_sub_080002A0();
     asm("" : "=r"(levelState) : "0"(addr));
     parity = 1;
     parity &= d;
     randByte = (u8)rng;
     rng = (u8)d;
-    variant = FUN_0805193c(randByte, 5 - rng);
+    variant = sub_0805193C(randByte, 5 - rng);
     parity = parity + variant + 1;
     levelState[0x0E] = parity;
 }
@@ -124,10 +124,10 @@ void DecompressData(u32 dest, u32 src) {
 
     if ((s32)srcPtr[0] < 0) {
         /* Two-stage: Huffman/UnpackTilemap, then LZ77 */
-        u32 tmpBuf = thunk_FUN_080001e0(srcPtr[1] >> 8, 0);
+        u32 tmpBuf = thunk_sub_080001E0(srcPtr[1] >> 8, 0);
         UnpackTilemap((u8 *)src + 4, (u8 *)tmpBuf);
         LZ77UnCompWram((u8 *)tmpBuf, (u8 *)dest);
-        thunk_FUN_0800020c(tmpBuf);
+        thunk_sub_0800020C(tmpBuf);
     } else {
         /* Single-stage: LZ77 only */
         LZ77UnCompWram((u8 *)src + 4, (u8 *)dest);
@@ -148,7 +148,7 @@ void DecompressAndCopyToPalette(u32 *src, u32 dest, u16 size) {
     u32 buf;
     vu32 *dma3;
 
-    buf = thunk_FUN_080001e0(*src & 0x7FFFFFFF, 0);
+    buf = thunk_sub_080001E0(*src & 0x7FFFFFFF, 0);
     DecompressData(buf, (u32)src);
 
     dma3 = (vu32 *)0x040000D4;
@@ -160,7 +160,7 @@ void DecompressAndCopyToPalette(u32 *src, u32 dest, u16 size) {
     while (dma3[2] & 0x80000000)
         ;
 
-    thunk_FUN_0800020c(buf);
+    thunk_sub_0800020C(buf);
 }
 /*
  * Allocates a buffer and decompresses/copies data into it.
@@ -170,7 +170,7 @@ void DecompressAndCopyToPalette(u32 *src, u32 dest, u16 size) {
  *   returns: pointer to the newly allocated and filled buffer
  */
 u32 AllocAndDecompress(u32 *src) {
-    u32 buf = thunk_FUN_080001e0(*src & 0x7FFFFFFF, 0);
+    u32 buf = thunk_sub_080001E0(*src & 0x7FFFFFFF, 0);
     DecompressData(buf, (u32)src);
     return buf;
 }

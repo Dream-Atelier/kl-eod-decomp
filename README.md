@@ -115,7 +115,7 @@ Each `src/*.c` file contains `INCLUDE_ASM(...)` macros that inline assembly for 
 
     ```c
     // Before:
-    INCLUDE_ASM("asm/nonmatchings/gfx", FUN_0804b254);
+    INCLUDE_ASM("asm/nonmatchings/gfx", sub_0804B254);
 
     // After:
     u16 ReadUnalignedU16(u8 *ptr)
@@ -128,10 +128,10 @@ Each `src/*.c` file contains `INCLUDE_ASM(...)` macros that inline assembly for 
 
     ```toml
     [renames]
-    FUN_0804b254 = "ReadUnalignedU16"
+    sub_0804B254 = "ReadUnalignedU16"
     ```
 
-    This ensures the assembly label is updated everywhere when `generate_asm.py` runs. The key is the original Ghidra/Luvdis name (`FUN_XXXXXXXX`) and the value is the new descriptive name.
+    This ensures the assembly label is updated everywhere when `generate_asm.py` runs. The key is the original Ghidra/Luvdis name (`sub_XXXXXXXX`) and the value is the new descriptive name.
 
 4. **Verify** the build still matches:
 

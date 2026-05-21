@@ -475,7 +475,7 @@ def generate_gallery_html(manifest, output_path):
         </div>
         <p>
             The game uses a two-stage compression pipeline implemented in
-            <code>FUN_08043af4</code> (DecompressData):
+            <code>sub_08043AF4</code> (DecompressData):
         </p>
         <ul style="margin: 1rem 0 1rem 2rem; line-height: 2;">
             <li>

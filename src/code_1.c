@@ -20,9 +20,9 @@ INCLUDE_ASM("asm/nonmatchings/code_1", InitScrollState);
 INCLUDE_ASM("asm/nonmatchings/code_1", ResetEntityScrollState);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerRespawnOrDeath);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityBehaviorMasterUpdate);
-INCLUDE_ASM("asm/nonmatchings/code_1", FUN_080158ac);
+INCLUDE_ASM("asm/nonmatchings/code_1", sub_080158AC);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntitySpawnFromLevelData);
-INCLUDE_ASM("asm/nonmatchings/code_1", FUN_0801af28);
+INCLUDE_ASM("asm/nonmatchings/code_1", sub_0801AF28);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerFollowEntityMovement);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerGrabInputCheck);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerEntityCollisionCheck);
@@ -60,8 +60,8 @@ typedef struct EntityDeathStruct {
 } EntityDeathStruct;
 
 extern void SpawnEntityAtPosition(u16 x, u16 y, u8 type, u8 slot);
-extern u8 FUN_08051a0c(u8 a, u8 b);
-extern u8 FUN_08051a84(u8 a, u8 b);
+extern u8 sub_08051A0C(u8 a, u8 b);
+extern u8 sub_08051A84(u8 a, u8 b);
 extern void m4aSongNumStart(u16 n);
 extern void LoadSpriteFrame(u8 frame, u8 tilesetIdx);
 
@@ -72,7 +72,7 @@ extern void LoadSpriteFrame(u8 frame, u8 tilesetIdx);
  * resets it to 25 frames and advances the death phase:
  *   phase > 5: spawns a visual effect entity (type = phase + 0x0C)
  *   phase > 0: plays SFX 0x56, updates sprite frames for the dying
- *              and paired entities via FUN_08051a0c / FUN_08051a84
+ *              and paired entities via sub_08051A0C / sub_08051A84
  *   phase == 0: spawns a final entity (type 0x02) at the parent position
  *
  * Every frame (regardless of phase), copies position from the parent entity
@@ -111,9 +111,9 @@ void EntityDeathAnimation(u8 slot) {
             if (entity->phase > 9) {
                 entities[slot + *gEntityDeathState].typeId = 0;
                 pairedSlot = (u8)(slot + *gEntityDeathState);
-                LoadSpriteFrame(pairedSlot, FUN_08051a0c(entity->phase, 0x0A));
+                LoadSpriteFrame(pairedSlot, sub_08051A0C(entity->phase, 0x0A));
             }
-            LoadSpriteFrame(slot, FUN_08051a84(entity->phase, 0x0A));
+            LoadSpriteFrame(slot, sub_08051A84(entity->phase, 0x0A));
             if (entity->phase == 9) {
                 entities[slot + *gEntityDeathState].typeId = 0x1C; /* inactive */
                 entities[slot + *gEntityDeathState].subState = 0;

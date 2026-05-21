@@ -57,4 +57,4 @@ INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_MinimalHW);
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_Cutscene); /* SetupDisplayConfig */
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_TitleScreen);
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_Credits); /* TextStateMachine — master UI/text state machine */
-INCLUDE_ASM("asm/nonmatchings/code_0", FUN_0800de24);
+INCLUDE_ASM("asm/nonmatchings/code_0", sub_0800DE24);

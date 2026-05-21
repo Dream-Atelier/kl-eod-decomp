@@ -250,9 +250,9 @@ extern u8 gGameFlagsPtr[];
 
 /* VBlank interrupt callback function pointer.
  * Set to different handlers depending on scene:
- *   FUN_080009D9 for normal levels
- *   FUN_08000CE1 for mode-7
- *   FUN_08000BD5 for title screen */
+ *   sub_080009D9 for normal levels
+ *   sub_08000CE1 for mode-7
+ *   sub_08000BD5 for title screen */
 #define gVBlankCallback    (*(u32 *)0x030047C0)
 
 /* VBlank callback array: two function pointers at 0x030047C0.
@@ -319,7 +319,7 @@ extern const u32 gSpriteDataTable[];
 #define ROM_DISPLAY_CONFIG_TABLE 0x080D821C
 
 /* OAM template data (initial OAM attribute values).
- * Used by InitOamEntries (FUN_0800a468). */
+ * Used by InitOamEntries (sub_0800A468). */
 #define ROM_OAM_TEMPLATE         0x080E2A7C
 
 /* Graphics asset / tileset tables used by InitGraphicsSystem. */
@@ -393,7 +393,7 @@ extern const u32 gSpriteDataTable[];
 /* ── Scene-Specific Shared Tilesets ── */
 
 /* These compressed tilesets are loaded into VRAM charblocks during scene init
- * (SetupSceneGfx / FUN_0804886c). They provide shared tiles (HUD, items, etc.)
+ * (SetupSceneGfx / sub_0804886C). They provide shared tiles (HUD, items, etc.)
  * that are referenced by per-level BG tilemaps via absolute tile IDs. */
 #define ROM_SCENE_TILESET_A      0x08366214 /* -> charblocks 0-3 via palettePtr */
 #define ROM_SCENE_TILESET_B      0x08367468 /* -> small OBJ tiles */
@@ -599,7 +599,7 @@ extern const u8 gEntityDataTable[];
 
 /* Entity animation/behavior data table (172 refs, most-referenced unnamed ROM address).
  * Halfword-indexed: value >> 2 + 0xC0 or byte + 0x40, scaled ×2.
- * Used by EntityBoss*, FUN_080158ac, FUN_0801af28, and many entity behavior functions. */
+ * Used by EntityBoss*, sub_080158AC, sub_0801AF28, and many entity behavior functions. */
 extern const s16 gEntityAnimTable[];
 #define ROM_ENTITY_ANIM_TABLE 0x080D8E14
 

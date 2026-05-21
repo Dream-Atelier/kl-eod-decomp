@@ -99,7 +99,7 @@ void DecompressAndDmaCopy(u32 src, u32 dest, u32 size) {
     while (dma3[2] & 0x80000000)
         ;
 
-    thunk_FUN_0800020c(buf);
+    thunk_sub_0800020C(buf);
 }
 /**
  * LoadBGTileData: load per-level tile data for one BG layer.
@@ -142,7 +142,7 @@ void LoadAndDecompressStream(u32 idx) {
  * FreeDecompStreamBuffer: frees the decompressed stream buffer.
  */
 void FreeDecompStreamBuffer(void) {
-    thunk_FUN_0800020c(gDecompBuffer);
+    thunk_sub_0800020C(gDecompBuffer);
 }
 
 INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB);
@@ -150,7 +150,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB);
 /**
  * AllocAndClearGfxBuffer: allocate and DMA-fill a 32-byte GFX buffer.
  *
- * Allocates 32 bytes via thunk_FUN_080001e0 (malloc), stores the pointer
+ * Allocates 32 bytes via thunk_sub_080001E0 (malloc), stores the pointer
  * at gGfxBufferPtr, then DMA3-fills the buffer with zero using a
  * stack-local halfword as the fill source.
  */
@@ -160,7 +160,7 @@ void AllocAndClearGfxBuffer(void) {
     register u32 *gfxBuf asm("r4");
     u32 *buf;
     asm("" : "=r"(gfxBuf) : "0"(addr));
-    buf = (u32 *)thunk_FUN_080001e0(0x20, 0);
+    buf = (u32 *)thunk_sub_080001E0(0x20, 0);
     *gfxBuf = (u32)buf;
     {
         u32 dma_addr = 0x040000D4;
@@ -183,7 +183,7 @@ void AllocAndClearGfxBuffer(void) {
  * FreeGfxBuffer: frees the GFX buffer struct at gGfxBufferPtr.
  */
 void FreeGfxBuffer(void) {
-    thunk_FUN_0800020c((void *)gGfxBufferPtr);
+    thunk_sub_0800020C((void *)gGfxBufferPtr);
 }
 
 INCLUDE_ASM("asm/nonmatchings/gfx", DeadCode_0804bb86);
@@ -191,7 +191,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", DeadCode_0804bb86);
 /**
  * AllocAndClearBuffer_52A4: allocate and DMA-fill a 1152-byte buffer.
  *
- * Allocates 0x480 bytes (0x90 << 3) via thunk_FUN_080001e0, stores the
+ * Allocates 0x480 bytes (0x90 << 3) via thunk_sub_080001E0, stores the
  * pointer at gBuffer_52A4, then DMA3-fills with zero using a stack-local
  * halfword as fill source.
  */
@@ -201,7 +201,7 @@ void AllocAndClearBuffer_52A4(void) {
     register u32 *bufPtr asm("r4");
     u32 *buf;
     asm("" : "=r"(bufPtr) : "0"(addr));
-    buf = (u32 *)thunk_FUN_080001e0(0x90 << 3, 0);
+    buf = (u32 *)thunk_sub_080001E0(0x90 << 3, 0);
     *bufPtr = (u32)buf;
     {
         u32 dma_addr = 0x040000D4;
@@ -221,7 +221,7 @@ void AllocAndClearBuffer_52A4(void) {
 }
 /** FreeBuffer_52A4: frees the memory buffer at gBuffer_52A4. */
 void FreeBuffer_52A4(void) {
-    thunk_FUN_0800020c(gBuffer_52A4);
+    thunk_sub_0800020C(gBuffer_52A4);
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", SetupWorldMapBG);
 /**
@@ -395,7 +395,7 @@ void InitGfxStreamState(void) {
     register u32 *bufPtr asm("r4");
     u32 *buf;
     asm("" : "=r"(bufPtr) : "0"(bufAddr));
-    buf = (u32 *)thunk_FUN_080001e0(0x80 << 1, 0);
+    buf = (u32 *)thunk_sub_080001E0(0x80 << 1, 0);
     *bufPtr = (u32)buf;
     {
         u32 dmaAddr = 0x040000D4;
@@ -466,13 +466,13 @@ void StreamCmd_ResetEntries(void) {
 }
 /*
  * Shuts down the graphics stream: calls ResetGfxStreamEntries to finalize,
- * then frees the buffer at 0x030007C8 via thunk_FUN_0800020c.
+ * then frees the buffer at 0x030007C8 via thunk_sub_0800020C.
  *   no parameters
  *   no return value
  */
 void ShutdownGfxStream(void) {
     ResetGfxStreamEntries();
-    thunk_FUN_0800020c(gGfxStreamBuffer);
+    thunk_sub_0800020C(gGfxStreamBuffer);
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", LoadGfxStreamEntry); /* ProcessStreamOpcode */
 /*

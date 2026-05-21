@@ -3,16 +3,16 @@
 .text
 
 @ libgcc runtime (thunks, division, modulo)
-	thumb_func_start FUN_08051868
-FUN_08051868: @ 08051868
+	thumb_func_start sub_08051868
+sub_08051868: @ 08051868
 	bx r0
 	nop
-	thumb_func_start FUN_0805186c
-FUN_0805186c: @ 0805186C
+	thumb_func_start sub_0805186C
+sub_0805186C: @ 0805186C
 	bx r1
 	nop
-	thumb_func_start FUN_08051870
-FUN_08051870: @ 08051870
+	thumb_func_start sub_08051870
+sub_08051870: @ 08051870
 	bx r2
 	nop
 	bx r3
@@ -39,8 +39,8 @@ FUN_08051870: @ 08051870
 	nop
 	bx lr
 	nop
-	thumb_func_start FUN_080518a4
-FUN_080518a4: @ 080518A4
+	thumb_func_start sub_080518A4
+sub_080518A4: @ 080518A4
 	cmp r1, #0x00
 	beq _0805192C
 	push {r4}
@@ -123,16 +123,16 @@ _08051928:
 	mov pc, lr
 _0805192C:
 	push {lr}
-	bl FUN_08051938
+	bl sub_08051938
 	movs r0, #0x00
 	pop {pc}
 	lsls r0, r0, #0x00
-	thumb_func_start FUN_08051938
-FUN_08051938: @ 08051938
+	thumb_func_start sub_08051938
+sub_08051938: @ 08051938
 	mov pc, lr
 	lsls r0, r0, #0x00
-	thumb_func_start FUN_0805193c
-FUN_0805193c: @ 0805193C
+	thumb_func_start sub_0805193C
+sub_0805193C: @ 0805193C
 	movs r3, #0x01
 	cmp r1, #0x00
 	beq _08051A00
@@ -248,12 +248,12 @@ _080519FC:
 	mov pc, lr
 _08051A00:
 	push {lr}
-	bl FUN_08051938
+	bl sub_08051938
 	movs r0, #0x00
 	pop {pc}
 	lsls r0, r0, #0x00
-	thumb_func_start FUN_08051a0c
-FUN_08051a0c: @ 08051A0C
+	thumb_func_start sub_08051A0C
+sub_08051A0C: @ 08051A0C
 	cmp r1, #0x00
 	beq _08051A7A
 	movs r3, #0x01
@@ -320,11 +320,11 @@ _08051A74:
 	mov pc, lr
 _08051A7A:
 	push {lr}
-	bl FUN_08051938
+	bl sub_08051938
 	movs r0, #0x00
 	pop {pc}
-	thumb_func_start FUN_08051a84
-FUN_08051a84: @ 08051A84
+	thumb_func_start sub_08051A84
+sub_08051A84: @ 08051A84
 	cmp r1, #0x00
 	beq _08051B3A
 	movs r3, #0x01
@@ -432,7 +432,7 @@ _08051B36:
 	mov pc, lr
 _08051B3A:
 	push {lr}
-	bl FUN_08051938
+	bl sub_08051938
 	movs r0, #0x00
 	pop {pc}
 	thumb_func_start MemCopy
@@ -491,38 +491,38 @@ _08051B9E:
 	adds r0, r5, #0x0
 	pop {r4, r5, pc}
 	lsls r0, r0, #0x00
-	thumb_func_start thunk_FUN_080001d0
-thunk_FUN_080001d0: @ 08051BA4
+	thumb_func_start thunk_sub_080001D0
+thunk_sub_080001D0: @ 08051BA4
 	bx pc
 	nop
 	.2byte 0xB988
 	.2byte 0xEAFE
-	thumb_func_start thunk_FUN_080001e0
-thunk_FUN_080001e0: @ 08051BAC
+	thumb_func_start thunk_sub_080001E0
+thunk_sub_080001E0: @ 08051BAC
 	bx pc
 	nop
 	.2byte 0xB98A
 	.2byte 0xEAFE
-	thumb_func_start thunk_FUN_08000278
-thunk_FUN_08000278: @ 08051BB4
+	thumb_func_start thunk_sub_08000278
+thunk_sub_08000278: @ 08051BB4
 	bx pc
 	nop
 	.2byte 0xB9AE
 	.2byte 0xEAFE
-	thumb_func_start thunk_FUN_0800020c
-thunk_FUN_0800020c: @ 08051BBC
+	thumb_func_start thunk_sub_0800020C
+thunk_sub_0800020C: @ 08051BBC
 	bx pc
 	nop
 	.2byte 0xB991
 	.2byte 0xEAFE
-	thumb_func_start thunk_FUN_080002a0
-thunk_FUN_080002a0: @ 08051BC4
+	thumb_func_start thunk_sub_080002A0
+thunk_sub_080002A0: @ 08051BC4
 	bx pc
 	nop
 	.2byte 0xB9B4
 	.2byte 0xEAFE
-	thumb_func_start thunk_FUN_080002d0
-thunk_FUN_080002d0: @ 08051BCC
+	thumb_func_start thunk_sub_080002D0
+thunk_sub_080002D0: @ 08051BCC
 	bx pc
 	nop
 	.2byte 0xB9BE

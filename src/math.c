@@ -1,11 +1,11 @@
 #include "global.h"
 #include "include_asm.h"
 
-extern s16 FUN_080518a4(s32, s16);
+extern s16 sub_080518A4(s32, s16);
 
 /**
  * DivideQ8: fixed-point division with 8-bit left shift.
- * Computes FUN_080518a4(arg0 << 8, arg1).
+ * Computes sub_080518A4(arg0 << 8, arg1).
  */
 s16 DivideQ8(s16 num1, s16 num2) {
     return (num1 << 8) / num2;
@@ -13,7 +13,7 @@ s16 DivideQ8(s16 num1, s16 num2) {
 
 /**
  * ReciprocalQ8: fixed-point reciprocal (1.0 / arg0).
- * Computes FUN_080518a4(0x10000, arg0) = 65536 / arg0.
+ * Computes sub_080518A4(0x10000, arg0) = 65536 / arg0.
  */
 s16 ReciprocalQ8(s16 num1) {
     s32 numerator = 0x10000;
@@ -36,7 +36,7 @@ s16 MultiplyQ4(s16 num1, s16 num2) {
 
 /**
  * DivideQ4: fixed-point multiply with 4-bit left shift.
- * Computes FUN_080518a4(arg0 << 4, arg1).
+ * Computes sub_080518A4(arg0 << 4, arg1).
  */
 s16 DivideQ4(s16 num1, s16 num2) {
     return ((num1 << 4) / num2);
@@ -44,7 +44,7 @@ s16 DivideQ4(s16 num1, s16 num2) {
 
 /**
  * ReciprocalQ4: fixed-point division by unit scale (256).
- * Computes FUN_080518a4(0x100, arg0) = 256 / arg0.
+ * Computes sub_080518A4(0x100, arg0) = 256 / arg0.
  */
 s16 ReciprocalQ4(s16 num1) {
     s32 numerator = 0x100;

@@ -95,15 +95,15 @@ _LDR_LABEL_RE = re.compile(r"\bldr\s+\w+,\s+(\w+)")
 _INCLUDE_ASM_RE = re.compile(r'INCLUDE_ASM\("asm/nonmatchings/(\w+)",\s*(\w+)\)')
 
 # C function definition (detects decompiled functions)
-# Matches "type FUN_xxx(" but not extern declarations, calls, or INCLUDE_ASM
+# Matches "type sub_XXX(" but not extern declarations, calls, or INCLUDE_ASM
 _C_FUNC_DEF_RE = re.compile(
     r"^(?!extern\b)\w[\w\s\*]+"
-    r"(FUN_[0-9A-Fa-f]+|sub_[0-9A-Fa-f]+)\s*\("
+    r"(sub_[0-9A-Fa-f]+)\s*\("
 )
 
 # Address extraction from Luvdis output
 _ADDR_COMMENT_RE = re.compile(r"@ ([0-9A-Fa-f]{8})")
-_NAME_ADDR_RE = re.compile(r"(?:FUN_|sub_|thunk_FUN_|thunk_sub_)([0-9A-Fa-f]{6,8})")
+_NAME_ADDR_RE = re.compile(r"(?:sub_|thunk_sub_)([0-9A-Fa-f]{6,8})")
 
 # NOP padding (opcode 0x0000)
 _NOP = "lsls r0, r0, #0x00"
@@ -160,7 +160,7 @@ _FUNC_LABEL_ADDR_RE = re.compile(r"^\w+:\s*@\s*([0-9A-Fa-f]{8})")
 def _line_byte_size_strict(stripped: str) -> int:
     """Like ``_line_byte_size`` but handles labels with trailing comments.
 
-    ``FUN_08000470: @ 08000470`` → 0 (label only).
+    ``sub_08000470: @ 08000470`` → 0 (label only).
     ``_08000630: .4byte 0x040000D4`` → 4 (label + data directive).
     """
     if not stripped or stripped.startswith("@"):
@@ -498,7 +498,7 @@ def _detect_sub_functions(lines: list[str], start_addr: int):
 def _expand_sub_functions(func_entries):
     """Split entries that contain multiple logical functions.
 
-    New sub-functions get a ``FUN_XXXXXXXX`` name from their ROM address
+    New sub-functions get a ``sub_XXXXXXXX`` name from their ROM address
     and a ``non_word_aligned_thumb_func_start`` header (no ``.align``
     padding that could shift literal pool entries).
     """
@@ -514,7 +514,7 @@ def _expand_sub_functions(func_entries):
 
         # Build split points: original function + detected sub-functions
         splits = [(0, addr, name)] + [
-            (li, sa, f"FUN_{sa:08x}") for li, sa in subs
+            (li, sa, f"sub_{sa:08X}") for li, sa in subs
         ]
         for j, (seg_start, seg_addr, seg_name) in enumerate(splits):
             seg_end = splits[j + 1][0] if j + 1 < len(splits) else len(lines)
@@ -1203,7 +1203,7 @@ def _downgrade_internal_symbols():
             with open(fpath) as f:
                 content = f.read()
             for sym in re.findall(
-                r"\b(?:bl?|ldr\s+\w+,)\s+(FUN_\w+|sub_\w+|thunk_\w+)", content
+                r"\b(?:bl?|ldr\s+\w+,)\s+(sub_\w+|thunk_\w+)", content
             ):
                 refs_by_sym.setdefault(sym, set()).add(fpath)
 
@@ -1564,11 +1564,11 @@ def _apply_fixups(module_funcs=None):
     else:
         print("  WARNING: Could not find bx r0 SBZ fixup target")
 
-    # Split leaf function at 0x0804FE10 out of FUN_0804fc10.
+    # Split leaf function at 0x0804FE10 out of sub_0804FC10.
     # This function uses push {r4, r5} (no lr) which the automatic
     # prologue detection doesn't handle.  It ends with pop {r4, r5}; bx lr.
-    _manual_split_leaf(nm_root, "m4a", "FUN_0804fc10.s",
-                       "push {r4, r5}", 0x0804FE10, "FUN_0804fe10")
+    _manual_split_leaf(nm_root, "m4a", "sub_0804FC10.s",
+                       "push {r4, r5}", 0x0804FE10, "sub_0804FE10")
 
     # DeadCode_0804bb86 is the high halfword of FreeGfxBuffer's literal
     # pool (0x0300, the upper 16 bits of 0x030034A0).  FreeGfxBuffer.s
@@ -1580,7 +1580,7 @@ def _apply_fixups(module_funcs=None):
     # The stub must still define the .global symbol because the linker
     # script references it, but emit no code/data bytes (FreeGfxBuffer's
     # .4byte already covers the literal pool word).
-    dc_path = os.path.join(nm_root, "gfx", "FUN_0804bb86.s")
+    dc_path = os.path.join(nm_root, "gfx", "sub_0804BB86.s")
     if os.path.exists(dc_path):
         # Check if FreeGfxBuffer is compiled from C (not INCLUDE_ASM).
         # If so, the C compiler emits the full .4byte 0x030034A0 and
@@ -1597,13 +1597,13 @@ def _apply_fixups(module_funcs=None):
 
         with open(dc_path, "w") as f:
             if freegfx_is_c:
-                f.write("\t.global FUN_0804bb86\n"
-                        "FUN_0804bb86:\n")
+                f.write("\t.global sub_0804BB86\n"
+                        "sub_0804BB86:\n")
             else:
-                f.write("\t.global FUN_0804bb86\n"
-                        "FUN_0804bb86:\n"
+                f.write("\t.global sub_0804BB86\n"
+                        "sub_0804BB86:\n"
                         "\t.2byte 0x0300\n")
-        print("  Fixed FUN_0804bb86.s (literal pool stub)")
+        print("  Fixed sub_0804BB86.s (literal pool stub)")
 
     # Fix misplaced literal pools: when a sub-function's first content
     # is a .4byte that is actually the preceding function's literal pool,
@@ -2570,6 +2570,30 @@ def _fix_2byte_branches_per_file():
           f"{globals_added} .global directives added")
 
 
+_FUN_LOWERCASE_RE = re.compile(r"FUN_([0-9a-fA-F]{6,8})\b")
+
+
+def _normalize_fun_names(path: str) -> None:
+    """Rewrite ``FUN_<lowercase>`` → ``sub_<UPPERCASE>`` in the disasm.
+
+    ``functions_merged.cfg`` uses Ghidra-style ``FUN_<lowercase>`` names
+    purely because Luvdis omits the ``@ XXXXXXXX`` address comment for
+    any function whose name starts with ``sub_`` — and several
+    anchored-address passes downstream rely on those comments.  Renaming
+    here means every committed source file and every generated asm file
+    uses the kleod-style ``sub_<UPPERCASE>`` convention, while the cfg
+    input keeps Luvdis happy.
+    """
+    with open(path) as f:
+        content = f.read()
+    new = _FUN_LOWERCASE_RE.sub(
+        lambda m: f"sub_{m.group(1).upper()}", content
+    )
+    if new != content:
+        with open(path, "w") as f:
+            f.write(new)
+
+
 def _run_luvdis():
     """Run Luvdis disassembler → build/rom_disasm.s."""
     output = os.path.join(ROOT, "build", "rom_disasm.s")
@@ -2595,6 +2619,7 @@ def _run_luvdis():
     if result.returncode != 0:
         print(f"ERROR: Luvdis failed:\n{result.stderr}", file=sys.stderr)
         sys.exit(1)
+    _normalize_fun_names(output)
     return output
 
 

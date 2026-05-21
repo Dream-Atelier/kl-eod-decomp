@@ -29,7 +29,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", sub_0804EB64);
  * SoundDmaInit: DMA controller setup for sound data transfers.
  * Configures DMA channels for PCM sample streaming to FIFO.
  *   79 lines, has DMA register writes (REG_DMA3SAD/DAD/CNT)
- *   calls: thunk_FUN_080001e0 (memory alloc)
+ *   calls: thunk_sub_080001E0 (memory alloc)
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", SoundDmaInit);
 /**
@@ -40,8 +40,8 @@ INCLUDE_ASM("asm/nonmatchings/m4a", SoundDmaInit);
  */
 void FreeSoundStruct(void) {
     u32 *p = (u32 *)0x0300081C; /* &gSoundInfo */
-    thunk_FUN_0800020c(*(u32 *)(*p) - 4);
-    thunk_FUN_0800020c(*p);
+    thunk_sub_0800020C(*(u32 *)(*p) - 4);
+    thunk_sub_0800020C(*p);
 }
 /*
  * SoundReset: writes a tile value with palette bank 15 to screen buffer B.
@@ -88,7 +88,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_ValidateStream);
 /*
  * SoundBufferAlloc: allocate sound mixing buffers.
  * Allocates WRAM buffers for the PCM mixing pipeline.
- *   21 lines, calls FUN_08051868
+ *   21 lines, calls sub_08051868
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", SoundBufferAlloc);
 /*
@@ -108,18 +108,18 @@ INCLUDE_ASM("asm/nonmatchings/m4a", SoundContextInit);
 /*
  * SoundChannelTableInit: initialize sound channel table entries.
  * Sets up the per-channel state for all active sound channels.
- *   86 lines, calls FUN_08051868
+ *   86 lines, calls sub_08051868
  */
 /**
  * StreamCmd_StopSoundAndSync: stops sound, syncs freq to BG scroll, advances by 2.
  */
-void FUN_08051868(u32);
+void sub_08051868(u32);
 void StreamCmd_StopSoundAndSync(void) {
     u32 *soundInfoRef = (u32 *)0x0300081C;
     u16 *bgLayerState;
     u16 *soundInfo;
 
-    FUN_08051868(((u32 *)*soundInfoRef)[0x24 / 4]);
+    sub_08051868(((u32 *)*soundInfoRef)[0x24 / 4]);
 
     ((u8 *)*soundInfoRef)[0x09] = 0;
     ((u8 *)*soundInfoRef)[0x08] = 0;
@@ -222,7 +222,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MidiNoteDispatch);
  *   11 lines, leaf function
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MidiDecodeByte);
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_0804f75a);
+INCLUDE_ASM("asm/nonmatchings/m4a", sub_0804F75A);
 /*
  * MidiNoteSetup: set up a MIDI note-on event on a sound channel.
  * Configures the channel's pitch, volume, and instrument for playback.
@@ -531,7 +531,7 @@ void SoundHardwareInit_Tail(void) {
  *   no return value
  */
 void PlaySoundWithContext_D8(u32 soundId) {
-    FUN_0805186c(soundId, gMPlayInfo_BGM);
+    sub_0805186C(soundId, gMPlayInfo_BGM);
 }
 /*
  * Plays a sound effect using the SE MusicPlayer context (gMPlayInfo_SE).
@@ -540,7 +540,7 @@ void PlaySoundWithContext_D8(u32 soundId) {
  *   no return value
  */
 void PlaySoundWithContext_DC(u32 soundId) {
-    FUN_0805186c(soundId, gMPlayInfo_SE);
+    sub_0805186C(soundId, gMPlayInfo_SE);
 }
 
 /* ── Direct Sound & DMA Configuration ── */
@@ -559,7 +559,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", DirectSoundFifoSetup);
  * SampleFreqSet: configure timer for PCM sample rate.
  * Sets TM0/TM1 to generate interrupts at the mixing frequency,
  * which triggers DMA transfers to refill the FIFO buffers.
- *   72 lines, calls m4aSoundVSyncOn (m4aSoundVSyncOn), FUN_080518a4
+ *   72 lines, calls m4aSoundVSyncOn (m4aSoundVSyncOn), sub_080518A4
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", SampleFreqSet);
 /*
@@ -640,13 +640,13 @@ void m4aSoundMode(u32 mode) {
 /*
  * SoundPlatformDetect: detect audio platform capabilities.
  * Checks hardware version and adjusts sound parameters accordingly.
- *   45 lines, calls FUN_0805186c
+ *   45 lines, calls sub_0805186C
  */
 /**
  * SoundClear: resets all channel status bytes and processes channels.
  *
  * Checks SAPPY_MAGIC, clears 12 channel status bytes (stride 0x40),
- * then calls FUN_0805186c for channels 1-4 with the voice table.
+ * then calls sub_0805186C for channels 1-4 with the voice table.
  * Restores SAPPY_MAGIC on exit.
  */
 void SoundClear(void) {
@@ -676,7 +676,7 @@ void SoundClear(void) {
     if (channelPtr != NULL) {
         channelIdx = 1;
         do {
-            FUN_0805186c((u8)channelIdx, soundInfo[0x2C / 4]);
+            sub_0805186C((u8)channelIdx, soundInfo[0x2C / 4]);
             *channelPtr = 0;
             channelIdx++;
             channelPtr += 0x40;
@@ -862,12 +862,12 @@ INCLUDE_ASM("asm/nonmatchings/m4a", CgbSound);
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MidiKeyToCgbFreq);
 /*
- * FUN_08050a44: silence a CGB sound channel.
+ * sub_08050A44: silence a CGB sound channel.
  * Blocker: original uses bgt (signed branch) for u8 > 2 comparison,
  * but agbcc generates bhi (unsigned). 1-byte encoding difference
  * that can't be fixed from C. Needs compiler patch to branch encoding.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", FUN_08050a44);
+INCLUDE_ASM("asm/nonmatchings/m4a", sub_08050A44);
 /*
  * CgbLookupUtil: CGB utility lookup for pitch/volume tables.
  *   59 lines, leaf function
@@ -1041,7 +1041,7 @@ done:
  * Reads a command byte from the track stream and dispatches to the
  * appropriate handler via a ROM-based function pointer table.
  *   174 lines
- *   calls: FUN_08051870
+ *   calls: sub_08051870
  *   refs: gSoundCmdTablePtr (0x03006454), ROM command table (0x080511F0)
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MPlayCommandDispatch);
@@ -1050,18 +1050,18 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MPlayCommandDispatch);
  * Reads a command byte, indexes into the command table at 0x08117C8C,
  * and calls the corresponding handler function.
  *   r0: sound context, r1: channel struct
- *   16 lines, calls FUN_08051870
+ *   16 lines, calls sub_08051870
  */
-void FUN_08051870(u32, u32 *, u32);
+void sub_08051870(u32, u32 *, u32);
 void SoundCmd_Dispatch(u32 ctx, u32 *channel) {
     u8 *cmdPtr = (u8 *)channel[0x40 / 4];
     u8 cmd = *cmdPtr;
     channel[0x40 / 4] = (u32)(cmdPtr + 1);
-    FUN_08051870(ctx, channel, gSoundCmdTable[cmd]);
+    sub_08051870(ctx, channel, gSoundCmdTable[cmd]);
 }
 /** SoundCommand_6450: dispatches a sound command using gSoundTablePtr. */
 void SoundCommand_6450(u32 ctx, u32 channel) {
-    FUN_08051870(ctx, channel, gSoundTablePtr);
+    sub_08051870(ctx, channel, gSoundTablePtr);
 }
 /*
  * BitMaskLUT: 32-bit channel bitmask lookup table.

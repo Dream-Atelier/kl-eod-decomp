@@ -21,7 +21,7 @@ Matching decompilation of **Klonoa: Empire of Dreams** (GBA, USA). Goal: C sourc
 ## Policies
 
 ### Code Quality
-- **Every decompiled function must have a semantic name and docstring.** No `FUN_XXXXXXXX` in committed C code. Add rename in `klonoa-eod-decomp.toml` and `/** docstring */` above the function.
+- **Every decompiled function must have a semantic name and docstring.** No `sub_XXXXXXXX` in committed C code. Add rename in `klonoa-eod-decomp.toml` and `/** docstring */` above the function.
 - **Run `make format` before every commit** touching C/H files. CI enforces `make check_format`.
 - **One commit per matched function.** Descriptive message explaining the matching technique.
 - **All policies must be public.** Add to this CLAUDE.md, not just memory.
@@ -45,9 +45,9 @@ Matching decompilation of **Klonoa: Empire of Dreams** (GBA, USA). Goal: C sourc
 
 ## Decompilation Workflow
 
-1. Pick an `INCLUDE_ASM("asm/nonmatchings/...", FUN_XXXXXXXX)` in `src/*.c`
+1. Pick an `INCLUDE_ASM("asm/nonmatchings/...", sub_XXXXXXXX)` in `src/*.c`
 2. Replace with equivalent C that compiles to matching assembly
-3. Add rename in `klonoa-eod-decomp.toml`: `FUN_XXXXXXXX = "MeaningfulName"`
+3. Add rename in `klonoa-eod-decomp.toml`: `sub_XXXXXXXX = "MeaningfulName"`
 4. `make compare` → verify `klonoa-eod.gba: OK`
 5. `python3 scripts/generate_asm.py` → update assembly labels
 

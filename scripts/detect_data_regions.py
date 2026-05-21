@@ -331,7 +331,7 @@ def main():
             with open(config_path, "rb") as f:
                 toml_cfg = tomllib.load(f)
             for old_name in toml_cfg.get("renames", {}):
-                m = re.match(r"(?:FUN_|sub_)([0-9A-Fa-f]+)", old_name)
+                m = re.match(r"sub_([0-9A-Fa-f]+)", old_name)
                 if m:
                     func_addrs.add(int(m.group(1), 16))
         safe = []

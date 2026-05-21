@@ -133,20 +133,20 @@ void LoadSpriteFrame(u8 frame, u8 tilesetIdx) {
  * Frees gDecompBufferCtrl entries [0]-[5] (offset -4 for sub-header),
  * then conditionally frees gCollisionMapPtr.
  */
-void thunk_FUN_0800020c(u32);
+void thunk_sub_0800020C(u32);
 void m4aSongNumStart(u16);
 void FreeAllDecompBuffers(void) {
     u32 *decompBuffers = (u32 *)gDecompBufferCtrl;
 
-    thunk_FUN_0800020c(decompBuffers[1] - 4);
-    thunk_FUN_0800020c(decompBuffers[0] - 4);
-    thunk_FUN_0800020c(decompBuffers[3] - 4);
-    thunk_FUN_0800020c(decompBuffers[2] - 4);
-    thunk_FUN_0800020c(decompBuffers[5] - 4);
-    thunk_FUN_0800020c(decompBuffers[4] - 4);
+    thunk_sub_0800020C(decompBuffers[1] - 4);
+    thunk_sub_0800020C(decompBuffers[0] - 4);
+    thunk_sub_0800020C(decompBuffers[3] - 4);
+    thunk_sub_0800020C(decompBuffers[2] - 4);
+    thunk_sub_0800020C(decompBuffers[5] - 4);
+    thunk_sub_0800020C(decompBuffers[4] - 4);
 
     if (gCollisionMapPtr != 0) {
-        thunk_FUN_0800020c(gCollisionMapPtr - 4);
+        thunk_sub_0800020C(gCollisionMapPtr - 4);
         gCollisionMapPtr = 0;
     }
 
