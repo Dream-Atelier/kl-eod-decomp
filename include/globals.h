@@ -538,16 +538,6 @@ extern const u32 gSoundCmdTable[];
 #define gSaveBuffer2          (*(u32 *)0x0300465C)
 #define gSaveBuffer3          (*(u32 *)0x030008E4)
 
-/* ── Sound / DMA (extended) ── */
-
-/* GBA BIOS sound info pointer at 0x03007FF0.
- * Standard m4a/MusicPlayer2000 location for SoundArea struct.
- * Same slot as SOUND_INFO_PTR in m4a_internal.h; this raw u32**
- * accessor is used by older m4a.c functions that haven't been
- * ported to the SoundMixerState-struct API yet (m4aSoundVSyncOff/On,
- * SoundClear, MPlayOpen). */
-#define gBiosSoundInfo        (*(u32 **)0x03007FF0)
-
 /* ── Entity Data Tables ── */
 
 /* Entity data table: 8-byte entries indexed by entity type.

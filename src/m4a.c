@@ -4,9 +4,6 @@
 #include "include_asm.h"
 #include "m4a_internal.h"
 
-extern char gNumMusicPlayers[];
-#define NUM_MUSIC_PLAYERS ((u16)gNumMusicPlayers)
-
 /* ══════════════════════════════════════════════════════════════════════
  * m4a — Nintendo MusicPlayer2000 ("Sappy") sound engine
  *
@@ -283,7 +280,6 @@ void MPlayFadeOut(struct MP2KPlayerState *mplayInfo, u16 speed) {
  * stand up the mixer state and CGB channels, then walks gMPlayTable
  * registering each player via MPlayOpen.
  */
-extern char SoundMainRAM[];
 void BitUnPack(u32, u32, u32);
 
 void m4aSoundInit(void) {
@@ -298,7 +294,7 @@ void m4aSoundInit(void) {
         struct MP2KPlayerState *mplayInfo = gMPlayTable[i].info;
         MPlayOpen((u32 *)mplayInfo, (u8 *)gMPlayTable[i].track, gMPlayTable[i].numTracks);
         mplayInfo->checkSongPriority = gMPlayTable[i].unk_A;
-        *(u32 *)((u8 *)mplayInfo + 0x18) = 0x030066A0;  /* memAccArea (Phase C will name this field) */
+        *(u32 *)((u8 *)mplayInfo + 0x18) = 0x030066A0; /* memAccArea (Phase C will name this field) */
     }
 }
 /**
@@ -476,14 +472,11 @@ void m4aMPlayImmInit(struct MP2KPlayerState *mplayInfo) {
  * 0x05000040 = fill mode + 32-bit + count 64 words (256 bytes =
  * 4 × sizeof(MixerSource)).
  */
-extern char gMaxLines[];
-#define MAX_LINES ((u32)gMaxLines)
-
 void MPlayExtender(struct MixerSource *cgbChans) {
     struct SoundMixerState *soundInfo;
     u32 lockStatus;
 
-    REG_SOUNDCNT_X = 0x8F;  /* SOUND_MASTER_ENABLE | SOUND_4_ON | SOUND_3_ON | SOUND_2_ON | SOUND_1_ON */
+    REG_SOUNDCNT_X = 0x8F; /* SOUND_MASTER_ENABLE | SOUND_4_ON | SOUND_3_ON | SOUND_2_ON | SOUND_1_ON */
     REG_SOUNDCNT_L = 0;
     REG_NR12 = 0x8;
     REG_NR22 = 0x8;
@@ -503,7 +496,7 @@ void MPlayExtender(struct MixerSource *cgbChans) {
 
     soundInfo->lockStatus++;
 
-    gMPlayJumpTable[8]  = MP2K_event_memacc;
+    gMPlayJumpTable[8] = MP2K_event_memacc;
     gMPlayJumpTable[17] = MP2K_event_lfos;
     gMPlayJumpTable[19] = MP2K_event_mod;
     gMPlayJumpTable[28] = MP2K_event_xcmd;
@@ -585,9 +578,8 @@ void SoundInit(struct SoundMixerState *soundInfo) {
     REG_DMA2CNT_H = DMA_32BIT;
 
     REG_SOUNDCNT_X = SOUND_MASTER_ENABLE | SOUND_4_ON | SOUND_3_ON | SOUND_2_ON | SOUND_1_ON;
-    REG_SOUNDCNT_H = SOUND_B_FIFO_RESET | SOUND_B_TIMER_0 | SOUND_B_LEFT_OUTPUT
-                   | SOUND_A_FIFO_RESET | SOUND_A_TIMER_0 | SOUND_A_RIGHT_OUTPUT
-                   | SOUND_ALL_MIX_FULL;
+    REG_SOUNDCNT_H = SOUND_B_FIFO_RESET | SOUND_B_TIMER_0 | SOUND_B_LEFT_OUTPUT | SOUND_A_FIFO_RESET | SOUND_A_TIMER_0
+        | SOUND_A_RIGHT_OUTPUT | SOUND_ALL_MIX_FULL;
     REG_SOUNDBIAS_H = (REG_SOUNDBIAS_H & 0x3F) | 0x40;
 
     REG_DMA1SAD = (u32)soundInfo->pcmBuffer;
@@ -641,8 +633,10 @@ void SampleFreqSet(u32 freq) {
 
     m4aSoundVSyncOn();
 
-    while (*(vu8 *)0x04000006 == 159);
-    while (*(vu8 *)0x04000006 != 159);
+    while (*(vu8 *)0x04000006 == 159)
+        ;
+    while (*(vu8 *)0x04000006 != 159)
+        ;
 
     REG_TM0CNT_H = TIMER_ENABLE | TIMER_1CLK;
 }
@@ -655,71 +649,56 @@ void SampleFreqSet(u32 freq) {
  *   calls: SampleFreqSet, m4aSoundShutdown (m4aSoundVSyncOff)
  */
 void m4aSoundMode(u32 mode) {
-    u32 *soundInfo;
-    u32 magic;
+    struct SoundMixerState *soundInfo = SOUND_INFO_PTR;
     u32 temp;
 
-    soundInfo = gBiosSoundInfo;
-    magic = soundInfo[0];
-
-    if (magic != SAPPY_MAGIC)
+    if (soundInfo->lockStatus != ID_NUMBER)
         return;
 
-    soundInfo[0] = magic + 1;
+    soundInfo->lockStatus++;
 
-    temp = mode & 0xFF;
-    if (temp) {
-        temp &= 0x7F;
-        ((u8 *)soundInfo)[5] = temp;
-    }
+    temp = mode & (SOUND_MODE_REVERB_SET | SOUND_MODE_REVERB_VAL);
 
-    temp = 0xF0 << 4;
-    temp &= mode;
+    if (temp)
+        soundInfo->reverb = temp & SOUND_MODE_REVERB_VAL;
+
+    temp = mode & SOUND_MODE_MAXCHN;
+
     if (temp) {
-        ((u8 *)soundInfo)[6] = temp >> 8;
-        temp = 0x0C;
-        {
-            u8 *ch = (u8 *)soundInfo + 0x50;
-            u8 zero = 0;
-            do {
-                *ch = zero;
-                temp -= 1;
-                ch += 0x40;
-            } while (temp != 0);
+        struct MixerSource *chan;
+
+        soundInfo->numChans = temp >> SOUND_MODE_MAXCHN_SHIFT;
+
+        temp = MAX_DIRECTSOUND_CHANNELS;
+        chan = &soundInfo->chans[0];
+
+        while (temp != 0) {
+            chan->status = 0;
+            temp--;
+            chan++;
         }
     }
 
-    temp = 0xF0 << 8;
-    temp &= mode;
+    temp = mode & SOUND_MODE_MASVOL;
+
+    if (temp)
+        soundInfo->masterVol = temp >> SOUND_MODE_MASVOL_SHIFT;
+
+    temp = mode & SOUND_MODE_DA_BIT;
+
     if (temp) {
-        ((u8 *)soundInfo)[7] = temp >> 12;
+        temp = (temp & 0x300000) >> 14;
+        REG_SOUNDBIAS_H = (REG_SOUNDBIAS_H & 0x3F) | temp;
     }
 
-    temp = 0xB0 << 16;
-    temp &= mode;
-    if (temp) {
-        u32 shifted;
-        shifted = 0xC0 << 14;
-        shifted &= temp;
-        temp = shifted >> 14;
-        {
-            vu8 *bias = (vu8 *)0x04000089;
-            u8 val = *bias;
-            u8 r0 = 0x3F;
-            r0 &= val;
-            r0 |= temp;
-            *bias = r0;
-        }
-    }
+    temp = mode & SOUND_MODE_FREQ;
 
-    temp = 0xF0 << 12;
-    temp &= mode;
     if (temp) {
         m4aSoundVSyncOff();
         SampleFreqSet(temp);
     }
 
-    soundInfo[0] = SAPPY_MAGIC;
+    soundInfo->lockStatus = ID_NUMBER;
 }
 /*
  * SoundPlatformDetect: detect audio platform capabilities.
@@ -729,45 +708,40 @@ void m4aSoundMode(u32 mode) {
 /**
  * SoundClear: resets all channel status bytes and processes channels.
  *
- * Checks SAPPY_MAGIC, clears 12 channel status bytes (stride 0x40),
- * then calls sub_0805186C for channels 1-4 with the voice table.
- * Restores SAPPY_MAGIC on exit.
+ * Checks ID_NUMBER, clears 12 channel status bytes (stride 0x40),
+ * then calls soundInfo->CgbOscOff for channels 1-4 via the chan pointer.
+ * Restores ID_NUMBER on exit.
  */
 void SoundClear(void) {
-    u32 **soundInfoRef = &gBiosSoundInfo;
-    u32 *soundInfo;
-    u32 magic;
+    struct SoundMixerState *soundInfo = SOUND_INFO_PTR;
     s32 channelIdx;
-    u8 *channelPtr;
+    struct MixerSource *chan;
 
-    soundInfo = *soundInfoRef;
-    magic = soundInfo[0];
-
-    if (magic != SAPPY_MAGIC)
+    if (soundInfo->lockStatus != ID_NUMBER)
         return;
 
-    soundInfo[0] = magic + 1;
+    soundInfo->lockStatus++;
 
-    channelIdx = 12;
-    channelPtr = (u8 *)soundInfo + 0x50;
+    channelIdx = MAX_DIRECTSOUND_CHANNELS;
+    chan = &soundInfo->chans[0];
     do {
-        *channelPtr = 0;
+        chan->status = 0;
         channelIdx--;
-        channelPtr += 0x40;
+        chan++;
     } while (channelIdx > 0);
 
-    channelPtr = (u8 *)soundInfo[0x1C / 4];
-    if (channelPtr != NULL) {
+    chan = soundInfo->cgbChans;
+    if (chan != NULL) {
         channelIdx = 1;
         do {
-            sub_0805186C((u8)channelIdx, soundInfo[0x2C / 4]);
-            *channelPtr = 0;
+            soundInfo->CgbOscOff((u8)channelIdx);
+            chan->status = 0;
             channelIdx++;
-            channelPtr += 0x40;
+            chan++;
         } while (channelIdx <= 4);
     }
 
-    soundInfo[0] = SAPPY_MAGIC;
+    soundInfo->lockStatus = ID_NUMBER;
 }
 /*
  * m4aSoundShutdown: emergency stop — shut down all sound output.
@@ -785,14 +759,14 @@ void SoundClear(void) {
  */
 void m4aSoundVSyncOff(void) {
     u32 scratch;
-    u32 *info = gBiosSoundInfo;
-    u32 magic = info[0];
+    struct SoundMixerState *info = SOUND_INFO_PTR;
+    u32 magic = info->lockStatus;
     vu32 *dmaReg;
 
     if (magic + 0x978C92AD > 1)
         return;
 
-    info[0] = magic + 10;
+    info->lockStatus = magic + 10;
 
     dmaReg = (vu32 *)0x040000C4;
     if (*dmaReg & 0x02000000)
@@ -802,11 +776,11 @@ void m4aSoundVSyncOff(void) {
     if (*dmaReg & 0x02000000)
         *dmaReg = 0x84400004;
 
-    *(vu16 *)0x040000C6 = 0x0400;
-    *(vu16 *)0x040000D2 = 0x0400;
+    REG_DMA1CNT_H = 0x0400;
+    REG_DMA2CNT_H = 0x0400;
 
     scratch = 0;
-    BitUnPack(&scratch, (u8 *)info + 0x350, (u32 *)0x05000318);
+    BitUnPack(&scratch, info->pcmBuffer, (u32 *)0x05000318);
 }
 
 /* ── VBlank Sound Update Pipeline ── */
@@ -818,17 +792,20 @@ void m4aSoundVSyncOff(void) {
  * Counterpart to m4aSoundVSyncOff.  Must be called after MPlayExtender.
  */
 void m4aSoundVSyncOn(void) {
-    u32 *info = gBiosSoundInfo;
-    u32 magic = info[0];
+    struct SoundMixerState *info = SOUND_INFO_PTR;
+    u32 magic = info->lockStatus;
     u8 scratch;
-    if (magic == SAPPY_MAGIC)
+    if (magic == ID_NUMBER)
         return;
-    *(vu16 *)0x040000C6 = 0xB600;
-    *(vu16 *)0x040000D2 = 0xB600;
+    REG_DMA1CNT_H = 0xB600;
+    REG_DMA2CNT_H = 0xB600;
+    /* dmaCounter read/write deliberately use a vu8 read paired with a non-volatile
+       u8 write to match agbcc's emitted byte sequence — typed `info->dmaCounter`
+       would force a volatile store and break the match. */
     scratch = ((vu8 *)info)[0x04];
     scratch = 0;
     ((u8 *)info)[0x04] = scratch;
-    info[0] = magic - 10;
+    info->lockStatus = magic - 10;
 }
 /**
  * MPlayOpen: initialize a MusicPlayerInfo and register it in the SoundInfo
@@ -836,9 +813,8 @@ void m4aSoundVSyncOn(void) {
  * track's flags byte, and chains the player into the MPlayMain callback
  * list via Clear64byte (= gMPlayJumpTable[35]).
  */
-void MPlayOpen(u32 *mplayInfo, u8 *tracks, u8 trackCount) {
-    u32 *soundInfo;
-    u32 ident;
+void MPlayOpen(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *tracks, u8 trackCount) {
+    struct SoundMixerState *soundInfo;
 
     if (trackCount == 0)
         return;
@@ -846,36 +822,35 @@ void MPlayOpen(u32 *mplayInfo, u8 *tracks, u8 trackCount) {
     if (trackCount > 16)
         trackCount = 16;
 
-    soundInfo = gBiosSoundInfo;
-    ident = soundInfo[0];
+    soundInfo = SOUND_INFO_PTR;
 
-    if (ident != SAPPY_MAGIC)
+    if (soundInfo->lockStatus != ID_NUMBER)
         return;
 
-    soundInfo[0] = ident + 1;
+    soundInfo->lockStatus++;
 
     Clear64byte((u32)mplayInfo);
 
-    mplayInfo[0x2C / 4] = (u32)tracks;
-    ((u8 *)mplayInfo)[0x08] = trackCount;
-    mplayInfo[0x04 / 4] = 0x80000000;
+    mplayInfo->tracks = tracks;
+    mplayInfo->trackCount = trackCount;
+    mplayInfo->status = MUSICPLAYER_STATUS_PAUSE;
 
     while (trackCount != 0) {
-        tracks[0x00] = 0;
+        tracks->status = 0;
         trackCount--;
-        tracks += 0x50;
+        tracks++;
     }
 
-    if (soundInfo[0x20 / 4] != 0) {
-        mplayInfo[0x38 / 4] = soundInfo[0x20 / 4];
-        mplayInfo[0x3C / 4] = soundInfo[0x24 / 4];
-        soundInfo[0x20 / 4] = 0;
+    if (soundInfo->MPlayMainHead != NULL) {
+        mplayInfo->MPlayMain = soundInfo->MPlayMainHead;
+        mplayInfo->next = soundInfo->musicPlayerHead;
+        soundInfo->MPlayMainHead = NULL;
     }
 
-    soundInfo[0x24 / 4] = (u32)mplayInfo;
-    soundInfo[0x20 / 4] = (u32)MP2KPlayerMain;
-    soundInfo[0] = SAPPY_MAGIC;
-    mplayInfo[0x34 / 4] = SAPPY_MAGIC;
+    soundInfo->musicPlayerHead = mplayInfo;
+    soundInfo->MPlayMainHead = MP2KPlayerMain;
+    soundInfo->lockStatus = ID_NUMBER;
+    mplayInfo->lockStatus = ID_NUMBER;
 }
 /**
  * MPlayStart: start (or restart) the given song on a music player.
@@ -1409,9 +1384,9 @@ void CgbSound(void) {
             if (ch < 4 && (channels->type & TONEDATA_TYPE_FIX)) {
                 int dac_pwm_rate = REG_SOUNDBIAS_H;
 
-                if (dac_pwm_rate < 0x40)         /* if PWM rate = 32768 Hz */
+                if (dac_pwm_rate < 0x40) /* if PWM rate = 32768 Hz */
                     channels->data.cgb.freq = (channels->data.cgb.freq + 2) & 0x7fc;
-                else if (dac_pwm_rate < 0x80)    /* if PWM rate = 65536 Hz */
+                else if (dac_pwm_rate < 0x80) /* if PWM rate = 65536 Hz */
                     channels->data.cgb.freq = (channels->data.cgb.freq + 1) & 0x7fe;
             }
 
@@ -1645,10 +1620,10 @@ void m4aMPlayLFOSpeedSet(struct MP2KPlayerState *mplayInfo, u16 trackBits, u8 lf
 
     mplayInfo->lockStatus = ID_NUMBER;
 }
-#define MEMACC_COND_JUMP(cond) \
-    if (cond)                  \
-        goto cond_true;        \
-    else                       \
+#define MEMACC_COND_JUMP(cond)                                                                                                        \
+    if (cond)                                                                                                                         \
+        goto cond_true;                                                                                                               \
+    else                                                                                                                              \
         goto cond_false;
 
 /**
@@ -1673,32 +1648,57 @@ void MP2K_event_memacc(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *trac
     track->cmdPtr++;
 
     switch (op) {
-        case 0:  *addr = data; return;
-        case 1:  *addr += data; return;
-        case 2:  *addr -= data; return;
-        case 3:  *addr = mplayInfo->memAccArea[data]; return;
-        case 4:  *addr += mplayInfo->memAccArea[data]; return;
-        case 5:  *addr -= mplayInfo->memAccArea[data]; return;
-        case 6:  MEMACC_COND_JUMP(*addr == data)                          return;
-        case 7:  MEMACC_COND_JUMP(*addr != data)                          return;
-        case 8:  MEMACC_COND_JUMP(*addr > data)                           return;
-        case 9:  MEMACC_COND_JUMP(*addr >= data)                          return;
-        case 10: MEMACC_COND_JUMP(*addr <= data)                          return;
-        case 11: MEMACC_COND_JUMP(*addr < data)                           return;
-        case 12: MEMACC_COND_JUMP(*addr == mplayInfo->memAccArea[data])   return;
-        case 13: MEMACC_COND_JUMP(*addr != mplayInfo->memAccArea[data])   return;
-        case 14: MEMACC_COND_JUMP(*addr > mplayInfo->memAccArea[data])    return;
-        case 15: MEMACC_COND_JUMP(*addr >= mplayInfo->memAccArea[data])   return;
-        case 16: MEMACC_COND_JUMP(*addr <= mplayInfo->memAccArea[data])   return;
-        case 17: MEMACC_COND_JUMP(*addr < mplayInfo->memAccArea[data])    return;
-        default: return;
+        case 0:
+            *addr = data;
+            return;
+        case 1:
+            *addr += data;
+            return;
+        case 2:
+            *addr -= data;
+            return;
+        case 3:
+            *addr = mplayInfo->memAccArea[data];
+            return;
+        case 4:
+            *addr += mplayInfo->memAccArea[data];
+            return;
+        case 5:
+            *addr -= mplayInfo->memAccArea[data];
+            return;
+        case 6:
+            MEMACC_COND_JUMP(*addr == data) return;
+        case 7:
+            MEMACC_COND_JUMP(*addr != data) return;
+        case 8:
+            MEMACC_COND_JUMP(*addr > data) return;
+        case 9:
+            MEMACC_COND_JUMP(*addr >= data) return;
+        case 10:
+            MEMACC_COND_JUMP(*addr <= data) return;
+        case 11:
+            MEMACC_COND_JUMP(*addr < data) return;
+        case 12:
+            MEMACC_COND_JUMP(*addr == mplayInfo->memAccArea[data]) return;
+        case 13:
+            MEMACC_COND_JUMP(*addr != mplayInfo->memAccArea[data]) return;
+        case 14:
+            MEMACC_COND_JUMP(*addr > mplayInfo->memAccArea[data]) return;
+        case 15:
+            MEMACC_COND_JUMP(*addr >= mplayInfo->memAccArea[data]) return;
+        case 16:
+            MEMACC_COND_JUMP(*addr <= mplayInfo->memAccArea[data]) return;
+        case 17:
+            MEMACC_COND_JUMP(*addr < mplayInfo->memAccArea[data]) return;
+        default:
+            return;
     }
 
 cond_true: {
-        void (*func)(struct MP2KPlayerState *, struct MP2KTrack *) = *(&gMPlayJumpTable[1]);
-        func(mplayInfo, track);
-        return;
-    }
+    void (*func)(struct MP2KPlayerState *, struct MP2KTrack *) = *(&gMPlayJumpTable[1]);
+    func(mplayInfo, track);
+    return;
+}
 
 cond_false:
     track->cmdPtr += 4;
