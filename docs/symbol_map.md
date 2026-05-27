@@ -52,105 +52,21 @@ and added to `[renames]` in `klonoa-eod-decomp.toml`.
 
 ## Sound Engine (m4a)
 
-### Sound System Init & Shutdown
+The m4a module now follows kleod/pokeemerald/sa3 conventions: the
+hand-written Sappy/MP2K assembly lives in `asm/m4a0.s` (covers
+`0x0804F284 → 0x0804FE9F`, included into `src/m4a.c`), and the C
+portion in `src/m4a.c` uses canonical Sappy names matching kleod.
 
-| Address | Proposed Name | Evidence |
-|---------|---------------|----------|
-| sub_0804EB64 | SoundMain | Main sound system setup; calls stream/gfx init, refs gSoundInfo |
-| sub_0804ED68 | SoundDmaInit | DMA controller setup for sound; has DMA reg writes |
-| sub_0804EE34 | SoundReset | Minimal state reset (leaf, 23 lines) |
-| sub_0804EE60 | DmaControllerInit | Full DMA init; calls SoundReset |
-| sub_0804EF50 | SoundInfoInit | Initialize SoundInfo struct fields (leaf) |
-| sub_0804F294 | InitSoundEngine | Called by SoundInit wrapper |
+**For current m4a function names, see `klonoa-eod-decomp.toml`
+`[renames]` (authoritative).**  Types and constants are in
+`include/m4a_internal.h`.  Porting history and known blockers are in
+`docs/m4a-kleod-rename-notes.md`.
 
-### Sound Data & Buffer Management
-
-| Address | Proposed Name | Evidence |
-|---------|---------------|----------|
-| sub_0804EFDE | SoundBufferAlloc | Allocate mixing buffers |
-| sub_0804F004 | SoundContextInit | Setup mixer state; refs gSoundInfo, gStreamPtr, gControlBlock |
-| sub_0804F0D0 | SoundChannelTableInit | Initialize channel table entries |
-
-### MIDI / Music Sequence Engine
-
-| Address | Proposed Name | Evidence |
-|---------|---------------|----------|
-| sub_0804F180 | MidiReadUnaligned | Read misaligned MIDI value; calls ReadUnalignedU16 |
-| sub_0804F1C4 | MidiProcessEvent | Dispatch MIDI note/control event |
-| sub_0804F248 | MPlayMain | **CORE**: main music player tick (587 lines, largest in m4a, uses DMA) |
-| sub_0804F6D4 | VoiceUtil | Minimal voice utility (leaf, 22 lines) |
-| sub_0804F6F4 | VoiceLookup | Voice lookup wrapper |
-| sub_0804F724 | InstrumentLookup | ROM instrument table lookup (ROM_INSTRUMENT_TABLE) |
-| sub_0804F73C | InstrumentGetEntry | Get instrument entry from ROM (leaf) |
-| sub_0804F758 | MidiDecodeByte | Decode single MIDI byte (leaf, 11 lines) |
-| sub_0804F766 | MidiNoteSetup | Setup MIDI note on channel |
-| sub_0804F7B4 | MidiCommandHandler | MIDI command dispatch table; writes REG_SOUND1CNT_L |
-| sub_0804F944 | MPlayContinue | Music playback continuation (327 lines) |
-| sub_0804FB9C | SoundContextRef | Get sound context reference |
-
-### Music Playback Control
-
-| Address | Proposed Name | Evidence |
-|---------|---------------|----------|
-| sub_0804FBE0 | MPlayStop_Channel | Stop single music channel (leaf) |
-| sub_0804FC10 | MPlayStop | Stop all music playback (313 lines) |
-| sub_0804FE50 | SoundEffectUtil | Sound effect utility (leaf) |
-| sub_0804FE6C | SoundEffectProcess | Process sound effect chain |
-| sub_0804FEA0 | FreqTableLookup | Frequency lookup from ROM pitch tables |
-| sub_0804FF08 | MPlayChannelReset | Reset channel state; checks Sappy magic 0x68736D53 |
-| sub_0804FF44 | m4aSoundInit_Impl | Full sound system init dispatcher |
-| sub_0804FFC8 | m4aSongNumStart | Start playing music track by ID (ROM_MUSIC_TABLE) |
-| sub_0804FFF6 | m4aSongNumContinue | Continue/queue music track |
-| sub_08050042 | m4aSongNumLoad | Load music data from ROM |
-| sub_08050094 | m4aMPlayCommand | Execute music player command |
-| sub_080500C8 | m4aSongNumStop | Stop current music track |
-| sub_080500FC | m4aSoundVSync | VBlank: update all sound channels (×4 loop) |
-
-### Sound Hardware & Direct Sound
-
-| Address | Proposed Name | Evidence |
-|---------|---------------|----------|
-| sub_08050134 | m4aSoundVSyncSetup | Setup VBlank sound sync |
-| sub_08050162 | SappyStateCheck | Verify Sappy magic marker (0x68736D53) |
-| sub_080501BA | SoundEffectTrigger | Trigger sound effect via gMPlayInfo_SE |
-| sub_08050200 | SoundHardwareInit | **CRITICAL**: init all GBA sound regs (14 HW regs: SOUNDCNT, FIFO, DMA) |
-| sub_08050344 | DirectSoundFifoSetup | **CRITICAL**: FIFO_A/B and DMA config (8 HW regs) |
-| sub_0805043C | SoundTimerSetup | Configure timer for sample rate |
-| sub_080504E0 | SoundSystemConfigure | Configure sound system mode |
-| sub_08050578 | SoundPlatformDetect | Detect platform/capabilities |
-| sub_080505CC | m4aSoundShutdown | Emergency stop all sound |
-| sub_08050648 | m4aSoundVSyncOn | Register VBlank sound handler |
-| sub_08050684 | VBlankSoundCallback | VBlank-triggered sound update |
-| sub_080506FC | MPlayOpen | Load & open music player data from ROM |
-| sub_080507E0 | MPlayChannelUpdate | Update single music channel |
-
-### CGB Sound (Channels 1-4) & Pitch Control
-
-| Address | Proposed Name | Evidence |
-|---------|---------------|----------|
-| sub_08050820 | CgbModVol | CGB channel volume modulation |
-| sub_080508E8 | CgbLookupTable | CGB frequency/volume lookup data (leaf) |
-| sub_0805099E | MidiKeyToCgbFreq | MIDI note → CGB frequency; writes 4 pitch regs |
-| sub_08050A94 | CgbLookupUtil | CGB utility lookup (leaf) |
-| sub_08050AFC | CgbSound | CGB channel hardware control (14 HW regs: SOUND1-4CNT, WAVE_RAM) |
-| sub_08050C70 | SoundMixerMain | **CORE**: process all mixer channels (393 lines, 2nd largest) |
-
-### Sound State Machine & MIDI Encoding
-
-| Address | Proposed Name | Evidence |
-|---------|---------------|----------|
-| sub_08050F4A | SoundStateCheck1 | Sappy magic state check (leaf) |
-| sub_08050F70 | SoundStateCheck2 | Sappy magic state check (leaf) |
-| sub_08050FD8 | SoundStateCheck3 | Sappy magic state check (leaf) |
-| sub_0805104C | MidiNoteLookup | MIDI note to frequency lookup (leaf) |
-| sub_080510B4 | MidiUtilConvert | MIDI utility converter (leaf) |
-| sub_080510D4 | MidiCommandEncode1 | Encode MIDI command type 1 |
-| sub_08051148 | MidiCommandEncode2 | Encode MIDI command type 2 |
-| sub_080511BC | MPlayCommandDispatch | Music command dispatcher (ROM table, 174 lines) |
-| sub_08051314 | SoundCommandHandler | Command dispatch from ROM_SOUND_CMD_TABLE |
-| sub_08051348 | BitMaskLUT | 32-bit channel bitmask lookup table (leaf, 118 lines) |
-| sub_0805186C | PlaySoundEffect | Play sound effect; called by PlaySoundWithContext_D8/DC |
-| sub_08051870 | DispatchSoundCommand | Dispatch sound command; called by SoundCommand_6450 |
+This section previously contained ~50 proposed names; almost all are
+now committed in the TOML (mostly renamed to kleod canonical names —
+e.g., the former `SoundHardwareInit` is now `MPlayExtender`,
+`DirectSoundFifoSetup` is `SoundInit`, `CgbChannelMix` is `CgbSound`,
+etc.).  Listing them here would just duplicate the TOML.
 
 ## System / Utility
 
@@ -161,7 +77,6 @@ and added to `[renames]` in `klonoa-eod-decomp.toml`.
 | sub_0804C050 | FinalizeGfxStream | Called by ShutdownGfxStream |
 | sub_0804C0EC | ProcessStreamOpcode | Called by DispatchStreamCommand_C0EC |
 | sub_0804C218 | ExecuteStreamCommand | Called by ProcessStreamCommand_C218 |
-| sub_08050094 | ExecuteMusicCommand | Called by ProcessStreamCommand_50094 |
 | sub_080008DC | MemoryCopy | Called by TextStateMachine |
 | sub_0800A468 | InitOamEntries | Inits 128 OAM entries from template; called by RenderMenuUI, RenderDialogSprites, RenderHUDTop |
 
@@ -178,17 +93,20 @@ and added to `[renames]` in `klonoa-eod-decomp.toml`.
 
 ### Sound ROM Data Tables
 
-| Address | Name | Description |
-|---------|------|-------------|
-| 0x08118AB4 | ROM_MUSIC_TABLE | Music track table: {count, trackDataPtr} entries indexed by track ID |
-| 0x08118AE4 | ROM_MUSIC_META_TABLE | Music track metadata (offsets, lengths, loop points) |
-| 0x08117C8C | ROM_SOUND_CMD_TABLE | Sound command dispatch: function pointer array by command byte |
-| 0x081179E4 | ROM_INSTRUMENT_TABLE | Instrument/voice data: waveform, envelope, pitch per instrument |
-| 0x08117A74 | ROM_FREQ_TABLE_1 | Pitch/frequency lookup table 1 |
-| 0x08117B28 | ROM_FREQ_TABLE_2 | Pitch/frequency lookup table 2 |
-| 0x08117B70 | ROM_PITCH_TABLE | MIDI note-to-pitch conversion table |
-| 0x08117BF4 | ROM_WAVE_DUTY_TABLE | Square wave duty cycle table |
-| 0x08117C0C | ROM_NOISE_TABLE | Noise channel parameter table |
-| 0x08117C48 | ROM_ENVELOPE_TABLE | Volume envelope data |
-| 0x08117C58 | ROM_SWEEP_TABLE | Frequency sweep data |
-| 0x081177E4 | ROM_SOUND_INIT_DATA | Sound configuration init data |
+Defined as ldscript symbols in `ldscript.in.txt` and declared in
+`include/m4a_internal.h` (kleod canonical names).
+
+| Address | Symbol | Description |
+|---------|--------|-------------|
+| 0x08118AB4 | `gMPlayTable` | Music player table: `struct MusicPlayer[NUM_MUSIC_PLAYERS]` |
+| 0x08118AE4 | `gSongTable` | Song metadata table: `struct Song[]` indexed by song ID |
+| 0x08117C8C | `gSoundCmdTable` | Sound-command function-pointer array indexed by command byte |
+| 0x081179E4 | `gMPlayJumpTableTemplate` | Template for `gMPlayJumpTable` (copied at init) |
+| 0x08117A74 | `gScaleTable` | MIDI key → packed (freqIdx \| shift) lookup, indexed by key |
+| 0x08117B28 | `gFreqTable` | Base PCM frequencies for Direct Sound mixer |
+| 0x08117B70 | `gCgbScaleTable` | CGB MIDI key → packed lookup |
+| 0x08117BF4 | `gCgbFreqTable` | CGB base frequencies (square / wave channels) |
+| 0x08117C0C | `gNoiseTable` | Channel-4 noise frequency presets |
+| 0x08117C58 | `gClockTable` | LFO/tempo cycle table |
+| 0x08117B58 | `gPcmSamplesPerVBlankTable` | Samples-per-frame for each `SOUND_MODE_FREQ_*` |
+| 0x081177E4 | `ROM_SOUND_INIT_DATA` | Sound configuration init data (used by gfx.c) |

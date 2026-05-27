@@ -184,7 +184,6 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MidiProcessEvent);
  *   r0: value to store
  *   10 lines (split from former 587-line MPlayMain)
  */
-u32 MidiProcessEvent(void);
 u32 MPlayMain_SetAndProcess(u32 val) {
     u8 *info = (u8 *)gSoundInfo;
     info[0x0D] = val;
@@ -278,18 +277,14 @@ void MPlayFadeOut(struct MP2KPlayerState *mplayInfo, u16 speed) {
 
 /* ── Sound Init Dispatcher & Track Control ── */
 
-/*
- * m4aSoundInit: full sound system initialization dispatcher.
- * Calls BitUnPack for data decompression, sets up sound channels,
- * and prepares the music player for first use.
- *   50 lines
- *   calls: BitUnPack, SoundHardwareInit, DirectSoundFifoSetup
- *   refs: ROM_MUSIC_TABLE (0x08118AB4)
+/**
+ * m4aSoundInit: full sound-engine initialisation dispatcher.
+ * Copies SoundMainRAM into IWRAM, calls SoundInit + MPlayExtender to
+ * stand up the mixer state and CGB channels, then walks gMPlayTable
+ * registering each player via MPlayOpen.
  */
 extern char SoundMainRAM[];
 void BitUnPack(u32, u32, u32);
-void SoundInit(struct SoundMixerState *);
-void MPlayOpen(u32 *a, u8 *b, u8 c);
 
 void m4aSoundInit(void) {
     s32 i;
@@ -522,17 +517,6 @@ void m4aMPlayImmInit(struct MP2KPlayerState *mplayInfo) {
 
 /* ── Sound Hardware Initialization ── */
 
-/*
- * SoundHardwareInit: CRITICAL — initialize all GBA sound hardware registers.
- * Writes to 14 hardware registers to configure the sound system:
- * REG_SOUNDCNT_L/H/X (master volume, channel enable, master on/off),
- * REG_FIFO_A/B (Direct Sound FIFO), DMA1/2 (sample streaming),
- * and various channel control registers.
- *   126 lines
- *   HW: 0x04000060, 0x04000063, 0x04000080, 0x04000084,
- *       0x040000A0, 0x040000A4, 0x040000BC, 0x040000C4,
- *       0x040000C6, 0x040000D0
- */
 /**
  * MPlayExtender: install the CGB extension callbacks into the sound
  * engine and pre-clear the CGB channel array.  Writes the 9 jump-
@@ -631,27 +615,14 @@ void Clear64byte(u32 x) {
 /* ── Direct Sound & DMA Configuration ── */
 
 /*
- * DirectSoundFifoSetup: configure Direct Sound FIFO and DMA channels.
- * Sets up FIFO_A and FIFO_B for PCM sample streaming, configures
- * DMA1/DMA2 for automatic sound data transfer on timer overflow.
- *   109 lines
- *   HW: REG_FIFO_A (0x040000A0), REG_FIFO_B (0x040000A4),
- *       DMA1/2 SAD/DAD/CNT, REG_SOUNDBIAS (0x04000089),
- *       REG_SOUNDCNT_X (0x04000084)
- */
-/*
  * SoundInit: full sound-engine initialisation — set up DMA1/DMA2 for
  * Direct Sound FIFO playback, zero soundInfo, seed numChans/masterVol/
  * plynote, install MP2K_event_null stubs for the optional CGB hooks,
  * copy the jump-table template, then arm timer via SampleFreqSet.
  *
- * Kleod-canonical name (the symbol our project formerly called
- * "SoundInit" — the tiny SoundMain wrapper at 0x0804FFBC — should be
- * renamed to "m4aSoundMain" in a separate port).
- *
- * Currently kept as INCLUDE_ASM: porting the body requires
- * declarations for a dozen DMA / sound-config register macros plus
- * MP2K_event_nxx/null function-pointer slots.  Deferred to next pass.
+ * Kept as INCLUDE_ASM: porting the body requires declarations for a
+ * dozen DMA / sound-config register macros plus MP2K_event_nxx/null
+ * function-pointer slots.  Deferred to a later pass.
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", SoundInit);
 /**
@@ -851,12 +822,11 @@ void m4aSoundVSyncOff(void) {
 
 /* ── VBlank Sound Update Pipeline ── */
 
-/*
- * m4aSoundVSyncOn: register the VBlank sound handler.
- * Installs the VBlank callback that drives the sound engine's
- * per-frame update cycle. Must be called after SoundHardwareInit.
- *   30 lines, leaf function
- *   refs: REG_SOUNDCNT_H (0x040000C6)
+/**
+ * m4aSoundVSyncOn: arm the DMA-driven sound playback (re-enables the
+ * PCM streams via SOUNDCNT_H = 0xB600 on both DMA1 and DMA2 control
+ * shadows) and unlocks SoundInfo by subtracting 10 from lockStatus.
+ * Counterpart to m4aSoundVSyncOff.  Must be called after MPlayExtender.
  */
 void m4aSoundVSyncOn(void) {
     u32 *info = gBiosSoundInfo;
@@ -871,18 +841,12 @@ void m4aSoundVSyncOn(void) {
     ((u8 *)info)[0x04] = scratch;
     info[0] = magic - 10;
 }
-/*
- * VBlankSoundCallback: VBlank-triggered sound update routine.
- * Called by the VBlank interrupt handler to process pending
- * sound events and trigger the next DMA cycle.
- *   63 lines, calls PlaySoundWithContext_DC
- */
 /**
  * MPlayOpen: initialize a MusicPlayerInfo and register it in the SoundInfo
- * linked list.  Clamps trackCount to 16, zeroes each track's flags byte,
- * and chains the player into the MPlayMain callback list.
+ * linked list.  Clamps trackCount to MAX_MUSICPLAYER_TRACKS, zeroes each
+ * track's flags byte, and chains the player into the MPlayMain callback
+ * list via Clear64byte (= gMPlayJumpTable[35]).
  */
-void MP2KPlayerMain(void);
 void MPlayOpen(u32 *mplayInfo, u8 *tracks, u8 trackCount) {
     u32 *soundInfo;
     u32 ident;

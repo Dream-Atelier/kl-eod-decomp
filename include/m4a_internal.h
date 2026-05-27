@@ -254,4 +254,10 @@ void MPlayExtender(struct MixerSource *cgbChans);
 void CgbSound(void);
 void CgbModVol(struct MixerSource *chan);
 
+/* Klonoa-EOD m4a entry points still INCLUDE_ASM but called from C. */
+void SoundInit(struct SoundMixerState *soundInfo);
+void MPlayOpen(u32 *mplayInfo, u8 *tracks, u8 trackCount);
+void MP2KPlayerMain(void);
+u32 MidiProcessEvent(void);
+
 #endif // GUARD_M4A_INTERNAL_H
