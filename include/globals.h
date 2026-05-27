@@ -128,7 +128,7 @@ struct GfxStreamEntry {
 /* Frame/tick counter — decremented each frame, byte-sized. */
 #define gFrameCounter      (*(u8 *)0x03005498)
 
-/* Sound reset flag: when non-zero, VBlankHandler calls SoundInit. */
+/* Sound reset flag: when non-zero, VBlankHandler calls m4aSoundMain. */
 #define gSoundResetFlag    (*(u8 *)0x03003420)
 
 /* Interrupt Master Enable write address for VBlank acknowledge. */

@@ -2,6 +2,7 @@
 #include "gba.h"
 #include "globals.h"
 #include "include_asm.h"
+#include "m4a_internal.h"
 
 extern char gNumMusicPlayers[];
 #define NUM_MUSIC_PLAYERS ((u16)gNumMusicPlayers)
@@ -196,89 +197,84 @@ u32 MPlayMain_SetAndProcess(u32 val) {
  * updates channel state.
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", MPlayMain);
-INCLUDE_ASM("asm/nonmatchings/m4a", umul3232H32);
-INCLUDE_ASM("asm/nonmatchings/m4a", SoundMain);
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayTrackCallback);
-INCLUDE_ASM("asm/nonmatchings/m4a", MP2KClearChain);
-INCLUDE_ASM("asm/nonmatchings/m4a", MP2K_event_fine);
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayJumpTableCopy);
 
-/* ── Instrument Utilities ── */
+/* ══════════════════════════════════════════════════════════════════════
+ * Handcrafted ARM/Thumb blob — 0x0804F284 → 0x0804FE9F
+ *
+ * Nintendo's original MusicPlayer2000 (Sappy) was hand-written in
+ * assembly: interwork helpers, the SoundMain mixer, MP2KPlayerMain,
+ * per-MIDI-event handlers, etc.  This file is reused from the
+ * `kleod` decomp (same ROM SHA1) and assembles to identical bytes.
+ * The other MP2K decomp projects use the same split pattern:
+ *   • kleod        — asm/m4a0.s
+ *   • sa3          — src/lib/m4a/m4a0.s
+ *   • pokeemerald  — src/m4a_1.s
+ * ══════════════════════════════════════════════════════════════════════ */
+asm(".syntax unified\n"
+    ".include \"asm/m4a0.s\"\n"
+    ".syntax divided\n");
+/**
+ * MidiKeyToFreq: convert a MIDI note + fine adjust into a Direct
+ * Sound playback frequency for the given sample.  Uses two ROM LUTs:
+ * gScaleTable (key → packed [freqIdx | shift]) and gFreqTable
+ * (the base frequencies).  Final result is wav->freq scaled by the
+ * lerp between val1 and val2 across fineAdjust.
+ *
+ * The trailing asm("bx lr\n.hword 0\n") emits the 4 dead bytes that
+ * appear after the literal pool in the original ROM — agbcc would
+ * otherwise leave a literal-pool gap that throws downstream addresses.
+ */
+u32 MidiKeyToFreq(struct WaveData *wav, u8 key, u8 fineAdjust) {
+    u32 val1;
+    u32 val2;
+    u32 fineAdjustShifted = fineAdjust << 24;
 
-/*
- * InstrumentGetEntry: get a specific instrument entry from ROM.
- * Indexes into the voice/instrument table and returns the entry data.
- *   20 lines, leaf function
- *   refs: ROM_INSTRUMENT_TABLE (0x081179E4)
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", InstrumentGetEntry);
-INCLUDE_ASM("asm/nonmatchings/m4a", MidiNoteDispatch);
+    if (key > 178) {
+        key = 178;
+        fineAdjustShifted = 255 << 24;
+    }
 
-/* ── Sound Channel Control ── */
+    val1 = gScaleTable[key];
+    val1 = gFreqTable[val1 & 0xF] >> (val1 >> 4);
 
-/*
- * MidiDecodeByte: decode a single MIDI byte from the track stream.
- * Reads one byte, advances the stream position, and returns the value.
- *   11 lines, leaf function
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MidiDecodeByte);
-INCLUDE_ASM("asm/nonmatchings/m4a", sub_0804F75A);
-/*
- * MidiNoteSetup: set up a MIDI note-on event on a sound channel.
- * Configures the channel's pitch, volume, and instrument for playback.
- *   42 lines, calls InstrumentGetEntry
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MidiNoteSetup);
-INCLUDE_ASM("asm/nonmatchings/m4a", MidiNoteWithVelocity);
-INCLUDE_ASM("asm/nonmatchings/m4a", MP2K_event_rept);
-/*
- * MidiCommandHandler: MIDI command dispatch table handler.
- * Processes track bytecode commands (0xB1-0xCF): tempo, voice select,
- * volume, pan, pitch bend, loops, etc. Writes to REG_SOUND1CNT_L
- * for CGB channel control.
- *   192 lines, writes to REG_SOUND1CNT_L (0x04000060), REG_DMA1SAD (0x040000BC)
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", m4aSoundVSync);
-INCLUDE_ASM("asm/nonmatchings/m4a", MP2KPlayerMain);
+    val2 = gScaleTable[key + 1];
+    val2 = gFreqTable[val2 & 0xF] >> (val2 >> 4);
 
-/* ── Music Playback Engine ── */
+    return umul3232H32(wav->freq, val1 + umul3232H32(val2 - val1, fineAdjustShifted));
+}
+asm("bx lr\n.hword 0\n");
+/**
+ * MPlayContinue: resume a paused music player.
+ *
+ * Clears MUSICPLAYER_STATUS_PAUSE if the player is in a valid state
+ * (lockStatus == ID_NUMBER).  Despite the name "Continue", several
+ * existing call sites in this file (m4aSongNumStop, StopSoundChannel,
+ * m4aMPlayAllContinue) invoke it as a stop primitive; the ROM is what it
+ * is.  Canonical Sappy/MP2K name.
+ */
+void MPlayContinue(struct MP2KPlayerState *mplayInfo) {
+    if (mplayInfo->lockStatus == ID_NUMBER) {
+        mplayInfo->lockStatus++;
+        mplayInfo->status &= ~MUSICPLAYER_STATUS_PAUSE;
+        mplayInfo->lockStatus = ID_NUMBER;
+    }
+}
 
-/*
- * MPlayContinue: continue music playback for all active tracks.
- * Processes pending MIDI events, updates note timing, manages
- * voice allocation, and coordinates multi-track playback.
- *   327 lines
- *   calls: PlaySoundWithContext_D8/DC, CgbModVol
+/**
+ * MPlayFadeOut: start a linear volume fade on the player.
+ *
+ * Initialises fade counters; the actual per-frame ramp happens in
+ * FadeOutBody (called from MP2KPlayerMain in asm/m4a0.s).
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayContinue);
-INCLUDE_ASM("asm/nonmatchings/m4a", TrackStop);
-INCLUDE_ASM("asm/nonmatchings/m4a", ChnVolSetAsm);
-INCLUDE_ASM("asm/nonmatchings/m4a", MP2K_event_nxx);
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayChannelRelease);
-INCLUDE_ASM("asm/nonmatchings/m4a", clear_modM);
-
-/* ── Sound Effect Processing ── */
-
-/*
- * SoundEffectProcess: process a sound effect playback chain.
- * Handles SFX queuing, priority, and channel assignment.
- *   24 lines, calls SoundEffectParamInit
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", SoundEffectChain);
-/*
- * MidiKeyToFreq: look up pitch/frequency from ROM tables.
- * Converts MIDI note numbers to hardware frequency values using
- * ROM_FREQ_TABLE_1 (0x08117A74) and ROM_FREQ_TABLE_2 (0x08117B28).
- *   51 lines, calls FixedPointMultiply
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MidiKeyToFreq);
-/*
- * MPlayChannelReset: reset a music player channel to idle state.
- * Checks the Sappy magic marker (SAPPY_MAGIC = 0x68736D53 = "Smsh")
- * to verify the sound engine is initialized before resetting.
- *   33 lines, leaf function
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayChannelReset);
+void MPlayFadeOut(struct MP2KPlayerState *mplayInfo, u16 speed) {
+    if (mplayInfo->lockStatus == ID_NUMBER) {
+        mplayInfo->lockStatus++;
+        mplayInfo->fadeCounter = speed;
+        mplayInfo->fadeInterval = speed;
+        mplayInfo->fadeOV = (64 << FADE_VOL_SHIFT);
+        mplayInfo->lockStatus = ID_NUMBER;
+    }
+}
 
 /* ── Sound Init Dispatcher & Track Control ── */
 
@@ -292,16 +288,15 @@ INCLUDE_ASM("asm/nonmatchings/m4a", MPlayChannelReset);
  */
 extern char SoundMainRAM[];
 void BitUnPack(u32, u32, u32);
-void DirectSoundFifoSetup(u32);
-void SoundHardwareInit(u32);
+void SoundInit(struct SoundMixerState *);
 void MPlayOpen(u32 *a, u8 *b, u8 c);
 
 void m4aSoundInit(void) {
     s32 i;
 
     BitUnPack((u32)SoundMainRAM & ~1, 0x03000388, 0x04000100);
-    DirectSoundFifoSetup(0x030054A0);
-    SoundHardwareInit(0x030064E0);
+    SoundInit((struct SoundMixerState *)0x030054A0);
+    MPlayExtender((struct MixerSource *)0x030064E0);
     m4aSoundMode(0x0094F800);
 
     {
@@ -321,13 +316,11 @@ void m4aSoundInit(void) {
         }
     }
 }
-/*
- * Wrapper that calls InitSoundEngine to initialize
- * the MusicPlayer2000 sound engine.
- *   no parameters
- *   no return value
+/**
+ * m4aSoundMain: per-frame entry point for the sound engine — just
+ * calls SoundMain (in asm/m4a0.s).  Kleod-canonical name.
  */
-void SoundInit(void) {
+void m4aSoundMain(void) {
     SoundMain();
 }
 /**
@@ -362,27 +355,22 @@ void m4aSongNumStart(u16 idx) {
     }
 }
 /*
- * m4aSongNumContinue: continue or queue a music track.
- * If the same song is already playing, does nothing.
- * Otherwise queues the song for the next VBlank cycle.
- *   38 lines, refs: ROM_MUSIC_TABLE, ROM_MUSIC_META_TABLE
+ * m4aSongNumStartOrChange: start playing a song; if it's already
+ * playing and not paused, do nothing — but if track[0] is inactive
+ * or paused, (re)start it.  Kleod-canonical name.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", m4aSongNumContinue);
+INCLUDE_ASM("asm/nonmatchings/m4a", m4aSongNumStartOrChange);
 /*
- * m4aSongNumLoad: load music data from ROM into WRAM.
- * Copies track headers and sets up the MusicPlayer state for
- * a new song without starting playback.
- *   41 lines
- *   calls: MPlayChannelReset, MPlayStart
+ * m4aSongNumStartOrContinue: like StartOrChange, but for a paused
+ * song it resumes via MPlayContinue instead of restarting.
+ * Kleod-canonical name.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", m4aSongNumLoad);
+INCLUDE_ASM("asm/nonmatchings/m4a", m4aSongNumStartOrContinue);
 /**
- * m4aMPlayCommand: stops the player if it's playing the given song.
- *
- * Looks up the song and its assigned player; if the player is currently
- * playing this song's header, calls MPlayStop to halt playback.
+ * m4aSongNumStop: stop the given song if it's the one currently loaded.
+ * Kleod-canonical name; calls MPlayStop on the assigned player.
  */
-void m4aMPlayCommand(u16 idx) {
+void m4aSongNumStop(u16 idx) {
     u32 mplayAddr = 0x08118AB4;
     u32 songAddr = 0x08118AE4;
     register u8 *mplay asm("r2");
@@ -407,12 +395,11 @@ void m4aMPlayCommand(u16 idx) {
         MPlayStop(player);
 }
 /**
- * m4aSongNumStop: stops the given song if it's currently playing.
- *
- * Looks up the song and its player; if the player's current header
- * matches, calls MPlayChannelReset to stop and release channels.
+ * m4aSongNumContinue: resume the given song if it's the one currently
+ * loaded.  Despite the name, the implementation calls MPlayContinue
+ * (which clears the PAUSE bit) — kleod-canonical.
  */
-void m4aSongNumStop(u16 idx) {
+void m4aSongNumContinue(u16 idx) {
     u32 mplayAddr = 0x08118AB4;
     u32 songAddr = 0x08118AE4;
     register u8 *mplay asm("r2");
@@ -434,7 +421,7 @@ void m4aSongNumStop(u16 idx) {
     off += (u32)mplay;
     player = *(u32 **)off;
     if (player[0] == *(u32 *)song)
-        MPlayChannelReset(player);
+        MPlayContinue(player);
 }
 /*
  * m4aSoundVSync: VBlank sound update — called every frame.
@@ -462,20 +449,18 @@ void m4aMPlayAllStop(void) {
         count--;
     } while (count != 0);
 }
-/** StopSoundChannel: wrapper that calls MPlayChannelReset to stop a channel. */
+/** StopSoundChannel: wrapper that calls MPlayContinue to stop a channel. */
 void StopSoundChannel(u32 channel) {
-    MPlayChannelReset(channel);
+    MPlayContinue(channel);
 }
 
 /* ── Interrupt & VBlank Handlers ── */
 
-/*
- * m4aSoundVSyncSetup: set up VBlank-synchronized sound processing.
- * Configures the VBlank interrupt to call the sound update routine
- * each frame, ensuring audio stays in sync with display refresh.
- *   23 lines, calls MPlayChannelReset
+/**
+ * m4aMPlayAllContinue: loop over all 4 music players calling
+ * MPlayContinue on each.  Resumes any paused tracks.  Kleod-canonical.
  */
-void StopSoundEffects(void) {
+void m4aMPlayAllContinue(void) {
     u16 n;
     s32 count;
     const struct MusicPlayer *table;
@@ -485,26 +470,55 @@ void StopSoundEffects(void) {
     table = gMPlayTable;
     count = n;
     do {
-        MPlayChannelReset(table->info);
+        MPlayContinue(table->info);
         table++;
         count--;
     } while (count != 0);
 }
+/** m4aMPlayFadeOut: public wrapper that calls MPlayFadeOut. */
+void m4aMPlayFadeOut(struct MP2KPlayerState *mplayInfo, u16 speed) {
+    MPlayFadeOut(mplayInfo, speed);
+}
+asm(".align 2, 0");
+
 /*
- * SappyStateCheck: verify the Sappy engine is properly initialized.
- * Checks for SAPPY_MAGIC (0x68736D53 = "Smsh" in little-endian)
- * at the engine state address. Returns early if not initialized.
- *   45 lines, leaf function
+ * m4aMPlayFadeOutTemporarily: fade out, then pause (not stop).
+ * Kept as INCLUDE_ASM: kleod's C body would duplicate the 8-byte
+ * literal pool that asm/nonmatchings/m4a/MPlayTrackFadeAndVerify.s
+ * already contains as its "prelude" (luvdis labels the next function
+ * 6 bytes too early, capturing this pool as fake instructions).
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", SappyStateVerify);
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayTrackVerify);
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayTrackFadeAndVerify);
+INCLUDE_ASM("asm/nonmatchings/m4a", m4aMPlayFadeOutTemporarily);
 /*
- * SoundEffectTrigger: trigger a sound effect through the SE player.
- * Uses gMPlayInfo_SE as the MusicPlayer context for SFX playback.
- *   37 lines, calls PlaySoundWithContext_DC
+ * m4aMPlayFadeIn: fade in + clear PAUSE.  Kept as INCLUDE_ASM for
+ * the same phantom-literal-pool reason as m4aMPlayFadeOutTemporarily.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", SoundEffectTrigger);
+INCLUDE_ASM("asm/nonmatchings/m4a", m4aMPlayFadeIn);
+/**
+ * m4aMPlayImmInit: for each track whose status has START+EXIST set,
+ * Clear64byte the track then seed its defaults (bendRange=2,
+ * volPublic=64, lfoSpeed=22, voicegroup.type=1).
+ */
+void m4aMPlayImmInit(struct MP2KPlayerState *mplayInfo) {
+    s32 trackCount = mplayInfo->trackCount;
+    struct MP2KTrack *track = mplayInfo->tracks;
+
+    while (trackCount > 0) {
+        if (track->status & MPT_FLG_EXIST) {
+            if (track->status & MPT_FLG_START) {
+                Clear64byte((u32)track);
+                track->status = MPT_FLG_EXIST;
+                track->bendRange = 2;
+                track->volPublic = 64;
+                track->lfoSpeed = 22;
+                track->voicegroup.type = 1;
+            }
+        }
+
+        trackCount--;
+        track++;
+    }
+}
 
 /* ── Sound Hardware Initialization ── */
 
@@ -519,28 +533,99 @@ INCLUDE_ASM("asm/nonmatchings/m4a", SoundEffectTrigger);
  *       0x040000A0, 0x040000A4, 0x040000BC, 0x040000C4,
  *       0x040000C6, 0x040000D0
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", SoundHardwareInit);
+/**
+ * MPlayExtender: install the CGB extension callbacks into the sound
+ * engine and pre-clear the CGB channel array.  Writes the 9 jump-
+ * table slots (8, 17, 19, 28-33) that route MP2K events to their
+ * handlers, then hooks up SoundInfo->{cgbChans,CgbSound,CgbOscOff,
+ * MidiKeyToCgbFreq,maxScanlines}.  Initialises each cgbChan's type
+ * (1..4) and panMask (0x11,0x22,0x44,0x88).
+ *
+ * The BitUnPack call mirrors kleod's CpuFill32: control word
+ * 0x05000040 = fill mode + 32-bit + count 64 words (256 bytes =
+ * 4 × sizeof(MixerSource)).
+ */
+extern char gMaxLines[];
+#define MAX_LINES ((u32)gMaxLines)
+
+void MPlayExtender(struct MixerSource *cgbChans) {
+    struct SoundMixerState *soundInfo;
+    u32 lockStatus;
+
+    REG_SOUNDCNT_X = 0x8F;  /* SOUND_MASTER_ENABLE | SOUND_4_ON | SOUND_3_ON | SOUND_2_ON | SOUND_1_ON */
+    REG_SOUNDCNT_L = 0;
+    REG_NR12 = 0x8;
+    REG_NR22 = 0x8;
+    REG_NR42 = 0x8;
+    REG_NR14 = 0x80;
+    REG_NR24 = 0x80;
+    REG_NR44 = 0x80;
+    REG_NR30 = 0;
+    REG_NR50 = 0x77;
+
+    soundInfo = SOUND_INFO_PTR;
+
+    lockStatus = soundInfo->lockStatus;
+
+    if (lockStatus != ID_NUMBER)
+        return;
+
+    soundInfo->lockStatus++;
+
+    gMPlayJumpTable[8]  = MPlayCommandDispatch;  /* MP2K_event_memacc */
+    gMPlayJumpTable[17] = MP2K_event_lfos;
+    gMPlayJumpTable[19] = MP2K_event_mod;
+    gMPlayJumpTable[28] = SoundCmd_Dispatch;     /* MP2K_event_xcmd */
+    gMPlayJumpTable[29] = MP2K_event_endtie;
+    gMPlayJumpTable[30] = SampleFreqSet;
+    gMPlayJumpTable[31] = TrackStop;
+    gMPlayJumpTable[32] = FadeOutBody;
+    gMPlayJumpTable[33] = TrkVolPitSet;
+
+    soundInfo->cgbChans = cgbChans;
+    soundInfo->CgbSound = CgbSound;
+    soundInfo->CgbOscOff = CgbOscOff;
+    soundInfo->MidiKeyToCgbFreq = MidiKeyToCgbFreq;
+    soundInfo->maxScanlines = MAX_LINES;
+
+    {
+        u32 zero = 0;
+        BitUnPack((u32)&zero, (u32)cgbChans, 0x05000040);
+    }
+
+    cgbChans[0].type = 1;
+    cgbChans[0].panMask = 0x11;
+    cgbChans[1].type = 2;
+    cgbChans[1].panMask = 0x22;
+    cgbChans[2].type = 3;
+    cgbChans[2].panMask = 0x44;
+    cgbChans[3].type = 4;
+    cgbChans[3].panMask = 0x88;
+
+    soundInfo->lockStatus = lockStatus;
+}
 asm(".align 2, 0");
 void SoundHardwareInit_Tail(void) {
     asm("swi 0x2A");
 }
-/*
- * Plays a sound effect using the BGM MusicPlayer context (gMPlayInfo_BGM).
- * Used for music-priority sounds that share the BGM mixer.
- *   r0: sound effect ID
- *   no return value
+/**
+ * ClearChain: indirect call through gMPlayJumpTable[34].
+ *
+ * The slot at 0x030064D8 (= gMPlayJumpTable[34]) holds a function pointer
+ * installed by MPlayExtender; calling it with the channel struct routes
+ * to the per-channel cleanup handler.  Sappy/MP2K-original name.
  */
-void PlaySoundWithContext_D8(u32 soundId) {
-    sub_0805186C(soundId, gMPlayInfo_BGM);
+void ClearChain(u32 chan) {
+    sub_0805186C(chan, gMPlayInfo_BGM);
 }
-/*
- * Plays a sound effect using the SE MusicPlayer context (gMPlayInfo_SE).
- * Used for standard sound effects with independent mixing.
- *   r0: sound effect ID
- *   no return value
+/**
+ * Clear64byte: indirect call through gMPlayJumpTable[35].
+ *
+ * Mirror of ClearChain at jump-table slot 35 (0x030064DC); zeros 64
+ * bytes starting at the given pointer.  Sappy/MP2K-original name.
  */
-void PlaySoundWithContext_DC(u32 soundId) {
-    sub_0805186C(soundId, gMPlayInfo_SE);
+void Clear64byte(u32 x) {
+    sub_0805186C(x, gMPlayInfo_SE);
 }
 
 /* ── Direct Sound & DMA Configuration ── */
@@ -554,14 +639,53 @@ void PlaySoundWithContext_DC(u32 soundId) {
  *       DMA1/2 SAD/DAD/CNT, REG_SOUNDBIAS (0x04000089),
  *       REG_SOUNDCNT_X (0x04000084)
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", DirectSoundFifoSetup);
 /*
- * SampleFreqSet: configure timer for PCM sample rate.
- * Sets TM0/TM1 to generate interrupts at the mixing frequency,
- * which triggers DMA transfers to refill the FIFO buffers.
- *   72 lines, calls m4aSoundVSyncOn (m4aSoundVSyncOn), sub_080518A4
+ * SoundInit: full sound-engine initialisation — set up DMA1/DMA2 for
+ * Direct Sound FIFO playback, zero soundInfo, seed numChans/masterVol/
+ * plynote, install MP2K_event_null stubs for the optional CGB hooks,
+ * copy the jump-table template, then arm timer via SampleFreqSet.
+ *
+ * Kleod-canonical name (the symbol our project formerly called
+ * "SoundInit" — the tiny SoundMain wrapper at 0x0804FFBC — should be
+ * renamed to "m4aSoundMain" in a separate port).
+ *
+ * Currently kept as INCLUDE_ASM: porting the body requires
+ * declarations for a dozen DMA / sound-config register macros plus
+ * MP2K_event_nxx/null function-pointer slots.  Deferred to next pass.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", SampleFreqSet);
+INCLUDE_ASM("asm/nonmatchings/m4a", SoundInit);
+/**
+ * SampleFreqSet: configure timer 0 to drive PCM playback at the
+ * requested frequency.  Picks samplesPerFrame from the LUT, derives
+ * sampleRate / reciprocal, reloads TM0CNT_L with -(280896 /
+ * samplesPerFrame), then re-arms DMA via m4aSoundVSyncOn.  Waits one
+ * vblank window before re-enabling the timer for a clean restart.
+ */
+void SampleFreqSet(u32 freq) {
+    struct SoundMixerState *soundInfo = SOUND_INFO_PTR;
+
+    freq = (freq & 0xF0000) >> 16;
+    soundInfo->freqOption = freq;
+
+    soundInfo->samplesPerFrame = gPcmSamplesPerVBlankTable[freq - 1];
+    soundInfo->framesPerDmaCycle = PCM_DMA_BUF_SIZE / soundInfo->samplesPerFrame;
+
+    /* LCD refresh rate 59.7275 Hz. */
+    soundInfo->sampleRate = (597275 * soundInfo->samplesPerFrame + 5000) / 10000;
+
+    /* CPU freq 16.78 MHz. */
+    soundInfo->sampleRateReciprocal = (0x1000000 / soundInfo->sampleRate + 1) >> 1;
+
+    REG_TM0CNT_H = 0;
+    REG_TM0CNT_L = -(280896 / soundInfo->samplesPerFrame);
+
+    m4aSoundVSyncOn();
+
+    while (*(vu8 *)0x04000006 == 159);
+    while (*(vu8 *)0x04000006 != 159);
+
+    REG_TM0CNT_H = TIMER_ENABLE | TIMER_1CLK;
+}
 /*
  * m4aSoundMode: configure sound system operating mode.
  * Sets reverb, mixing frequency, and channel allocation based
@@ -759,7 +883,6 @@ void m4aSoundVSyncOn(void) {
  * and chains the player into the MPlayMain callback list.
  */
 void MP2KPlayerMain(void);
-void TrackStop(u32, u32);
 void MPlayOpen(u32 *mplayInfo, u8 *tracks, u8 trackCount) {
     u32 *soundInfo;
     u32 ident;
@@ -778,7 +901,7 @@ void MPlayOpen(u32 *mplayInfo, u8 *tracks, u8 trackCount) {
 
     soundInfo[0] = ident + 1;
 
-    PlaySoundWithContext_DC((u32)mplayInfo);
+    Clear64byte((u32)mplayInfo);
 
     mplayInfo[0x2C / 4] = (u32)tracks;
     ((u8 *)mplayInfo)[0x08] = trackCount;
@@ -801,7 +924,64 @@ void MPlayOpen(u32 *mplayInfo, u8 *tracks, u8 trackCount) {
     soundInfo[0] = SAPPY_MAGIC;
     mplayInfo[0x34 / 4] = SAPPY_MAGIC;
 }
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayStart);
+/**
+ * MPlayStart: start (or restart) the given song on a music player.
+ * Honours checkSongPriority — if the player has a higher priority
+ * song already loaded and active, does nothing.  Otherwise resets
+ * tempo, fade, and per-track state, then seeds each track from the
+ * song header's part pointers.
+ */
+void MPlayStart(struct MP2KPlayerState *mplayInfo, struct MP2KSongHeader *songHeader) {
+    s32 i;
+    u8 checkSongPriority;
+    struct MP2KTrack *track;
+
+    if (mplayInfo->lockStatus != ID_NUMBER)
+        return;
+
+    checkSongPriority = mplayInfo->checkSongPriority;
+
+    if (!checkSongPriority
+        || ((!mplayInfo->songHeader || !(mplayInfo->tracks[0].status & MPT_FLG_START))
+            && ((mplayInfo->status & MUSICPLAYER_STATUS_TRACK) == 0 || (mplayInfo->status & MUSICPLAYER_STATUS_PAUSE)))
+        || (mplayInfo->priority <= songHeader->priority)) {
+        mplayInfo->lockStatus++;
+        mplayInfo->status = 0;
+        mplayInfo->songHeader = songHeader;
+        mplayInfo->voicegroup = songHeader->voicegroup;
+        mplayInfo->priority = songHeader->priority;
+        mplayInfo->clock = 0;
+        mplayInfo->tempoRawBPM = 150;
+        mplayInfo->tempoInterval = 150;
+        mplayInfo->tempoScale = 0x100;
+        mplayInfo->tempoCounter = 0;
+        mplayInfo->fadeInterval = 0;
+
+        i = 0;
+        track = mplayInfo->tracks;
+
+        while (i < songHeader->trackCount && i < mplayInfo->trackCount) {
+            TrackStop(mplayInfo, track);
+            track->status = MPT_FLG_EXIST | MPT_FLG_START;
+            track->chan = 0;
+            track->cmdPtr = songHeader->part[i];
+            i++;
+            track++;
+        }
+
+        while (i < mplayInfo->trackCount) {
+            TrackStop(mplayInfo, track);
+            track->status = 0;
+            i++;
+            track++;
+        }
+
+        if (songHeader->reverb & SOUND_MODE_REVERB_SET)
+            m4aSoundMode(songHeader->reverb);
+
+        mplayInfo->lockStatus = ID_NUMBER;
+    }
+}
 /*
  * MPlayChannelUpdate: update a single music player channel.
  * Processes pending notes, advances timing, and updates the
@@ -838,54 +1018,229 @@ void MPlayStop(u32 *player) {
 
 /* ── Volume, Pitch & CGB Sound Control ── */
 
-/*
- * CgbModVol: CGB channel volume modulation.
- * Applies volume envelope and modulation effects to CGB
- * channels (Square 1/2, Wave, Noise).
- *   110 lines, calls SoundContextRef
+/**
+ * FadeOutBody: per-frame fade processing (volume ramp + track stop).
+ * Each fadeInterval ticks, steps fadeOV toward zero and updates each
+ * track's volPublic; once the fade completes, pauses or stops all
+ * tracks via TrackStop.  Called from asm/m4a0.s (MP2KPlayerMain).
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", CgbModVol);
+void FadeOutBody(struct MP2KPlayerState *mplayInfo) {
+    s32 i;
+    struct MP2KTrack *track;
+    u16 fadeOV;
+
+    if (mplayInfo->fadeInterval == 0)
+        return;
+    if (--mplayInfo->fadeCounter != 0)
+        return;
+
+    mplayInfo->fadeCounter = mplayInfo->fadeInterval;
+
+    if (mplayInfo->fadeOV & FADE_IN) {
+        if ((u16)(mplayInfo->fadeOV += (4 << FADE_VOL_SHIFT)) >= (64 << FADE_VOL_SHIFT)) {
+            mplayInfo->fadeOV = (64 << FADE_VOL_SHIFT);
+            mplayInfo->fadeInterval = 0;
+        }
+    } else {
+        if ((s16)(mplayInfo->fadeOV -= (4 << FADE_VOL_SHIFT)) <= 0) {
+            i = mplayInfo->trackCount;
+            track = mplayInfo->tracks;
+
+            while (i > 0) {
+                u32 val;
+
+                TrackStop(mplayInfo, track);
+
+                val = TEMPORARY_FADE;
+                fadeOV = mplayInfo->fadeOV;
+                val &= fadeOV;
+
+                if (!val)
+                    track->status = 0;
+
+                i--;
+                track++;
+            }
+
+            if (mplayInfo->fadeOV & TEMPORARY_FADE)
+                mplayInfo->status |= MUSICPLAYER_STATUS_PAUSE;
+            else
+                mplayInfo->status = MUSICPLAYER_STATUS_PAUSE;
+
+            mplayInfo->fadeInterval = 0;
+            return;
+        }
+    }
+
+    i = mplayInfo->trackCount;
+    track = mplayInfo->tracks;
+
+    while (i > 0) {
+        if (track->status & MPT_FLG_EXIST) {
+            fadeOV = mplayInfo->fadeOV;
+
+            track->volPublic = (fadeOV >> FADE_VOL_SHIFT);
+            track->status |= MPT_FLG_VOLCHG;
+        }
+
+        i--;
+        track++;
+    }
+}
+/**
+ * TrkVolPitSet: recompute a track's left/right volume and pitch caches
+ * from its public fields (vol, pan, bend, tune, keyShift, mod).
+ * Called from asm/m4a0.s (MP2K_event_nxx).
+ */
+void TrkVolPitSet(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    if (track->status & MPT_FLG_VOLSET) {
+        s32 x;
+        s32 y;
+
+        x = (u32)(track->vol * track->volPublic) >> 5;
+
+        if (track->modType == 1)
+            x = (u32)(x * (track->modCalculated + 128)) >> 7;
+
+        y = 2 * track->pan + track->panPublic;
+
+        if (track->modType == 2)
+            y += track->modCalculated;
+
+        if (y < -128)
+            y = -128;
+        else if (y > 127)
+            y = 127;
+
+        track->volRightCalculated = (u32)((y + 128) * x) >> 8;
+        track->volLeftCalculated = (u32)((127 - y) * x) >> 8;
+    }
+
+    if (track->status & MPT_FLG_PITSET) {
+        s32 bend = track->bend * track->bendRange;
+        s32 x = (track->tune + bend) * 4 + (track->keyShift << 8) + (track->keyShiftPublic << 8) + track->pitchPublic;
+
+        if (track->modType == 0)
+            x += 16 * track->modCalculated;
+
+        track->keyShiftCalculated = x >> 8;
+        track->pitchCalculated = x;
+    }
+
+    track->status &= ~(MPT_FLG_PITSET | MPT_FLG_VOLSET);
+}
+/**
+ * MidiKeyToCgbFreq: convert MIDI note + fine adjust into the
+ * frequency register value for a CGB sound channel.  Channel 4
+ * (noise) uses gNoiseTable; channels 1-3 (square/wave) interpolate
+ * over gCgbScaleTable + gCgbFreqTable.
+ */
+u32 MidiKeyToCgbFreq(u8 chanNum, u8 key, u8 fineAdjust) {
+    if (chanNum == 4) {
+        if (key <= 20) {
+            key = 0;
+        } else {
+            key -= 21;
+            if (key > 59)
+                key = 59;
+        }
+
+        return gNoiseTable[key];
+    } else {
+        s32 val1;
+        s32 val2;
+
+        if (key <= 35) {
+            fineAdjust = 0;
+            key = 0;
+        } else {
+            key -= 36;
+            if (key > 130) {
+                key = 130;
+                fineAdjust = 255;
+            }
+        }
+
+        val1 = gCgbScaleTable[key];
+        val1 = gCgbFreqTable[val1 & 0xF] >> (val1 >> 4);
+
+        val2 = gCgbScaleTable[key + 1];
+        val2 = gCgbFreqTable[val2 & 0xF] >> (val2 >> 4);
+
+        return val1 + ((fineAdjust * (val2 - val1)) >> 8) + 2048;
+    }
+}
+/**
+ * CgbOscOff: silence a CGB sound channel.  Writes the "envelope off
+ * + restart" pattern (NRx2=8, NRx4=0x80) for channels 1, 2, and 4,
+ * or NR30=0 for the Wave channel (3).
+ */
+void CgbOscOff(u8 chanNum) {
+    switch (chanNum) {
+        case 1:
+            REG_NR12 = 8;
+            REG_NR14 = 0x80;
+            break;
+        case 2:
+            REG_NR22 = 8;
+            REG_NR24 = 0x80;
+            break;
+        case 3:
+            REG_NR30 = 0;
+            break;
+        default:
+            REG_NR42 = 8;
+            REG_NR44 = 0x80;
+    }
+}
+/* CgbPan: helper (inlined into CgbModVol below); sets chan->pan to
+ * 0x0F or 0xF0 when one channel is at least 2× louder than the other,
+ * returns 1 if a hard pan was applied. */
+static inline int CgbPan(struct MixerSource *chan) {
+    u32 rightVol = chan->rightVol;
+    u32 leftVol = chan->leftVol;
+
+    if ((rightVol = (u8)rightVol) >= (leftVol = (u8)leftVol)) {
+        if (rightVol / 2 >= leftVol) {
+            chan->pan = 0x0F;
+            return 1;
+        }
+    } else {
+        if (leftVol / 2 >= rightVol) {
+            chan->pan = 0xF0;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * CgbModVol: compute a CGB channel's envelopeGoal, sustainGoal, and
+ * pan (with CgbPan inlined).  Kleod-canonical.
+ */
+void CgbModVol(struct MixerSource *chan) {
+    if (!CgbPan(chan)) {
+        chan->pan = 0xFF;
+        chan->envelopeGoal = (u32)(chan->rightVol + chan->leftVol) / 16;
+    } else {
+        chan->envelopeGoal = (u32)(chan->rightVol + chan->leftVol) / 16;
+
+        if (chan->envelopeGoal > 15)
+            chan->envelopeGoal = 15;
+    }
+
+    chan->sustainGoal = (chan->envelopeGoal * chan->sustain + 15) >> 4;
+    chan->pan &= chan->panMask;
+}
 /*
- * CgbLookupTable: CGB frequency and volume lookup data.
- * Contains precomputed tables for CGB channel pitch and
- * volume conversion. Used by MidiKeyToCgbFreq and CgbSound.
- *   99 lines, leaf function
+ * CgbSound: drive all 4 CGB hardware channels every frame.  The
+ * envelope / pitch / volume state machine for channels 1-4 plus the
+ * Wave RAM upload for channel 3.  In the original ROM this function
+ * spans both the CgbSound region (0x08050AFC) and the SoundMixerMain
+ * tail region (0x08050C70) — they're a single function in kleod.
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", CgbSound);
-/*
- * MidiKeyToCgbFreq: convert MIDI note number to CGB frequency register value.
- * Translates standard MIDI key numbers (0-127) into the frequency
- * register values needed by GBA CGB sound channels 1-4.
- *   133 lines, leaf function
- *   HW: REG_SOUND1CNT_X (0x04000063), REG_SOUND2CNT_H (0x04000069),
- *       REG_SOUND3CNT_X (0x04000070), REG_SOUND4CNT_H (0x04000079)
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MidiKeyToCgbFreq);
-/*
- * sub_08050A44: silence a CGB sound channel.
- * Blocker: original uses bgt (signed branch) for u8 > 2 comparison,
- * but agbcc generates bhi (unsigned). 1-byte encoding difference
- * that can't be fixed from C. Needs compiler patch to branch encoding.
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", sub_08050A44);
-/*
- * CgbLookupUtil: CGB utility lookup for pitch/volume tables.
- *   59 lines, leaf function
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", CgbOscOff);
-/*
- * CgbChannelMix: CGB channel hardware control — per-channel register writes.
- * Configures all 4 CGB sound channels (Square1, Square2, Wave, Noise)
- * by writing to their individual control registers. Handles duty cycle,
- * envelope, frequency, sweep, and wave pattern RAM.
- *   189 lines, calls MidiKeyToCgbFreq
- *   HW: REG_SOUND1CNT_L/H/X (0x04000060-0x04000064),
- *       REG_SOUND2CNT_L/H (0x04000068-0x0400006C),
- *       REG_SOUND3CNT_L/H/X (0x04000070-0x04000074),
- *       REG_SOUND4CNT_L/H (0x04000078-0x0400007C),
- *       REG_WAVE_RAM0 (0x04000090)
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", CgbChannelMix);
 
 /* ── Core Mixer / Channel Processing Loop ── */
 
@@ -899,142 +1254,203 @@ INCLUDE_ASM("asm/nonmatchings/m4a", CgbChannelMix);
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", SoundMixerMain);
 
-/* ── State Machine & Sappy Verification ── */
+/* ── Music Player Control API ── */
 
-/*
- * SoundStateCheck1: verify Sappy engine state (variant 1).
- * Checks SAPPY_MAGIC (0x68736D53) to confirm the engine is live.
- *   22 lines, leaf function
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayStateCheck1);
-/*
- * SoundStateCheck2: verify Sappy engine state (variant 2).
- *   57 lines, leaf function
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayStateCheck);
-/*
- * SoundStateCheck3: verify Sappy engine state (variant 3).
- *   65 lines, leaf function
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayStateCheck3);
-
-/* ── MIDI Note & Command Encoding ── */
-
-/*
- * MidiNoteLookup: MIDI note number to frequency lookup.
- * Converts MIDI note values (0-127) to internal pitch representation
- * using precomputed ROM tables.
- *   57 lines, leaf function
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MidiNoteLookup);
-/*
- * MidiUtilConvert: MIDI utility value converter.
- * Converts between MIDI controller values and internal representation.
- *   20 lines, leaf function
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", MidiUtilConvert);
 /**
- * MidiCommandEncode1: iterate active tracks in a MusicPlayerInfo,
- * write value to track[0x17] for each matching track bit, and call
- * MidiUtilConvert when value is zero.
+ * m4aMPlayTempoControl: scale a player's tempo by `tempo / 256`.
+ * tempoScale is the user-facing 0..0x100 ratio; tempoInterval is the
+ * tick count derived from tempoRawBPM * tempoScale.
  */
-void MidiCommandEncode1(u32 *player, u16 trackBits, u8 value) {
-    u32 ident;
-    s32 numTracks;
-    u8 *track;
-    u32 mask;
-    u8 val;
-
-    ident = player[0x34 / 4];
-    if (ident != SAPPY_MAGIC)
-        return;
-
-    player[0x34 / 4] = ident + 1;
-
-    numTracks = (s32)(u8)((u8 *)player)[0x08];
-    track = (u8 *)player[0x2C / 4];
-    mask = 1;
-
-    if (numTracks <= 0)
-        goto done;
-
-    val = value;
-
-    while (numTracks > 0) {
-        if (trackBits & mask) {
-            register u32 test asm("r0") = 0x80;
-            register u8 status asm("r1");
-            asm("" : "+r"(test));
-            status = track[0x00];
-            test &= status;
-            if (test) {
-                track[0x17] = value;
-                {
-                    register u8 v asm("r1") = val;
-                    if (v == 0) {
-                        MidiUtilConvert(track);
-                    }
-                }
-            }
-        }
-        numTracks--;
-        track += 0x50;
-        mask <<= 1;
+void m4aMPlayTempoControl(struct MP2KPlayerState *mplayInfo, u16 tempo) {
+    if (mplayInfo->lockStatus == ID_NUMBER) {
+        mplayInfo->lockStatus++;
+        mplayInfo->tempoScale = tempo;
+        mplayInfo->tempoInterval = (mplayInfo->tempoRawBPM * mplayInfo->tempoScale) >> 8;
+        mplayInfo->lockStatus = ID_NUMBER;
     }
-
-done:
-    player[0x34 / 4] = SAPPY_MAGIC;
 }
 /**
- * MidiCommandEncode2: same as MidiCommandEncode1 but writes to
- * track[0x19] instead of track[0x17].
+ * m4aMPlayVolumeControl: set every track's volPublic to `volume / 4`
+ * for each track whose bit is set in trackBits.
  */
-void MidiCommandEncode2(u32 *player, u16 trackBits, u8 value) {
-    u32 ident;
-    s32 numTracks;
-    u8 *track;
-    u32 mask;
-    u8 val;
+void m4aMPlayVolumeControl(struct MP2KPlayerState *mplayInfo, u16 trackBits, u16 volume) {
+    s32 i;
+    u32 bit;
+    struct MP2KTrack *track;
 
-    ident = player[0x34 / 4];
-    if (ident != SAPPY_MAGIC)
+    if (mplayInfo->lockStatus != ID_NUMBER)
         return;
 
-    player[0x34 / 4] = ident + 1;
+    mplayInfo->lockStatus++;
 
-    numTracks = (s32)(u8)((u8 *)player)[0x08];
-    track = (u8 *)player[0x2C / 4];
-    mask = 1;
+    i = mplayInfo->trackCount;
+    track = mplayInfo->tracks;
+    bit = 1;
 
-    if (numTracks <= 0)
-        goto done;
-
-    val = value;
-
-    while (numTracks > 0) {
-        if (trackBits & mask) {
-            register u32 test asm("r0") = 0x80;
-            register u8 status asm("r1");
-            asm("" : "+r"(test));
-            status = track[0x00];
-            test &= status;
-            if (test) {
-                track[0x19] = value;
-                {
-                    register u8 v asm("r1") = val;
-                    if (v == 0) {
-                        MidiUtilConvert(track);
-                    }
-                }
+    while (i > 0) {
+        if (trackBits & bit) {
+            if (track->status & MPT_FLG_EXIST) {
+                track->volPublic = volume / 4;
+                track->status |= MPT_FLG_VOLCHG;
             }
         }
-        numTracks--;
-        track += 0x50;
-        mask <<= 1;
+        i--;
+        track++;
+        bit <<= 1;
     }
 
-done:
-    player[0x34 / 4] = SAPPY_MAGIC;
+    mplayInfo->lockStatus = ID_NUMBER;
+}
+/**
+ * m4aMPlayPitchControl: set per-track keyShiftPublic (semitones, high
+ * byte of pitch) and pitchPublic (1/256 semitone, low byte) for each
+ * track whose bit is in trackBits.
+ */
+void m4aMPlayPitchControl(struct MP2KPlayerState *mplayInfo, u16 trackBits, s16 pitch) {
+    s32 i;
+    u32 bit;
+    struct MP2KTrack *track;
+
+    if (mplayInfo->lockStatus != ID_NUMBER)
+        return;
+
+    mplayInfo->lockStatus++;
+
+    i = mplayInfo->trackCount;
+    track = mplayInfo->tracks;
+    bit = 1;
+
+    while (i > 0) {
+        if (trackBits & bit) {
+            if (track->status & MPT_FLG_EXIST) {
+                track->keyShiftPublic = pitch >> 8;
+                track->pitchPublic = pitch;
+                track->status |= MPT_FLG_PITCHG;
+            }
+        }
+        i--;
+        track++;
+        bit <<= 1;
+    }
+
+    mplayInfo->lockStatus = ID_NUMBER;
+}
+
+/**
+ * m4aMPlayPanpotControl: set each selected track's panPublic.
+ */
+void m4aMPlayPanpotControl(struct MP2KPlayerState *mplayInfo, u16 trackBits, s8 pan) {
+    s32 i;
+    u32 bit;
+    struct MP2KTrack *track;
+
+    if (mplayInfo->lockStatus != ID_NUMBER)
+        return;
+
+    mplayInfo->lockStatus++;
+
+    i = mplayInfo->trackCount;
+    track = mplayInfo->tracks;
+    bit = 1;
+
+    while (i > 0) {
+        if (trackBits & bit) {
+            if (track->status & MPT_FLG_EXIST) {
+                track->panPublic = pan;
+                track->status |= MPT_FLG_VOLCHG;
+            }
+        }
+        i--;
+        track++;
+        bit <<= 1;
+    }
+
+    mplayInfo->lockStatus = ID_NUMBER;
+}
+
+/* ── MIDI Note & Command Encoding ── */
+/**
+ * ClearModM: reset a track's LFO/modulation accumulators and flag the
+ * appropriate per-frame recalc (pitch or volume) depending on modType.
+ * Called whenever modDepth or lfoSpeed drops to zero.
+ */
+void ClearModM(struct MP2KTrack *track) {
+    track->lfoSpeedCounter = 0;
+    track->modCalculated = 0;
+    if (track->modType == 0)
+        track->status |= MPT_FLG_PITCHG;
+    else
+        track->status |= MPT_FLG_VOLCHG;
+}
+/**
+ * m4aMPlayModDepthSet: set per-track modDepth; clear LFO accumulators
+ * (via ClearModM) when modDepth drops to zero.
+ */
+void m4aMPlayModDepthSet(struct MP2KPlayerState *mplayInfo, u16 trackBits, u8 modDepth) {
+    s32 i;
+    u32 bit;
+    struct MP2KTrack *track;
+
+    if (mplayInfo->lockStatus != ID_NUMBER)
+        return;
+
+    mplayInfo->lockStatus++;
+
+    i = mplayInfo->trackCount;
+    track = mplayInfo->tracks;
+    bit = 1;
+
+    while (i > 0) {
+        if (trackBits & bit) {
+            if (track->status & MPT_FLG_EXIST) {
+                track->modDepth = modDepth;
+
+                if (!track->modDepth)
+                    ClearModM(track);
+            }
+        }
+
+        i--;
+        track++;
+        bit <<= 1;
+    }
+
+    mplayInfo->lockStatus = ID_NUMBER;
+}
+/**
+ * m4aMPlayLFOSpeedSet: set per-track lfoSpeed; clear LFO accumulators
+ * (via ClearModM) when lfoSpeed drops to zero.
+ */
+void m4aMPlayLFOSpeedSet(struct MP2KPlayerState *mplayInfo, u16 trackBits, u8 lfoSpeed) {
+    s32 i;
+    u32 bit;
+    struct MP2KTrack *track;
+
+    if (mplayInfo->lockStatus != ID_NUMBER)
+        return;
+
+    mplayInfo->lockStatus++;
+
+    i = mplayInfo->trackCount;
+    track = mplayInfo->tracks;
+    bit = 1;
+
+    while (i > 0) {
+        if (trackBits & bit) {
+            if (track->status & MPT_FLG_EXIST) {
+                track->lfoSpeed = lfoSpeed;
+
+                if (!track->lfoSpeed)
+                    ClearModM(track);
+            }
+        }
+
+        i--;
+        track++;
+        bit <<= 1;
+    }
+
+    mplayInfo->lockStatus = ID_NUMBER;
 }
 /*
  * MPlayCommandDispatch: music player command dispatcher.

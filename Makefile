@@ -44,7 +44,9 @@ C_BUILDDIR := $(OBJ_DIR)/$(C_SUBDIR)
 DATA_SUBDIR   := data
 DATA_BUILDDIR := $(OBJ_DIR)/$(DATA_SUBDIR)
 
-ASM_SRCS := $(wildcard $(ASM_SUBDIR)/*.s)
+# asm/m4a0.s is .include'd into src/m4a.c (handcrafted MP2K blob);
+# it must not be assembled as a standalone .o.
+ASM_SRCS := $(filter-out $(ASM_SUBDIR)/m4a0.s,$(wildcard $(ASM_SUBDIR)/*.s))
 ASM_OBJS := $(patsubst $(ASM_SUBDIR)/%.s,$(ASM_BUILDDIR)/%.o,$(ASM_SRCS))
 
 C_SRCS := $(filter-out $(wildcard $(C_SUBDIR)/m4a_nopush_*.c),$(wildcard $(C_SUBDIR)/*.c))
