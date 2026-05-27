@@ -429,38 +429,14 @@ extern const u32 gStreamDataTable[];
 
 /* ── Sound ROM Data Tables ── */
 
-/* MusicPlayer: 12-byte entry in the music player table.
- *   +0x00: u32 info   - pointer to MusicPlayerInfo struct
- *   +0x04: u32 track  - pointer to MusicPlayerTrack array
- *   +0x08: u16 numTracks, u8 unk_A, u8 pad */
-struct MusicPlayer {
-    u32 info;
-    u32 track;
-    u16 numTracks;
-    u8 unk_A;
-    u8 pad;
-};
-
-/* Song: 8-byte entry in the song table.
- *   +0x00: u32 header - pointer to song header data
- *   +0x04: u16 ms     - index into MusicPlayer table
- *   +0x06: u16 pad */
-struct Song {
-    u32 header;
-    u16 ms;
-    u16 pad;
-};
-
-/* Music player table: array of struct MusicPlayer (12 bytes each).
- * Indexed by Song.ms to find the player for a given song. */
-extern const struct MusicPlayer gMPlayTable[];
-
-/* Song metadata table: array of struct Song (8 bytes each).
- * Indexed by song ID to find header and player assignment. */
-extern const struct Song gSongTable[];
+/* struct MusicPlayer, struct Song, gMPlayTable, gSongTable are now
+ * declared in include/m4a_internal.h with kleod-canonical typed fields. */
 
 /* Sound command dispatch table.
  * Array of function pointers indexed by command byte. */
+/* gSoundCmdTable / gXcmdTable: x-cmd dispatch table (16 function
+ * pointers).  Kleod's name is gXcmdTable; we keep `gSoundCmdTable`
+ * as a back-compat alias for legacy uses. */
 extern const u32 gSoundCmdTable[];
 
 /* Sound configuration init data. */

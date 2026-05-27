@@ -18,14 +18,29 @@
 /* Byte-level CGB sound-channel register accessors (NRxx names).
  * gba.h has the halfword SOUNDxCNT_L/H/X aliases; CgbOscOff and
  * CgbModVol need the byte granularity of the original NRxx layout. */
+#define REG_ADDR_NR10  0x04000060
+#define REG_NR10 (*(vu8 *)0x04000060)
+#define REG_NR11 (*(vu8 *)0x04000062)
 #define REG_NR12 (*(vu8 *)0x04000063)
+#define REG_NR13 (*(vu8 *)0x04000064)
 #define REG_NR14 (*(vu8 *)0x04000065)
+#define REG_NR21 (*(vu8 *)0x04000068)
 #define REG_NR22 (*(vu8 *)0x04000069)
+#define REG_NR23 (*(vu8 *)0x0400006C)
 #define REG_NR24 (*(vu8 *)0x0400006D)
+#define REG_ADDR_NR30  0x04000070
 #define REG_NR30 (*(vu8 *)0x04000070)
+#define REG_NR31 (*(vu8 *)0x04000072)
+#define REG_NR32 (*(vu8 *)0x04000073)
+#define REG_NR33 (*(vu8 *)0x04000074)
+#define REG_NR34 (*(vu8 *)0x04000075)
+#define REG_NR41 (*(vu8 *)0x04000078)
 #define REG_NR42 (*(vu8 *)0x04000079)
+#define REG_NR43 (*(vu8 *)0x0400007C)
 #define REG_NR44 (*(vu8 *)0x0400007D)
 #define REG_NR50 (*(vu8 *)0x04000080)  /* same address as SOUNDCNT_L low byte */
+#define REG_NR51 (*(vu8 *)0x04000081)
+#define REG_ADDR_VCOUNT 0x04000006
 
 /* Pointer slot in BIOS sound-info area (0x03007FF0) — points at the
  * project's SoundMixerState (in IWRAM).  Kleod-style alias. */
@@ -34,6 +49,20 @@
 #define PCM_DMA_BUF_SIZE 1584
 #define TIMER_ENABLE     0x0080
 #define TIMER_1CLK       0x0000
+#define MAX_DIRECTSOUND_CHANNELS 12
+
+/* SOUND_MODE_FREQ_<rate>: mixer frequency option (used as ms argument
+ * to SampleFreqSet — selects gPcmSamplesPerVBlankTable[freq-1]). */
+#define SOUND_MODE_FREQ_13379    0x00040000
+
+/* CpuFill32: BIOS-driven fill via the same SVC trampoline our project
+ * exposes as BitUnPack.  Control word: bit 24 (fill), bit 26 (32-bit),
+ * low bits = word count. */
+#define CpuFill32(value, dst, size) \
+    do { \
+        u32 _zero = (value); \
+        BitUnPack((u32)&_zero, (u32)(dst), 0x05000000 | ((size) / 4)); \
+    } while (0)
 
 /* MP2KTrack.status flag bits. */
 #define MPT_FLG_VOLSET 0x01
@@ -52,6 +81,26 @@
 #define FADE_IN        0x0002
 #define TEMPORARY_FADE 0x0001
 
+/* MixerSource.status flag bits — note these overlap with envelope-state values. */
+#define SOUND_CHANNEL_SF_START       0x80
+#define SOUND_CHANNEL_SF_STOP        0x40
+#define SOUND_CHANNEL_SF_LOOP        0x10
+#define SOUND_CHANNEL_SF_IEC         0x04
+#define SOUND_CHANNEL_SF_ENV         0x03
+#define SOUND_CHANNEL_SF_ENV_ATTACK  0x03
+#define SOUND_CHANNEL_SF_ENV_DECAY   0x02
+#define SOUND_CHANNEL_SF_ENV_SUSTAIN 0x01
+#define SOUND_CHANNEL_SF_ENV_RELEASE 0x00
+#define SOUND_CHANNEL_SF_ON \
+    (SOUND_CHANNEL_SF_START | SOUND_CHANNEL_SF_STOP | SOUND_CHANNEL_SF_IEC | SOUND_CHANNEL_SF_ENV)
+
+#define CGB_CHANNEL_MO_PIT  0x02
+#define CGB_CHANNEL_MO_VOL  0x01
+#define CGB_NRx2_ENV_DIR_DEC 0x00
+#define CGB_NRx2_ENV_DIR_INC 0x08
+
+#define TONEDATA_TYPE_FIX 0x08
+
 /* m4aSoundMode mode-word bits. */
 #define SOUND_MODE_REVERB_SET 0x00000080
 
@@ -64,38 +113,108 @@
  * touches a new offset, name it and replace the surrounding gap.
  */
 /*
- * Voicegroup header embedded in each track at offset 0x24.  Only the
- * `type` byte is named here; the union of sound/keySplit data follows.
+ * Voicegroup header embedded in each track at offset 0x24, total 16
+ * bytes.  Inner union holds sample/keySplit-specific fields starting
+ * at offset 0x04 (= track offset 0x28).
  */
 struct MP2KVoiceGroup {
     u8 type;        // 0x00
-    u8 gap_01[0x0B];// 0x01..0x0B (12 bytes — full struct is 16)
+    u8 drumKey;     // 0x01
+    u8 cgbLength;   // 0x02
+    u8 pan_sweep;   // 0x03 (pan or sweep depending on type)
+    union {
+        struct {
+            struct WaveData *wav;  // 0x04
+            u8 attack;             // 0x08
+            u8 decay;              // 0x09
+            u8 sustain;            // 0x0A
+            u8 release;            // 0x0B
+        } sound;
+        struct {
+            struct MP2KVoiceGroup *group;  // 0x04
+            u8 *keySplitTable;             // 0x08
+        } keySplit;
+    } data;
 };
 
 struct MP2KSongHeader;
 struct MP2KPlayerState;
 
 /*
- * Single mixer channel slot.  Full struct = 0x40 bytes.  Only the
- * fields touched by ported C are named; data union is collapsed to
- * a gap with one named field at offset 0x18 (data.cgb.panMask) for
- * MPlayExtender.
+ * Single mixer channel slot.  Full struct = 0x40 bytes.  Union shape
+ * matches kleod: `data.cgb.*` for CGB channels, `data.sound.*` for
+ * DirectSound channels.
  */
 struct MixerSource {
     u8 status;        // 0x00
     u8 type;          // 0x01
     u8 rightVol;      // 0x02
     u8 leftVol;       // 0x03
-    u8 gap_04[0x02];  // 0x04..0x05 (data.cgb.attack/decay)
-    u8 sustain;       // 0x06 (data.cgb.sustain)
-    u8 gap_07[0x03];  // 0x07..0x09 (release, key, envelopeVol)
-    u8 envelopeGoal;  // 0x0A (data.cgb.envelopeGoal)
-    u8 gap_0B[0x0E];  // 0x0B..0x18 (envelopeCtr..padding6)
-    u8 sustainGoal;   // 0x19 (data.cgb.sustainGoal)
-    u8 gap_1A;        // 0x1A (data.cgb.nrx4)
-    u8 pan;           // 0x1B (data.cgb.pan)
-    u8 panMask;       // 0x1C  (data.cgb.panMask)
-    u8 gap_1D[0x23];  // 0x1D..0x3F  (rest of data + wav/current/track/prev/next/padding7/blockCount)
+    union {
+        struct {
+            u8 attack;          // 0x04
+            u8 decay;           // 0x05
+            u8 sustain;         // 0x06
+            u8 release;         // 0x07
+            u8 key;             // 0x08
+            u8 envelopeVol;     // 0x09
+            u8 envelopeGoal;    // 0x0A
+            u8 envelopeCtr;     // 0x0B
+            u8 echoVol;         // 0x0C
+            u8 echoLen;         // 0x0D
+            u8 padding1;        // 0x0E
+            u8 padding2;        // 0x0F
+            u8 gateTime;        // 0x10
+            u8 untransposedKey; // 0x11
+            u8 velocity;        // 0x12
+            u8 priority;        // 0x13
+            u8 rhythmPan;       // 0x14
+            u8 padding3;        // 0x15
+            u8 padding4;        // 0x16
+            u8 padding5;        // 0x17
+            u8 padding6;        // 0x18
+            u8 sustainGoal;     // 0x19
+            u8 nrx4;            // 0x1A
+            u8 pan;             // 0x1B
+            u8 panMask;         // 0x1C
+            u8 cgbStatus;       // 0x1D
+            u8 length;          // 0x1E
+            u8 sweep;           // 0x1F
+            u32 freq;           // 0x20
+        } cgb;
+        struct {
+            u8 attack;          // 0x04
+            u8 decay;           // 0x05
+            u8 sustain;         // 0x06
+            u8 release;         // 0x07
+            u8 key;             // 0x08
+            u8 envelopeVol;     // 0x09
+            u8 envelopeVolR;    // 0x0A
+            u8 envelopeVolL;    // 0x0B
+            u8 echoVol;         // 0x0C
+            u8 echoLen;         // 0x0D
+            u8 padding1;        // 0x0E
+            u8 padding2;        // 0x0F
+            u8 gateTime;        // 0x10
+            u8 untransposedKey; // 0x11
+            u8 velocity;        // 0x12
+            u8 priority;        // 0x13
+            u8 rhythmPan;       // 0x14
+            u8 padding3;        // 0x15
+            u8 padding4;        // 0x16
+            u8 padding5;        // 0x17
+            u32 ct;             // 0x18
+            u32 fw;             // 0x1C  (fixed8_24)
+            u32 freq;           // 0x20
+        } sound;
+    } data;
+    void *wav;                  // 0x24
+    void *current;              // 0x28
+    struct MP2KTrack *track;    // 0x2C
+    struct MixerSource *prev;   // 0x30
+    struct MixerSource *next;   // 0x34
+    u32 padding7;               // 0x38
+    u32 blockCount;             // 0x3C
 };
 
 struct MP2KTrack {
@@ -154,7 +273,8 @@ struct MP2KPlayerState {
     u8 cmd;                              // 0x0A
     u8 checkSongPriority;                // 0x0B
     u32 clock;                           // 0x0C
-    u8 gap_10[0x0C];                     // 0x10..0x1B
+    u8 gap_10[0x08];                     // 0x10..0x17
+    u8 *memAccArea;                      // 0x18
     u16 tempoRawBPM;                     // 0x1C
     u16 tempoScale;                      // 0x1E
     u16 tempoInterval;                   // 0x20
@@ -174,23 +294,69 @@ struct MP2KPlayerState {
  * the fields touched by already-ported C are named; the rest is gap
  * padding.  Full struct is ~0x350 bytes in kleod.
  */
+/*
+ * MusicPlayer: 12-byte entry in gMPlayTable.  Kleod-canonical layout.
+ * The original game has 4 entries (BGM, SE1, SE2, SE3) at 0x08118AB4.
+ */
+struct MusicPlayer {
+    struct MP2KPlayerState *info;   // 0x00
+    struct MP2KTrack *track;        // 0x04
+    u8 numTracks;                   // 0x08
+    u16 unk_A;                      // 0x0A (1 byte padding at 0x09)
+};
+
+/*
+ * Song: 8-byte entry in gSongTable.  Kleod-canonical layout.
+ * Indexed by song ID; song->ms picks the player slot in gMPlayTable.
+ */
+struct Song {
+    struct MP2KSongHeader *header;  // 0x00
+    u16 ms;                         // 0x04
+    u16 me;                         // 0x06
+};
+
+extern const struct MusicPlayer gMPlayTable[];
+extern const struct Song gSongTable[];
+
+/* Function-pointer types matching kleod's SoundMixerState slots. */
+typedef void (*MP2KEventNoteFunc)(u8, struct MP2KPlayerState *, struct MP2KTrack *);
+typedef void (*MP2KEventFunc)(struct MP2KPlayerState *, struct MP2KTrack *);
+typedef void (*CgbSoundFunc)(void);
+typedef void (*CgbOscOffFunc)(u8);
+typedef u32  (*MidiKeyToCgbFreqFunc)(u8, u8, u8);
+typedef void (*ExtVolPitFunc)(void);
+typedef void (*MPlayMainFunc)(struct MP2KPlayerState *);
+
 struct SoundMixerState {
     u32 lockStatus;             // 0x00
-    u8 gap_04[4];               // 0x04..0x07 (dmaCounter, reverb, numChans, masterVol)
+    vu8 dmaCounter;             // 0x04
+    u8 reverb;                  // 0x05
+    u8 numChans;                // 0x06
+    u8 masterVol;               // 0x07
     u8 freqOption;              // 0x08
-    u8 gap_09[2];               // 0x09..0x0A (extensionFlags, cgbCounter15)
+    u8 extensionFlags;          // 0x09
+    u8 cgbCounter15;            // 0x0A
     u8 framesPerDmaCycle;       // 0x0B
     u8 maxScanlines;            // 0x0C
-    u8 gap_0D[3];               // 0x0D..0x0F  (3 bytes gap)
+    u8 gap_0D[3];               // 0x0D..0x0F
     s32 samplesPerFrame;        // 0x10
     s32 sampleRate;             // 0x14
     s32 sampleRateReciprocal;   // 0x18
-    struct MixerSource *cgbChans;  // 0x1C
-    void *MPlayMainHead;        // 0x20
-    void *musicPlayerHead;      // 0x24
-    void (*CgbSound)(void);     // 0x28
-    void (*CgbOscOff)(u8);      // 0x2C
-    u32 (*MidiKeyToCgbFreq)(u8, u8, u8);  // 0x30
+    struct MixerSource *cgbChans;     // 0x1C
+    MPlayMainFunc MPlayMainHead;      // 0x20
+    struct MP2KPlayerState *musicPlayerHead;  // 0x24
+    CgbSoundFunc CgbSound;            // 0x28
+    CgbOscOffFunc CgbOscOff;          // 0x2C
+    MidiKeyToCgbFreqFunc MidiKeyToCgbFreq;  // 0x30
+    void **MPlayJumpTable;            // 0x34
+    MP2KEventNoteFunc plynote;        // 0x38
+    ExtVolPitFunc ExtVolPit;          // 0x3C
+    void *reserved2;                  // 0x40
+    void *reserved3;                  // 0x44
+    void *reserved4;                  // 0x48
+    void *reserved5;                  // 0x4C
+    struct MixerSource chans[MAX_DIRECTSOUND_CHANNELS];  // 0x50..0x34F (12 * 0x40 = 0x300)
+    s8 pcmBuffer[PCM_DMA_BUF_SIZE * 2];  // 0x350..0xFAF
 };
 
 extern const u16 gPcmSamplesPerVBlankTable[];
@@ -198,16 +364,20 @@ extern void *gMPlayJumpTable[];
 
 void m4aSoundVSyncOn(void);
 
-/* MP2K MIDI-event handlers in asm/m4a0.s, referenced by MPlayExtender. */
+/* MP2K MIDI-event handlers in asm/m4a0.s, referenced by MPlayExtender + SoundInit. */
 void MP2K_event_lfos(void);
 void MP2K_event_mod(void);
 void MP2K_event_endtie(void);
+void MP2K_event_nxx(u8 clock, struct MP2KPlayerState *, struct MP2KTrack *);
+void MPlayJumpTableCopy(void **mplayJumpTable);
+void MusicPlayerJumpTableCopy(void);  /* tiny `swi 0x2A` C wrapper after MPlayExtender */
 
-/* Klonoa-specific names for MP2K event handlers (== kleod names in
- * jump-table order; ldscript aliases would let us use kleod names
- * directly, but we keep ours for now to minimise call-site churn). */
-void MPlayCommandDispatch(void);   /* == MP2K_event_memacc (slot 8) */
-void SoundCmd_Dispatch(u32, u32 *);/* == MP2K_event_xcmd (slot 28) */
+void MP2K_event_memacc(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track);
+void MP2K_event_xcmd(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track);
+void MP2K_event_xwave(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track);
+
+typedef void (*XcmdFunc)(struct MP2KPlayerState *, struct MP2KTrack *);
+extern const XcmdFunc gXcmdTable[];
 
 /* PCM sample header (for kleod-style MidiKeyToFreq port). */
 struct WaveData {
@@ -224,6 +394,7 @@ extern const u32 gFreqTable[];
 extern const u8 gCgbScaleTable[];
 extern const s16 gCgbFreqTable[];
 extern const u8 gNoiseTable[];
+extern const u8 gCgb3Vol[];
 
 u32 umul3232H32(u32 multiplier, u32 multiplicand);
 u32 MidiKeyToFreq(struct WaveData *wav, u8 key, u8 fineAdjust);
@@ -243,6 +414,13 @@ void m4aMPlayModDepthSet(struct MP2KPlayerState *mplayInfo, u16 trackBits, u8 mo
 void m4aMPlayLFOSpeedSet(struct MP2KPlayerState *mplayInfo, u16 trackBits, u8 lfoSpeed);
 void m4aMPlayContinue(struct MP2KPlayerState *mplayInfo);
 void MP2K_event_null(void);
+void m4aSongNumStart(u16 n);
+void m4aSongNumStartOrChange(u16 n);
+void m4aSongNumStartOrContinue(u16 n);
+void m4aSongNumStop(u16 n);
+void m4aSongNumContinue(u16 n);
+void m4aMPlayAllStop(void);
+void m4aMPlayAllContinue(void);
 void CgbOscOff(u8 chanNum);
 void Clear64byte(u32 addr);
 void m4aMPlayImmInit(struct MP2KPlayerState *mplayInfo);

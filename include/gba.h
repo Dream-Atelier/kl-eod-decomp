@@ -101,10 +101,12 @@
 #define REG_DMA1SAD                (*(vu32 *)0x040000BC)
 #define REG_DMA1DAD                (*(vu32 *)0x040000C0)
 #define REG_DMA1CNT                (*(vu32 *)0x040000C4)
+#define REG_DMA1CNT_H              (*(vu16 *)0x040000C6)
 
 #define REG_DMA2SAD                (*(vu32 *)0x040000C8)
 #define REG_DMA2DAD                (*(vu32 *)0x040000CC)
 #define REG_DMA2CNT                (*(vu32 *)0x040000D0)
+#define REG_DMA2CNT_H              (*(vu16 *)0x040000D2)
 
 #define REG_DMA3SAD                (*(vu32 *)0x040000D4)
 #define REG_DMA3DAD                (*(vu32 *)0x040000D8)
@@ -143,10 +145,50 @@
 
 #define IE_VBLANK                  0x0001
 
-/* ── DMA control flags ── */
+/* ── DMA control flags (halfword form, suitable for REG_DMAxCNT_H or
+ *    shifted-left-16 into REG_DMAxCNT) ── */
 
+#define DMA_DEST_INC               0x0000
+#define DMA_DEST_DEC               0x0020
+#define DMA_DEST_FIXED             0x0040
+#define DMA_DEST_RELOAD            0x0060
+#define DMA_SRC_INC                0x0000
+#define DMA_SRC_DEC                0x0080
+#define DMA_SRC_FIXED              0x0100
+#define DMA_REPEAT                 0x0200
+#define DMA_16BIT                  0x0000
+#define DMA_32BIT                  0x0400
+#define DMA_DREQ_ON                0x0800
+#define DMA_START_NOW              0x0000
+#define DMA_START_VBLANK           0x1000
+#define DMA_START_HBLANK           0x2000
+#define DMA_START_SPECIAL          0x3000
+#define DMA_IRQ_ENABLE             0x4000
 #define DMA_ENABLE                 0x8000
-#define DMA_32BIT                  0x04000000
-#define DMA_FIXED_SOURCE           0x01000000
+
+/* ── SOUNDCNT_X master flags (byte at 0x04000084) ── */
+#define SOUND_MASTER_ENABLE        0x80
+#define SOUND_4_ON                 0x08
+#define SOUND_3_ON                 0x04
+#define SOUND_2_ON                 0x02
+#define SOUND_1_ON                 0x01
+
+/* ── SOUNDCNT_H Direct Sound mixer flags (halfword at 0x04000082) ── */
+/* SOUND_ALL_MIX_FULL = Sound1-4 ratio 100% (0x02) | DSoundA ratio full
+ * (0x04) | DSoundB ratio full (0x08). */
+#define SOUND_ALL_MIX_FULL         0x000E
+#define SOUND_A_RIGHT_OUTPUT       0x0100
+#define SOUND_A_LEFT_OUTPUT        0x0200
+#define SOUND_A_TIMER_0            0x0000
+#define SOUND_A_TIMER_1            0x0400
+#define SOUND_A_FIFO_RESET         0x0800
+#define SOUND_B_RIGHT_OUTPUT       0x1000
+#define SOUND_B_LEFT_OUTPUT        0x2000
+#define SOUND_B_TIMER_0            0x0000
+#define SOUND_B_TIMER_1            0x4000
+#define SOUND_B_FIFO_RESET         0x8000
+
+/* ── SOUNDBIAS byte accessor (high byte) ── */
+#define REG_SOUNDBIAS_H            (*(vu8 *)0x04000089)
 
 #endif /* GUARD_GBA_H */

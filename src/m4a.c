@@ -294,21 +294,11 @@ void m4aSoundInit(void) {
     MPlayExtender((struct MixerSource *)0x030064E0);
     m4aSoundMode(0x0094F800);
 
-    {
-        u16 count = NUM_MUSIC_PLAYERS;
-        if (count != 0) {
-            u8 *table = (u8 *)0x08118AB4;
-            i = count;
-
-            do {
-                u32 *mplayInfo = *(u32 **)table;
-                MPlayOpen(mplayInfo, (u8 *)*(u32 *)(table + 4), *(u8 *)(table + 8));
-                ((u8 *)mplayInfo)[0x0B] = *(u16 *)(table + 0x0A);
-                *(u32 *)((u8 *)mplayInfo + 0x18) = 0x030066A0;
-                table += 0x0C;
-                i--;
-            } while (i != 0);
-        }
+    for (i = 0; i < NUM_MUSIC_PLAYERS; i++) {
+        struct MP2KPlayerState *mplayInfo = gMPlayTable[i].info;
+        MPlayOpen((u32 *)mplayInfo, (u8 *)gMPlayTable[i].track, gMPlayTable[i].numTracks);
+        mplayInfo->checkSongPriority = gMPlayTable[i].unk_A;
+        *(u32 *)((u8 *)mplayInfo + 0x18) = 0x030066A0;  /* memAccArea (Phase C will name this field) */
     }
 }
 /**
@@ -319,104 +309,79 @@ void m4aSoundMain(void) {
     SoundMain();
 }
 /**
- * m4aSongNumStart: start playing a music track by song index.
- *
- * Looks up the song from gSongTable, finds the assigned music player
- * from gMPlayTable, then calls MPlayStart to begin playback.
+ * m4aSongNumStart: start playing a song unconditionally.
+ * Indexes gSongTable, finds the assigned player in gMPlayTable, and
+ * hands off to MPlayStart.  Kleod-canonical.
  */
-void m4aSongNumStart(u16 idx) {
-    u32 mplayAddr = 0x08118AB4;
-    u32 songAddr = 0x08118AE4;
-    register u8 *mplay asm("r2");
-    register u8 *songs asm("r1");
-    u32 songOff;
-    u8 *song;
-    u16 playerIdx;
-    u32 off;
+void m4aSongNumStart(u16 n) {
+    const struct MusicPlayer *mplayTable = gMPlayTable;
+    const struct Song *songTable = gSongTable;
+    const struct Song *song = &songTable[n];
+    const struct MusicPlayer *mplay = &mplayTable[song->ms];
 
-    asm("" : "=r"(mplay) : "0"(mplayAddr));
-    asm("" : "=r"(songs) : "0"(songAddr));
-    songOff = (u32)idx << 3;
-    songOff += (u32)songs;
-    song = (u8 *)songOff;
-    playerIdx = *(u16 *)(song + 4);
-    off = (u32)playerIdx * 2 + playerIdx;
-    off <<= 2;
-    off += (u32)mplay;
-    {
-        u32 player = *(u32 *)off;
-        u32 header = *(u32 *)song;
-        MPlayStart(player, header);
+    MPlayStart(mplay->info, song->header);
+}
+/**
+ * m4aSongNumStartOrChange: (re)start a song.  If a different song is
+ * loaded, start the new one.  If the same song is loaded but every
+ * track is dead or paused, (re)start it.  Otherwise leave it running.
+ */
+void m4aSongNumStartOrChange(u16 n) {
+    const struct MusicPlayer *mplayTable = gMPlayTable;
+    const struct Song *songTable = gSongTable;
+    const struct Song *song = &songTable[n];
+    const struct MusicPlayer *mplay = &mplayTable[song->ms];
+
+    if (mplay->info->songHeader != song->header) {
+        MPlayStart(mplay->info, song->header);
+    } else {
+        if ((mplay->info->status & MUSICPLAYER_STATUS_TRACK) == 0 || (mplay->info->status & MUSICPLAYER_STATUS_PAUSE)) {
+            MPlayStart(mplay->info, song->header);
+        }
     }
 }
-/*
- * m4aSongNumStartOrChange: start playing a song; if it's already
- * playing and not paused, do nothing — but if track[0] is inactive
- * or paused, (re)start it.  Kleod-canonical name.
+/**
+ * m4aSongNumStartOrContinue: like StartOrChange, but on a paused
+ * matching song it resumes via MPlayContinue instead of restarting.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", m4aSongNumStartOrChange);
-/*
- * m4aSongNumStartOrContinue: like StartOrChange, but for a paused
- * song it resumes via MPlayContinue instead of restarting.
- * Kleod-canonical name.
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", m4aSongNumStartOrContinue);
+void m4aSongNumStartOrContinue(u16 n) {
+    const struct MusicPlayer *mplayTable = gMPlayTable;
+    const struct Song *songTable = gSongTable;
+    const struct Song *song = &songTable[n];
+    const struct MusicPlayer *mplay = &mplayTable[song->ms];
+
+    if (mplay->info->songHeader != song->header)
+        MPlayStart(mplay->info, song->header);
+    else if ((mplay->info->status & MUSICPLAYER_STATUS_TRACK) == 0)
+        MPlayStart(mplay->info, song->header);
+    else if (mplay->info->status & MUSICPLAYER_STATUS_PAUSE)
+        MPlayContinue(mplay->info);
+}
 /**
  * m4aSongNumStop: stop the given song if it's the one currently loaded.
- * Kleod-canonical name; calls MPlayStop on the assigned player.
  */
-void m4aSongNumStop(u16 idx) {
-    u32 mplayAddr = 0x08118AB4;
-    u32 songAddr = 0x08118AE4;
-    register u8 *mplay asm("r2");
-    register u8 *songs asm("r1");
-    u32 songOff;
-    u8 *song;
-    u16 playerIdx;
-    u32 off;
-    u32 *player;
+void m4aSongNumStop(u16 n) {
+    const struct MusicPlayer *mplayTable = gMPlayTable;
+    const struct Song *songTable = gSongTable;
+    const struct Song *song = &songTable[n];
+    const struct MusicPlayer *mplay = &mplayTable[song->ms];
 
-    asm("" : "=r"(mplay) : "0"(mplayAddr));
-    asm("" : "=r"(songs) : "0"(songAddr));
-    songOff = (u32)idx << 3;
-    songOff += (u32)songs;
-    song = (u8 *)songOff;
-    playerIdx = *(u16 *)(song + 4);
-    off = (u32)playerIdx * 2 + playerIdx;
-    off <<= 2;
-    off += (u32)mplay;
-    player = *(u32 **)off;
-    if (player[0] == *(u32 *)song)
-        MPlayStop(player);
+    if (mplay->info->songHeader == song->header)
+        MPlayStop(mplay->info);
 }
 /**
  * m4aSongNumContinue: resume the given song if it's the one currently
- * loaded.  Despite the name, the implementation calls MPlayContinue
- * (which clears the PAUSE bit) — kleod-canonical.
+ * loaded.  Despite the name, this calls MPlayContinue (clears PAUSE
+ * bit), not a true stop.
  */
-void m4aSongNumContinue(u16 idx) {
-    u32 mplayAddr = 0x08118AB4;
-    u32 songAddr = 0x08118AE4;
-    register u8 *mplay asm("r2");
-    register u8 *songs asm("r1");
-    u32 songOff;
-    u8 *song;
-    u16 playerIdx;
-    u32 off;
-    u32 *player;
+void m4aSongNumContinue(u16 n) {
+    const struct MusicPlayer *mplayTable = gMPlayTable;
+    const struct Song *songTable = gSongTable;
+    const struct Song *song = &songTable[n];
+    const struct MusicPlayer *mplay = &mplayTable[song->ms];
 
-    asm("" : "=r"(mplay) : "0"(mplayAddr));
-    asm("" : "=r"(songs) : "0"(songAddr));
-    songOff = (u32)idx << 3;
-    songOff += (u32)songs;
-    song = (u8 *)songOff;
-    playerIdx = *(u16 *)(song + 4);
-    off = (u32)playerIdx * 2 + playerIdx;
-    off <<= 2;
-    off += (u32)mplay;
-    player = *(u32 **)off;
-    if (player[0] == *(u32 *)song)
-        MPlayContinue(player);
+    if (mplay->info->songHeader == song->header)
+        MPlayContinue(mplay->info);
 }
 /*
  * m4aSoundVSync: VBlank sound update — called every frame.
@@ -430,19 +395,10 @@ void m4aSongNumContinue(u16 idx) {
  * Iterates ROM_MUSIC_TABLE (0x08118AB4), calling MPlayStop on each.
  */
 void m4aMPlayAllStop(void) {
-    u16 n;
-    s32 count;
-    const struct MusicPlayer *table;
-    n = NUM_MUSIC_PLAYERS;
-    if (n == 0)
-        return;
-    table = gMPlayTable;
-    count = n;
-    do {
-        MPlayStop(table->info);
-        table++;
-        count--;
-    } while (count != 0);
+    s32 i;
+
+    for (i = 0; i < NUM_MUSIC_PLAYERS; i++)
+        MPlayStop(gMPlayTable[i].info);
 }
 /** m4aMPlayContinue: public one-liner that resumes the given player. */
 void m4aMPlayContinue(struct MP2KPlayerState *mplayInfo) {
@@ -456,19 +412,10 @@ void m4aMPlayContinue(struct MP2KPlayerState *mplayInfo) {
  * MPlayContinue on each.  Resumes any paused tracks.  Kleod-canonical.
  */
 void m4aMPlayAllContinue(void) {
-    u16 n;
-    s32 count;
-    const struct MusicPlayer *table;
-    n = NUM_MUSIC_PLAYERS;
-    if (n == 0)
-        return;
-    table = gMPlayTable;
-    count = n;
-    do {
-        MPlayContinue(table->info);
-        table++;
-        count--;
-    } while (count != 0);
+    s32 i;
+
+    for (i = 0; i < NUM_MUSIC_PLAYERS; i++)
+        MPlayContinue(gMPlayTable[i].info);
 }
 /** m4aMPlayFadeOut: public wrapper that calls MPlayFadeOut. */
 void m4aMPlayFadeOut(struct MP2KPlayerState *mplayInfo, u16 speed) {
@@ -556,10 +503,10 @@ void MPlayExtender(struct MixerSource *cgbChans) {
 
     soundInfo->lockStatus++;
 
-    gMPlayJumpTable[8]  = MPlayCommandDispatch;  /* MP2K_event_memacc */
+    gMPlayJumpTable[8]  = MP2K_event_memacc;
     gMPlayJumpTable[17] = MP2K_event_lfos;
     gMPlayJumpTable[19] = MP2K_event_mod;
-    gMPlayJumpTable[28] = SoundCmd_Dispatch;     /* MP2K_event_xcmd */
+    gMPlayJumpTable[28] = MP2K_event_xcmd;
     gMPlayJumpTable[29] = MP2K_event_endtie;
     gMPlayJumpTable[30] = SampleFreqSet;
     gMPlayJumpTable[31] = TrackStop;
@@ -578,17 +525,23 @@ void MPlayExtender(struct MixerSource *cgbChans) {
     }
 
     cgbChans[0].type = 1;
-    cgbChans[0].panMask = 0x11;
+    cgbChans[0].data.cgb.panMask = 0x11;
     cgbChans[1].type = 2;
-    cgbChans[1].panMask = 0x22;
+    cgbChans[1].data.cgb.panMask = 0x22;
     cgbChans[2].type = 3;
-    cgbChans[2].panMask = 0x44;
+    cgbChans[2].data.cgb.panMask = 0x44;
     cgbChans[3].type = 4;
-    cgbChans[3].panMask = 0x88;
+    cgbChans[3].data.cgb.panMask = 0x88;
 
     soundInfo->lockStatus = lockStatus;
 }
-void SoundHardwareInit_Tail(void) {
+/**
+ * MusicPlayerJumpTableCopy: tiny `swi 0x2A` C wrapper.  Sits right
+ * after MPlayExtender.  Kleod-canonical name.  Not currently called
+ * from C (the m4a0.s entry MPlayJumpTableCopy at 0x0804F724 is used
+ * instead by SoundInit).
+ */
+void MusicPlayerJumpTableCopy(void) {
     asm("swi 0x2A");
 }
 /**
@@ -613,17 +566,54 @@ void Clear64byte(u32 x) {
 
 /* ── Direct Sound & DMA Configuration ── */
 
-/*
- * SoundInit: full sound-engine initialisation — set up DMA1/DMA2 for
- * Direct Sound FIFO playback, zero soundInfo, seed numChans/masterVol/
- * plynote, install MP2K_event_null stubs for the optional CGB hooks,
- * copy the jump-table template, then arm timer via SampleFreqSet.
- *
- * Kept as INCLUDE_ASM: porting the body requires declarations for a
- * dozen DMA / sound-config register macros plus MP2K_event_nxx/null
- * function-pointer slots.  Deferred to a later pass.
+/**
+ * SoundInit: full sound-engine initialisation — sets up DMA1/DMA2
+ * for Direct Sound FIFO playback, zeroes soundInfo, seeds numChans/
+ * masterVol/plynote, installs MP2K_event_null stubs for the optional
+ * CGB hooks, copies the jump-table template, then arms timer via
+ * SampleFreqSet.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", SoundInit);
+void SoundInit(struct SoundMixerState *soundInfo) {
+    soundInfo->lockStatus = 0;
+
+    if (REG_DMA1CNT & (DMA_REPEAT << 16))
+        REG_DMA1CNT = ((DMA_ENABLE | DMA_START_NOW | DMA_32BIT | DMA_SRC_INC | DMA_DEST_FIXED) << 16) | 4;
+    if (REG_DMA2CNT & (DMA_REPEAT << 16))
+        REG_DMA2CNT = ((DMA_ENABLE | DMA_START_NOW | DMA_32BIT | DMA_SRC_INC | DMA_DEST_FIXED) << 16) | 4;
+
+    REG_DMA1CNT_H = DMA_32BIT;
+    REG_DMA2CNT_H = DMA_32BIT;
+
+    REG_SOUNDCNT_X = SOUND_MASTER_ENABLE | SOUND_4_ON | SOUND_3_ON | SOUND_2_ON | SOUND_1_ON;
+    REG_SOUNDCNT_H = SOUND_B_FIFO_RESET | SOUND_B_TIMER_0 | SOUND_B_LEFT_OUTPUT
+                   | SOUND_A_FIFO_RESET | SOUND_A_TIMER_0 | SOUND_A_RIGHT_OUTPUT
+                   | SOUND_ALL_MIX_FULL;
+    REG_SOUNDBIAS_H = (REG_SOUNDBIAS_H & 0x3F) | 0x40;
+
+    REG_DMA1SAD = (u32)soundInfo->pcmBuffer;
+    REG_DMA1DAD = (u32)&REG_FIFO_A;
+    REG_DMA2SAD = (u32)soundInfo->pcmBuffer + PCM_DMA_BUF_SIZE;
+    REG_DMA2DAD = (u32)&REG_FIFO_B;
+
+    SOUND_INFO_PTR = soundInfo;
+    CpuFill32(0, soundInfo, sizeof(struct SoundMixerState));
+
+    soundInfo->numChans = 8;
+    soundInfo->masterVol = 15;
+    soundInfo->plynote = (MP2KEventNoteFunc)MP2K_event_nxx;
+    soundInfo->CgbSound = MP2K_event_null;
+    soundInfo->CgbOscOff = (CgbOscOffFunc)MP2K_event_null;
+    soundInfo->MidiKeyToCgbFreq = (MidiKeyToCgbFreqFunc)MP2K_event_null;
+    soundInfo->ExtVolPit = (ExtVolPitFunc)MP2K_event_null;
+
+    MPlayJumpTableCopy(gMPlayJumpTable);
+
+    soundInfo->MPlayJumpTable = gMPlayJumpTable;
+
+    SampleFreqSet(SOUND_MODE_FREQ_13379);
+
+    soundInfo->lockStatus = ID_NUMBER;
+}
 /**
  * SampleFreqSet: configure timer 0 to drive PCM playback at the
  * requested frequency.  Picks samplesPerFrame from the LUT, derives
@@ -1156,8 +1146,8 @@ void CgbOscOff(u8 chanNum) {
             REG_NR44 = 0x80;
     }
 }
-/* CgbPan: helper (inlined into CgbModVol below); sets chan->pan to
- * 0x0F or 0xF0 when one channel is at least 2× louder than the other,
+/* CgbPan: helper (inlined into CgbModVol below); sets chan->data.cgb.pan
+ * to 0x0F or 0xF0 when one channel is at least 2× louder than the other,
  * returns 1 if a hard pan was applied. */
 static inline int CgbPan(struct MixerSource *chan) {
     u32 rightVol = chan->rightVol;
@@ -1165,12 +1155,12 @@ static inline int CgbPan(struct MixerSource *chan) {
 
     if ((rightVol = (u8)rightVol) >= (leftVol = (u8)leftVol)) {
         if (rightVol / 2 >= leftVol) {
-            chan->pan = 0x0F;
+            chan->data.cgb.pan = 0x0F;
             return 1;
         }
     } else {
         if (leftVol / 2 >= rightVol) {
-            chan->pan = 0xF0;
+            chan->data.cgb.pan = 0xF0;
             return 1;
         }
     }
@@ -1184,38 +1174,278 @@ static inline int CgbPan(struct MixerSource *chan) {
  */
 void CgbModVol(struct MixerSource *chan) {
     if (!CgbPan(chan)) {
-        chan->pan = 0xFF;
-        chan->envelopeGoal = (u32)(chan->rightVol + chan->leftVol) / 16;
+        chan->data.cgb.pan = 0xFF;
+        chan->data.cgb.envelopeGoal = (u32)(chan->rightVol + chan->leftVol) / 16;
     } else {
-        chan->envelopeGoal = (u32)(chan->rightVol + chan->leftVol) / 16;
+        chan->data.cgb.envelopeGoal = (u32)(chan->rightVol + chan->leftVol) / 16;
 
-        if (chan->envelopeGoal > 15)
-            chan->envelopeGoal = 15;
+        if (chan->data.cgb.envelopeGoal > 15)
+            chan->data.cgb.envelopeGoal = 15;
     }
 
-    chan->sustainGoal = (chan->envelopeGoal * chan->sustain + 15) >> 4;
-    chan->pan &= chan->panMask;
+    chan->data.cgb.sustainGoal = (chan->data.cgb.envelopeGoal * chan->data.cgb.sustain + 15) >> 4;
+    chan->data.cgb.pan &= chan->data.cgb.panMask;
 }
-/*
- * CgbSound: drive all 4 CGB hardware channels every frame.  The
- * envelope / pitch / volume state machine for channels 1-4 plus the
- * Wave RAM upload for channel 3.  In the original ROM this function
- * spans both the CgbSound region (0x08050AFC) and the SoundMixerMain
- * tail region (0x08050C70) — they're a single function in kleod.
+/**
+ * CgbSound: per-frame CGB envelope/pitch/volume state machine for
+ * channels 1-4 plus the Wave-RAM upload for channel 3.  Kleod-canonical
+ * verbatim port — the function spans what our project formerly split
+ * into `CgbSound` (0x08050AFC) and `SoundMixerMain` (0x08050C70).  In
+ * kleod / pokeemerald / sa3 this is a single function; the latter
+ * region is just the bottom half of the same state machine.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", CgbSound);
+void CgbSound(void) {
+    s32 ch;
+    struct MixerSource *channels;
+    s32 prevC15;
+    struct SoundMixerState *soundInfo = SOUND_INFO_PTR;
+    vu8 *nrx0ptr;
+    vu8 *nrx1ptr;
+    vu8 *nrx2ptr;
+    vu8 *nrx3ptr;
+    vu8 *nrx4ptr;
+    s32 envelopeStepTimeAndDir;
 
-/* ── Core Mixer / Channel Processing Loop ── */
+    /* Most comparison operations that cast to s8 perform 'and' by 0xFF. */
+    int mask = 0xff;
 
-/*
- * SoundMixerMain: CORE — process all mixer channels (2nd largest, 393 lines).
- * The main PCM mixing loop that combines all active Direct Sound channels
- * into the output buffer. Handles sample interpolation, volume mixing,
- * and stereo panning. Output is fed to FIFO via DMA.
- *   393 lines
- *   HW: REG_SOUNDCNT_H (0x04000081), REG_SOUNDBIAS (0x04000089)
- */
-INCLUDE_ASM("asm/nonmatchings/m4a", SoundMixerMain);
+    if (soundInfo->cgbCounter15)
+        soundInfo->cgbCounter15--;
+    else
+        soundInfo->cgbCounter15 = 14;
+
+    for (ch = 1, channels = soundInfo->cgbChans; ch <= 4; ch++, channels++) {
+        if (!(channels->status & SOUND_CHANNEL_SF_ON))
+            continue;
+
+        /* 1. determine hardware channel registers */
+        switch (ch) {
+            case 1:
+                nrx0ptr = &REG_NR10;
+                nrx1ptr = &REG_NR11;
+                nrx2ptr = &REG_NR12;
+                nrx3ptr = &REG_NR13;
+                nrx4ptr = &REG_NR14;
+                break;
+            case 2:
+                nrx0ptr = (vu8 *)(REG_ADDR_NR10 + 1);
+                nrx1ptr = &REG_NR21;
+                nrx2ptr = &REG_NR22;
+                nrx3ptr = &REG_NR23;
+                nrx4ptr = &REG_NR24;
+                break;
+            case 3:
+                nrx0ptr = &REG_NR30;
+                nrx1ptr = &REG_NR31;
+                nrx2ptr = &REG_NR32;
+                nrx3ptr = &REG_NR33;
+                nrx4ptr = &REG_NR34;
+                break;
+            default:
+                nrx0ptr = (vu8 *)(REG_ADDR_NR30 + 1);
+                nrx1ptr = &REG_NR41;
+                nrx2ptr = &REG_NR42;
+                nrx3ptr = &REG_NR43;
+                nrx4ptr = &REG_NR44;
+                break;
+        }
+
+        prevC15 = soundInfo->cgbCounter15;
+        envelopeStepTimeAndDir = *nrx2ptr;
+
+        /* 2. calculate envelope volume */
+        if (channels->status & SOUND_CHANNEL_SF_START) {
+            if (!(channels->status & SOUND_CHANNEL_SF_STOP)) {
+                channels->status = SOUND_CHANNEL_SF_ENV_ATTACK;
+                channels->data.cgb.cgbStatus = CGB_CHANNEL_MO_PIT | CGB_CHANNEL_MO_VOL;
+                CgbModVol(channels);
+                switch (ch) {
+                    case 1:
+                        *nrx0ptr = channels->data.cgb.sweep;
+                        /* fallthrough */
+                    case 2:
+                        *nrx1ptr = ((u32)channels->wav << 6) + channels->data.cgb.length;
+                        goto init_env_step_time_dir;
+                    case 3:
+                        if (channels->wav != channels->current) {
+                            *nrx0ptr = 0x40;
+                            REG_WAVE_RAM0 = ((u32 *)channels->wav)[0];
+                            REG_WAVE_RAM1 = ((u32 *)channels->wav)[1];
+                            REG_WAVE_RAM2 = ((u32 *)channels->wav)[2];
+                            REG_WAVE_RAM3 = ((u32 *)channels->wav)[3];
+                            channels->current = channels->wav;
+                        }
+                        *nrx0ptr = 0;
+                        *nrx1ptr = channels->data.cgb.length;
+                        if (channels->data.cgb.length)
+                            channels->data.cgb.nrx4 = 0xC0;
+                        else
+                            channels->data.cgb.nrx4 = 0x80;
+                        break;
+                    default:
+                        *nrx1ptr = channels->data.cgb.length;
+                        *nrx3ptr = (u32)channels->wav << 3;
+                    init_env_step_time_dir:
+                        envelopeStepTimeAndDir = channels->data.cgb.attack + CGB_NRx2_ENV_DIR_INC;
+                        if (channels->data.cgb.length)
+                            channels->data.cgb.nrx4 = 0x40;
+                        else
+                            channels->data.cgb.nrx4 = 0x00;
+                        break;
+                }
+                channels->data.cgb.envelopeCtr = channels->data.cgb.attack;
+                if ((s8)(channels->data.cgb.attack & mask)) {
+                    channels->data.cgb.envelopeVol = 0;
+                    goto envelope_step_complete;
+                } else {
+                    /* skip attack phase if attack is instantaneous (=0) */
+                    goto envelope_decay_start;
+                }
+            } else {
+                goto oscillator_off;
+            }
+        } else if (channels->status & SOUND_CHANNEL_SF_IEC) {
+            channels->data.cgb.echoLen--;
+            if ((s8)(channels->data.cgb.echoLen & mask) <= 0) {
+            oscillator_off:
+                CgbOscOff(ch);
+                channels->status = 0;
+                goto channel_complete;
+            }
+            goto envelope_complete;
+        } else if ((channels->status & SOUND_CHANNEL_SF_STOP) && (channels->status & SOUND_CHANNEL_SF_ENV)) {
+            channels->status &= ~SOUND_CHANNEL_SF_ENV;
+            channels->data.cgb.envelopeCtr = channels->data.cgb.release;
+            if ((s8)(channels->data.cgb.release & mask)) {
+                channels->data.cgb.cgbStatus |= CGB_CHANNEL_MO_VOL;
+                if (ch != 3)
+                    envelopeStepTimeAndDir = channels->data.cgb.release | CGB_NRx2_ENV_DIR_DEC;
+                goto envelope_step_complete;
+            } else {
+                goto envelope_pseudoecho_start;
+            }
+        } else {
+        envelope_step_repeat:
+            if (channels->data.cgb.envelopeCtr == 0) {
+                if (ch == 3)
+                    channels->data.cgb.cgbStatus |= CGB_CHANNEL_MO_VOL;
+
+                CgbModVol(channels);
+                if ((channels->status & SOUND_CHANNEL_SF_ENV) == SOUND_CHANNEL_SF_ENV_RELEASE) {
+                    channels->data.cgb.envelopeVol--;
+                    if ((s8)(channels->data.cgb.envelopeVol & mask) <= 0) {
+                    envelope_pseudoecho_start:
+                        channels->data.cgb.envelopeVol = ((channels->data.cgb.envelopeGoal * channels->data.cgb.echoVol) + 0xFF) >> 8;
+                        if (channels->data.cgb.envelopeVol) {
+                            channels->status |= SOUND_CHANNEL_SF_IEC;
+                            channels->data.cgb.cgbStatus |= CGB_CHANNEL_MO_VOL;
+                            if (ch != 3)
+                                envelopeStepTimeAndDir = 0 | CGB_NRx2_ENV_DIR_INC;
+                            goto envelope_complete;
+                        } else {
+                            goto oscillator_off;
+                        }
+                    } else {
+                        channels->data.cgb.envelopeCtr = channels->data.cgb.release;
+                    }
+                } else if ((channels->status & SOUND_CHANNEL_SF_ENV) == SOUND_CHANNEL_SF_ENV_SUSTAIN) {
+                envelope_sustain:
+                    channels->data.cgb.envelopeVol = channels->data.cgb.sustainGoal;
+                    channels->data.cgb.envelopeCtr = 7;
+                } else if ((channels->status & SOUND_CHANNEL_SF_ENV) == SOUND_CHANNEL_SF_ENV_DECAY) {
+                    int envelopeVol, sustainGoal;
+
+                    channels->data.cgb.envelopeVol--;
+                    envelopeVol = (s8)(channels->data.cgb.envelopeVol & mask);
+                    sustainGoal = (s8)(channels->data.cgb.sustainGoal);
+                    if (envelopeVol <= sustainGoal) {
+                    envelope_sustain_start:
+                        if (channels->data.cgb.sustain == 0) {
+                            channels->status &= ~SOUND_CHANNEL_SF_ENV;
+                            goto envelope_pseudoecho_start;
+                        } else {
+                            channels->status--;
+                            channels->data.cgb.cgbStatus |= CGB_CHANNEL_MO_VOL;
+                            if (ch != 3)
+                                envelopeStepTimeAndDir = 0 | CGB_NRx2_ENV_DIR_INC;
+                            goto envelope_sustain;
+                        }
+                    } else {
+                        channels->data.cgb.envelopeCtr = channels->data.cgb.decay;
+                    }
+                } else {
+                    channels->data.cgb.envelopeVol++;
+                    if ((u8)(channels->data.cgb.envelopeVol & mask) >= channels->data.cgb.envelopeGoal) {
+                    envelope_decay_start:
+                        channels->status--;
+                        channels->data.cgb.envelopeCtr = channels->data.cgb.decay;
+                        if ((u8)(channels->data.cgb.envelopeCtr & mask)) {
+                            channels->data.cgb.cgbStatus |= CGB_CHANNEL_MO_VOL;
+                            channels->data.cgb.envelopeVol = channels->data.cgb.envelopeGoal;
+                            if (ch != 3)
+                                envelopeStepTimeAndDir = channels->data.cgb.decay | CGB_NRx2_ENV_DIR_DEC;
+                        } else {
+                            goto envelope_sustain_start;
+                        }
+                    } else {
+                        channels->data.cgb.envelopeCtr = channels->data.cgb.attack;
+                    }
+                }
+            }
+        }
+
+    envelope_step_complete:
+        /* every 15 frames, envelope calculation has to be done twice
+         * to keep up with the hardware envelope rate (1/64 s) */
+        channels->data.cgb.envelopeCtr--;
+        if (prevC15 == 0) {
+            prevC15--;
+            goto envelope_step_repeat;
+        }
+
+    envelope_complete:
+        /* 3. apply pitch to HW registers */
+        if (channels->data.cgb.cgbStatus & CGB_CHANNEL_MO_PIT) {
+            if (ch < 4 && (channels->type & TONEDATA_TYPE_FIX)) {
+                int dac_pwm_rate = REG_SOUNDBIAS_H;
+
+                if (dac_pwm_rate < 0x40)         /* if PWM rate = 32768 Hz */
+                    channels->data.cgb.freq = (channels->data.cgb.freq + 2) & 0x7fc;
+                else if (dac_pwm_rate < 0x80)    /* if PWM rate = 65536 Hz */
+                    channels->data.cgb.freq = (channels->data.cgb.freq + 1) & 0x7fe;
+            }
+
+            if (ch != 4)
+                *nrx3ptr = channels->data.cgb.freq;
+            else
+                *nrx3ptr = (*nrx3ptr & 0x08) | channels->data.cgb.freq;
+            channels->data.cgb.nrx4 = (channels->data.cgb.nrx4 & 0xC0) + (*((u8 *)(&channels->data.cgb.freq) + 1));
+            *nrx4ptr = (s8)(channels->data.cgb.nrx4 & mask);
+        }
+
+        /* 4. apply envelope & volume to HW registers */
+        if (channels->data.cgb.cgbStatus & CGB_CHANNEL_MO_VOL) {
+            REG_NR51 = (REG_NR51 & ~channels->data.cgb.panMask) | channels->data.cgb.pan;
+            if (ch == 3) {
+                *nrx2ptr = gCgb3Vol[channels->data.cgb.envelopeVol];
+                if (channels->data.cgb.nrx4 & 0x80) {
+                    *nrx0ptr = 0x80;
+                    *nrx4ptr = channels->data.cgb.nrx4;
+                    channels->data.cgb.nrx4 &= 0x7f;
+                }
+            } else {
+                u32 envMask = 0xF;
+                *nrx2ptr = (envelopeStepTimeAndDir & envMask) + (channels->data.cgb.envelopeVol << 4);
+                *nrx4ptr = channels->data.cgb.nrx4 | 0x80;
+                if (ch == 1 && !(*nrx0ptr & 0x08))
+                    *nrx4ptr = channels->data.cgb.nrx4 | 0x80;
+            }
+        }
+
+    channel_complete:
+        channels->data.cgb.cgbStatus = 0;
+    }
+}
 
 /* ── Music Player Control API ── */
 
@@ -1415,41 +1645,98 @@ void m4aMPlayLFOSpeedSet(struct MP2KPlayerState *mplayInfo, u16 trackBits, u8 lf
 
     mplayInfo->lockStatus = ID_NUMBER;
 }
-/*
- * MPlayCommandDispatch: music player command dispatcher.
- * Reads a command byte from the track stream and dispatches to the
- * appropriate handler via a ROM-based function pointer table.
- *   174 lines
- *   calls: sub_08051870
- *   refs: gSoundCmdTablePtr (0x03006454), ROM command table (0x080511F0)
+#define MEMACC_COND_JUMP(cond) \
+    if (cond)                  \
+        goto cond_true;        \
+    else                       \
+        goto cond_false;
+
+/**
+ * MP2K_event_memacc: MEMACC virtual machine — reads (op, addrIdx,
+ * data) from the track's bytecode and applies one of 18 operations
+ * to mplayInfo->memAccArea[addrIdx].  Conditional ops (6..17) either
+ * fall through (cmdPtr += 4 skip) or dispatch via gMPlayJumpTable[1]
+ * to take a branch.  Kleod-canonical.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayCommandDispatch);
-/*
- * SoundCommandHandler: dispatch a sound command from ROM_SOUND_CMD_TABLE.
- * Reads a command byte, indexes into the command table at 0x08117C8C,
- * and calls the corresponding handler function.
- *   r0: sound context, r1: channel struct
- *   16 lines, calls sub_08051870
+void MP2K_event_memacc(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    u32 op;
+    u8 *addr;
+    u8 data;
+
+    op = *track->cmdPtr;
+    track->cmdPtr++;
+
+    addr = mplayInfo->memAccArea + *track->cmdPtr;
+    track->cmdPtr++;
+
+    data = *track->cmdPtr;
+    track->cmdPtr++;
+
+    switch (op) {
+        case 0:  *addr = data; return;
+        case 1:  *addr += data; return;
+        case 2:  *addr -= data; return;
+        case 3:  *addr = mplayInfo->memAccArea[data]; return;
+        case 4:  *addr += mplayInfo->memAccArea[data]; return;
+        case 5:  *addr -= mplayInfo->memAccArea[data]; return;
+        case 6:  MEMACC_COND_JUMP(*addr == data)                          return;
+        case 7:  MEMACC_COND_JUMP(*addr != data)                          return;
+        case 8:  MEMACC_COND_JUMP(*addr > data)                           return;
+        case 9:  MEMACC_COND_JUMP(*addr >= data)                          return;
+        case 10: MEMACC_COND_JUMP(*addr <= data)                          return;
+        case 11: MEMACC_COND_JUMP(*addr < data)                           return;
+        case 12: MEMACC_COND_JUMP(*addr == mplayInfo->memAccArea[data])   return;
+        case 13: MEMACC_COND_JUMP(*addr != mplayInfo->memAccArea[data])   return;
+        case 14: MEMACC_COND_JUMP(*addr > mplayInfo->memAccArea[data])    return;
+        case 15: MEMACC_COND_JUMP(*addr >= mplayInfo->memAccArea[data])   return;
+        case 16: MEMACC_COND_JUMP(*addr <= mplayInfo->memAccArea[data])   return;
+        case 17: MEMACC_COND_JUMP(*addr < mplayInfo->memAccArea[data])    return;
+        default: return;
+    }
+
+cond_true: {
+        void (*func)(struct MP2KPlayerState *, struct MP2KTrack *) = *(&gMPlayJumpTable[1]);
+        func(mplayInfo, track);
+        return;
+    }
+
+cond_false:
+    track->cmdPtr += 4;
+}
+/**
+ * MP2K_event_xcmd: dispatcher for the "extended command" (xcmd)
+ * family of MIDI events.  Reads a sub-opcode byte from the track's
+ * bytecode and dispatches to gXcmdTable[n] (currently aliased to
+ * gSoundCmdTable in our project).
  */
 void sub_08051870(u32, u32 *, u32);
-void SoundCmd_Dispatch(u32 ctx, u32 *channel) {
-    u8 *cmdPtr = (u8 *)channel[0x40 / 4];
-    u8 cmd = *cmdPtr;
-    channel[0x40 / 4] = (u32)(cmdPtr + 1);
-    sub_08051870(ctx, channel, gSoundCmdTable[cmd]);
+void MP2K_event_xcmd(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    u32 n = *track->cmdPtr;
+    track->cmdPtr++;
+    gXcmdTable[n](mplayInfo, track);
 }
-/** SoundCommand_6450: dispatches a sound command using gSoundTablePtr. */
+/** SoundCommand_6450: Klonoa-specific dispatcher; not in kleod. */
 void SoundCommand_6450(u32 ctx, u32 channel) {
     sub_08051870(ctx, channel, gSoundTablePtr);
 }
-/*
- * BitMaskLUT: 32-bit channel bitmask lookup table.
- * Contains precomputed masks (0x00FFFFFF, 0xFF00FFFF, 0xFFFF00FF,
- * 0xFFFFFF00) for isolating individual byte lanes in 32-bit channel
- * state words. Used by the mixer to update per-channel volumes.
- *   118 lines, leaf function
+/**
+ * MP2K_event_xwave: read a 4-byte WaveData pointer byte-by-byte from
+ * the bytecode (unaligned-safe) and store into
+ * track->voicegroup.data.sound.wav.  Advances cmdPtr by 4.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", MPlayCmd_ReadU32Param);
+void MP2K_event_xwave(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    union {
+        u8 *a;
+        u8 d[sizeof(u8 *)];
+    } u;
+
+    u.d[0] = *(track->cmdPtr + 0);
+    u.d[1] = *(track->cmdPtr + 1);
+    u.d[2] = *(track->cmdPtr + 2);
+    u.d[3] = *(track->cmdPtr + 3);
+    track->voicegroup.data.sound.wav = (struct WaveData *)u.a;
+    track->cmdPtr += sizeof(u8 *);
+}
 typedef struct {
     u8 unk00[0x1E];
     u8 unk1E;

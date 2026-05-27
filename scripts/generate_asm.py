@@ -56,6 +56,17 @@ DATA_START = 0x52000
 HANDCRAFTED_M4A0_START = 0x0804F284
 HANDCRAFTED_M4A0_END = 0x0804FEA0  # exclusive
 
+# Mid-function entry points that luvdis identifies as separate functions
+# but are actually internal labels of a larger C-defined function.
+# Skip these so generate_asm.py doesn't emit .s files / re-add
+# INCLUDE_ASM lines for them.
+INSIDE_C_FUNCTION_ADDRESSES = {
+    # _08050C70: an internal sub-label of CgbSound (0x08050AFC).  In the
+    # original ROM this is the "SoundMixerMain" label luvdis split off,
+    # but kleod / pokeemerald / sa3 all treat it as part of CgbSound.
+    0x08050C70,
+}
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -686,14 +697,20 @@ def _filter_handcrafted_m4a0(entries):
     """
     kept = []
     skipped = 0
+    skipped_inside = 0
     for entry in entries:
         _name, addr, _module, _lines = entry
         if HANDCRAFTED_M4A0_START <= addr < HANDCRAFTED_M4A0_END:
             skipped += 1
             continue
+        if addr in INSIDE_C_FUNCTION_ADDRESSES:
+            skipped_inside += 1
+            continue
         kept.append(entry)
     if skipped:
         print(f"    Skipped {skipped} m4a0.s-range functions (own asm file)")
+    if skipped_inside:
+        print(f"    Skipped {skipped_inside} mid-C-function labels (folded into parent)")
     return kept
 
 
