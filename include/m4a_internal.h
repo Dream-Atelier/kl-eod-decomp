@@ -15,40 +15,15 @@
  */
 #define ID_NUMBER SAPPY_MAGIC
 
-/* Byte-level CGB sound-channel register accessors (NRxx names).
- * gba.h has the halfword SOUNDxCNT_L/H/X aliases; CgbOscOff and
- * CgbModVol need the byte granularity of the original NRxx layout. */
-#define REG_ADDR_NR10  0x04000060
-#define REG_NR10 (*(vu8 *)0x04000060)
-#define REG_NR11 (*(vu8 *)0x04000062)
-#define REG_NR12 (*(vu8 *)0x04000063)
-#define REG_NR13 (*(vu8 *)0x04000064)
-#define REG_NR14 (*(vu8 *)0x04000065)
-#define REG_NR21 (*(vu8 *)0x04000068)
-#define REG_NR22 (*(vu8 *)0x04000069)
-#define REG_NR23 (*(vu8 *)0x0400006C)
-#define REG_NR24 (*(vu8 *)0x0400006D)
-#define REG_ADDR_NR30  0x04000070
-#define REG_NR30 (*(vu8 *)0x04000070)
-#define REG_NR31 (*(vu8 *)0x04000072)
-#define REG_NR32 (*(vu8 *)0x04000073)
-#define REG_NR33 (*(vu8 *)0x04000074)
-#define REG_NR34 (*(vu8 *)0x04000075)
-#define REG_NR41 (*(vu8 *)0x04000078)
-#define REG_NR42 (*(vu8 *)0x04000079)
-#define REG_NR43 (*(vu8 *)0x0400007C)
-#define REG_NR44 (*(vu8 *)0x0400007D)
-#define REG_NR50 (*(vu8 *)0x04000080)  /* same address as SOUNDCNT_L low byte */
-#define REG_NR51 (*(vu8 *)0x04000081)
-#define REG_ADDR_VCOUNT 0x04000006
+/* I/O register accessors (REG_NRxx, REG_DMA*, REG_TM*, etc.) live in
+ * include/io_reg.h, transitively pulled in via gba.h.  This header
+ * only adds m4a-engine-specific symbols on top. */
 
 /* Pointer slot in BIOS sound-info area (0x03007FF0) — points at the
  * project's SoundMixerState (in IWRAM).  Kleod-style alias. */
 #define SOUND_INFO_PTR (*(struct SoundMixerState **)0x03007FF0)
 
 #define PCM_DMA_BUF_SIZE 1584
-#define TIMER_ENABLE     0x0080
-#define TIMER_1CLK       0x0000
 #define MAX_DIRECTSOUND_CHANNELS 12
 
 /* SOUND_MODE_FREQ_<rate>: mixer frequency option (used as ms argument
