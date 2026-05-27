@@ -247,7 +247,7 @@ asm("bx lr\n.hword 0\n");
  *
  * Clears MUSICPLAYER_STATUS_PAUSE if the player is in a valid state
  * (lockStatus == ID_NUMBER).  Despite the name "Continue", several
- * existing call sites in this file (m4aSongNumStop, StopSoundChannel,
+ * existing call sites in this file (m4aSongNumStop, m4aMPlayContinue,
  * m4aMPlayAllContinue) invoke it as a stop primitive; the ROM is what it
  * is.  Canonical Sappy/MP2K name.
  */
@@ -444,9 +444,9 @@ void m4aMPlayAllStop(void) {
         count--;
     } while (count != 0);
 }
-/** StopSoundChannel: wrapper that calls MPlayContinue to stop a channel. */
-void StopSoundChannel(u32 channel) {
-    MPlayContinue(channel);
+/** m4aMPlayContinue: public one-liner that resumes the given player. */
+void m4aMPlayContinue(struct MP2KPlayerState *mplayInfo) {
+    MPlayContinue(mplayInfo);
 }
 
 /* ── Interrupt & VBlank Handlers ── */
@@ -1510,5 +1510,11 @@ void ply_mod(void *r0, TrackStruct *track) {
     track->unk27 = *track->unk40;
     track->unk40++;
 }
-asm(".align 2, 0");
-asm("bx lr");
+
+/**
+ * MP2K_event_null: no-op handler installed by SoundInit into the
+ * optional CGB hook slots (CgbSound/CgbOscOff/MidiKeyToCgbFreq/
+ * ExtVolPit).  MPlayExtender later overwrites these with real
+ * handlers when CGB extension is enabled.  Two-byte `bx lr`.
+ */
+void MP2K_event_null(void) { }

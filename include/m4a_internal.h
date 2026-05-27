@@ -241,6 +241,8 @@ void m4aMPlayPitchControl(struct MP2KPlayerState *mplayInfo, u16 trackBits, s16 
 void m4aMPlayPanpotControl(struct MP2KPlayerState *mplayInfo, u16 trackBits, s8 pan);
 void m4aMPlayModDepthSet(struct MP2KPlayerState *mplayInfo, u16 trackBits, u8 modDepth);
 void m4aMPlayLFOSpeedSet(struct MP2KPlayerState *mplayInfo, u16 trackBits, u8 lfoSpeed);
+void m4aMPlayContinue(struct MP2KPlayerState *mplayInfo);
+void MP2K_event_null(void);
 void CgbOscOff(u8 chanNum);
 void Clear64byte(u32 addr);
 void m4aMPlayImmInit(struct MP2KPlayerState *mplayInfo);
