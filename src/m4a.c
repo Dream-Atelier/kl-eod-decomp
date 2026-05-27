@@ -588,7 +588,6 @@ void MPlayExtender(struct MixerSource *cgbChans) {
 
     soundInfo->lockStatus = lockStatus;
 }
-asm(".align 2, 0");
 void SoundHardwareInit_Tail(void) {
     asm("swi 0x2A");
 }
@@ -1472,7 +1471,6 @@ void ply_keysh(void *r0, TrackStruct *track) {
     track->keyShift = *track->unk40;
     track->unk40++;
 }
-asm(".align 2, 0");
 void ply_voice(void *r0, TrackStruct *track) {
     track->unk2C = *track->unk40;
     track->unk40++;
@@ -1487,12 +1485,10 @@ void ply_pan(void *r0, TrackStruct *track) {
     track->unk2E = *track->unk40;
     track->unk40++;
 }
-asm(".align 2, 0");
 void ply_bend(void *r0, TrackStruct *track) {
     track->unk2F[0] = *track->unk40;
     track->unk40++;
 }
-asm(".align 2, 0");
 void ply_bendr(void *r0, TrackStruct *r1) {
     u8 *ptr;
     ptr = r1->unk40;
@@ -1510,11 +1506,9 @@ void ply_lfodl(void *r0, TrackStruct *track) {
     track->unk26 = *track->unk40;
     track->unk40++;
 }
-asm(".align 2, 0");
 void ply_mod(void *r0, TrackStruct *track) {
     track->unk27 = *track->unk40;
     track->unk40++;
 }
 asm(".align 2, 0");
 asm("bx lr");
-asm(".align 2, 0");
