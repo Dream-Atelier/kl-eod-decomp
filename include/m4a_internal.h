@@ -299,9 +299,9 @@ struct MP2KPlayerState {
     u8 trackCount; // 0x08
     u8 priority; // 0x09
     u8 cmd; // 0x0A
-    u8 checkSongPriority; // 0x0B
+    bool8 checkSongPriority; // 0x0B
     u32 clock; // 0x0C
-    u8 gap_10[0x08]; // 0x10..0x17
+    u8 padding[8]; // 0x10..0x17
     u8 *memAccArea; // 0x18
     u16 tempoRawBPM; // 0x1C
     u16 tempoScale; // 0x1E
@@ -309,13 +309,12 @@ struct MP2KPlayerState {
     u16 tempoCounter; // 0x22
     u16 fadeInterval; // 0x24
     u16 fadeCounter; // 0x26
-    u16 fadeOV; // 0x28
-    u8 gap_2A[0x02]; // 0x2A..0x2B
+    u16 fadeOV; // 0x28 (2 bytes implicit alignment pad before tracks)
     struct MP2KTrack *tracks; // 0x2C
     struct MP2KVoiceGroup *voicegroup; // 0x30
     u32 lockStatus; // 0x34
-    MPlayMainFunc MPlayMain; // 0x38 — chain-next callback (kleod)
-    struct MP2KPlayerState *next; // 0x3C — chain-next player (kleod)
+    MPlayMainFunc nextPlayerFunc; // 0x38
+    struct MP2KPlayerState *nextPlayer; // 0x3C
 };
 
 /*
@@ -358,7 +357,7 @@ struct SoundMixerState {
     u8 cgbCounter15; // 0x0A
     u8 framesPerDmaCycle; // 0x0B
     u8 maxScanlines; // 0x0C
-    u8 gap_0D[3]; // 0x0D..0x0F
+    u8 gap[3]; // 0x0D..0x0F
     s32 samplesPerFrame; // 0x10
     s32 sampleRate; // 0x14
     s32 sampleRateReciprocal; // 0x18

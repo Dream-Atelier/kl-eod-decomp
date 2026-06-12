@@ -858,8 +858,8 @@ void MPlayOpen(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *tracks, u8 t
     }
 
     if (soundInfo->MPlayMainHead != NULL) {
-        mplayInfo->MPlayMain = soundInfo->MPlayMainHead;
-        mplayInfo->next = soundInfo->musicPlayerHead;
+        mplayInfo->nextPlayerFunc = soundInfo->MPlayMainHead;
+        mplayInfo->nextPlayer = soundInfo->musicPlayerHead;
         soundInfo->MPlayMainHead = NULL;
     }
 
@@ -1753,71 +1753,45 @@ void MP2K_event_xwave(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track
     track->voicegroup.data.sound.wav = (struct WaveData *)u.a;
     track->cmdPtr += sizeof(u8 *);
 }
-typedef struct {
-    u8 unk00[0x1E];
-    u8 unk1E;
-    u8 unk1F;
-    u8 unk20[0x04];
-    u8 keyShift;
-    u8 unk25;
-    u8 unk26;
-    u8 unk27;
-    u8 unk28[0x04];
-    u8 unk2C;
-    u8 unk2D;
-    u8 unk2E;
-    u8 unk2F[0x11];
-    u8 *unk40;
-} TrackStruct;
-
 /* MP2K_event_x* — extended-command (xcmd) handlers.  Each reads one byte
    from track->cmdPtr and writes it to one field of the track or its embedded
    voicegroup, then advances cmdPtr.  Dispatched via gXcmdTable from
-   MP2K_event_xcmd.  Bodies kept in legacy TrackStruct/unkXX form to
-   preserve byte-for-byte match; conversion to MP2KTrack/named fields is a
-   separate refactor. */
-void MP2K_event_xtype(void *r0, TrackStruct *track) {
-    track->keyShift = *track->unk40;
-    track->unk40++;
+   MP2K_event_xcmd.  Kleod-canonical bodies. */
+void MP2K_event_xtype(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    track->voicegroup.type = *track->cmdPtr;
+    track->cmdPtr++;
 }
-void MP2K_event_xatta(void *r0, TrackStruct *track) {
-    track->unk2C = *track->unk40;
-    track->unk40++;
+void MP2K_event_xatta(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    track->voicegroup.data.sound.attack = *track->cmdPtr;
+    track->cmdPtr++;
 }
-
-void MP2K_event_xdeca(void *r0, TrackStruct *track) {
-    track->unk2D = *track->unk40;
-    track->unk40++;
+void MP2K_event_xdeca(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    track->voicegroup.data.sound.decay = *track->cmdPtr;
+    track->cmdPtr++;
 }
-
-void MP2K_event_xsust(void *r0, TrackStruct *track) {
-    track->unk2E = *track->unk40;
-    track->unk40++;
+void MP2K_event_xsust(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    track->voicegroup.data.sound.sustain = *track->cmdPtr;
+    track->cmdPtr++;
 }
-void MP2K_event_xrele(void *r0, TrackStruct *track) {
-    track->unk2F[0] = *track->unk40;
-    track->unk40++;
+void MP2K_event_xrele(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    track->voicegroup.data.sound.release = *track->cmdPtr;
+    track->cmdPtr++;
 }
-void MP2K_event_xiecv(void *r0, TrackStruct *r1) {
-    u8 *ptr;
-    ptr = r1->unk40;
-    r1->unk1E = *ptr;
-    r1->unk40 = ptr + 1;
+void MP2K_event_xiecv(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    track->echoVolume = *track->cmdPtr;
+    track->cmdPtr++;
 }
-
-void MP2K_event_xiecl(void *r0, TrackStruct *r1) {
-    u8 *ptr;
-    ptr = r1->unk40;
-    r1->unk1F = *ptr;
-    r1->unk40 = ptr + 1;
+void MP2K_event_xiecl(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    track->echoLength = *track->cmdPtr;
+    track->cmdPtr++;
 }
-void MP2K_event_xleng(void *r0, TrackStruct *track) {
-    track->unk26 = *track->unk40;
-    track->unk40++;
+void MP2K_event_xleng(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    track->voicegroup.cgbLength = *track->cmdPtr;
+    track->cmdPtr++;
 }
-void MP2K_event_xswee(void *r0, TrackStruct *track) {
-    track->unk27 = *track->unk40;
-    track->unk40++;
+void MP2K_event_xswee(struct MP2KPlayerState *mplayInfo, struct MP2KTrack *track) {
+    track->voicegroup.pan_sweep = *track->cmdPtr;
+    track->cmdPtr++;
 }
 
 /**

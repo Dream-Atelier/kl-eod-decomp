@@ -15,6 +15,8 @@ typedef volatile s8 vs8;
 typedef volatile s16 vs16;
 typedef volatile s32 vs32;
 
+typedef u8 bool8;
+
 #define TRUE  1
 #define FALSE 0
 #define NULL  0
