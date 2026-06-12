@@ -192,6 +192,23 @@ void VBlankCallback_MinimalHW(void) {
     gUnk_03003420 = 1;
 }
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_Cutscene); /* SetupDisplayConfig */
-INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_TitleScreen);
+void VBlankCallback_TitleScreen(void) {
+    RenderHUDTop();
+    VBlankIntrWait();
+    REG_BG0HOFS = gUnk_03003430.bg0HOfs & 0x1FF;
+    REG_BG0VOFS = gUnk_03003430.bg0VOfs & 0x1FF;
+    REG_BG1HOFS = gUnk_03003430.bg1HOfs & 0x1FF;
+    REG_BG1VOFS = gUnk_03003430.bg1VOfs & 0x1FF;
+    REG_BG2HOFS = gUnk_03003430.bg2HOfs & 0x1FF;
+    REG_BG2VOFS = gUnk_03003430.bg2VOfs & 0x1FF;
+    REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
+    REG_BLDY = gUnk_03005498;
+    REG_MOSAIC = (gUnk_030007D8 << 0xC) | (gUnk_030007D8 << 8) | (gUnk_030007D8 << 4) | gUnk_030007D8;
+    thunk_UpdateRng();
+    gUnk_03004C20.unk4 += 1;
+    gUnk_03004C20.unk0 += 1;
+    m4aSoundMain();
+    gUnk_03003420 = 1;
+}
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_Credits); /* TextStateMachine — master UI/text state machine */
 INCLUDE_ASM("asm/nonmatchings/code_0", sub_0800DE24);
