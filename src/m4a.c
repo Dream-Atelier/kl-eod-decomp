@@ -27,7 +27,7 @@ INCLUDE_ASM("asm/nonmatchings/m4a", sub_0804EB64);
  * SoundDmaInit: DMA controller setup for sound data transfers.
  * Configures DMA channels for PCM sample streaming to FIFO.
  *   79 lines, has DMA register writes (REG_DMA3SAD/DAD/CNT)
- *   calls: thunk_sub_080001E0 (memory alloc)
+ *   calls: thunk_HeapAlloc (memory alloc)
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", SoundDmaInit);
 /**
@@ -38,8 +38,8 @@ INCLUDE_ASM("asm/nonmatchings/m4a", SoundDmaInit);
  */
 void FreeSoundStruct(void) {
     u32 *p = (u32 *)0x0300081C; /* &gSoundInfo */
-    thunk_sub_0800020C(*(u32 *)(*p) - 4);
-    thunk_sub_0800020C(*p);
+    thunk_HeapFree(*(u32 *)(*p) - 4);
+    thunk_HeapFree(*p);
 }
 /*
  * SoundReset: writes a tile value with palette bank 15 to screen buffer B.

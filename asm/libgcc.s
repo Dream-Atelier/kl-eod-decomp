@@ -497,8 +497,8 @@ thunk_sub_080001D0: @ 08051BA4
 	nop
 	.2byte 0xB988
 	.2byte 0xEAFE
-	thumb_func_start thunk_sub_080001E0
-thunk_sub_080001E0: @ 08051BAC
+	thumb_func_start thunk_HeapAlloc
+thunk_HeapAlloc: @ 08051BAC
 	bx pc
 	nop
 	.2byte 0xB98A
@@ -509,8 +509,8 @@ thunk_sub_08000278: @ 08051BB4
 	nop
 	.2byte 0xB9AE
 	.2byte 0xEAFE
-	thumb_func_start thunk_sub_0800020C
-thunk_sub_0800020C: @ 08051BBC
+	thumb_func_start thunk_HeapFree
+thunk_HeapFree: @ 08051BBC
 	bx pc
 	nop
 	.2byte 0xB991

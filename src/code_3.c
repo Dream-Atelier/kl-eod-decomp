@@ -110,69 +110,50 @@ INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerSpecial);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateLevelScrollDMA);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerFinalBoss);
 /**
- * DecompressData: process a compressed asset's sub-header and decompress.
+ * Decompress: process a compressed asset's sub-header and decompress.
  *
- * If the first word of src is negative (bit 31 set), the data uses two-stage
- * compression: first UnpackTilemap, then LZ77. Otherwise, it's LZ77 only.
+ * If the first word of src has bit 31 set, the data uses two-stage
+ * compression: first HuffUnComp, then LZ77. Otherwise, it's LZ77 only.
  * In both cases, data starts at src+4 (after the sub-header).
- *
- *   dest: destination buffer (pre-allocated)
- *   src:  ROM pointer to compressed data with sub-header
  */
-void DecompressData(u32 dest, u32 src) {
-    u32 *srcPtr = (u32 *)src;
+void Decompress(void *dest, void *src) {
+    void *heapPtr;
 
-    if ((s32)srcPtr[0] < 0) {
-        /* Two-stage: Huffman/UnpackTilemap, then LZ77 */
-        u32 tmpBuf = thunk_sub_080001E0(srcPtr[1] >> 8, 0);
-        UnpackTilemap((u8 *)src + 4, (u8 *)tmpBuf);
-        LZ77UnCompWram((u8 *)tmpBuf, (u8 *)dest);
-        thunk_sub_0800020C(tmpBuf);
+    if (((u32 *)src)[0] & 0x80000000) {
+        heapPtr = thunk_HeapAlloc(((u32 *)src)[1] >> 8, 0);
+        HuffUnComp((u8 *)src + 4, heapPtr);
+        LZ77UnCompWram(heapPtr, dest);
+        thunk_HeapFree(heapPtr);
     } else {
-        /* Single-stage: LZ77 only */
-        LZ77UnCompWram((u8 *)src + 4, (u8 *)dest);
+        LZ77UnCompWram((u8 *)src + 4, dest);
     }
 }
 /**
- * DecompressAndCopyToPalette: decompress and DMA to palette or OBJ VRAM.
+ * DecompressDma: decompress and DMA to palette or OBJ VRAM.
  *
  * Allocates a buffer sized from the source header, decompresses the data,
  * DMAs the result (skipping the 4-byte sub-header) as 16-bit transfers to
  * the destination, then frees the buffer.
- *
- *   src:  ROM pointer to compressed data (first word = size | flags)
- *   dest: destination address (palette RAM or OBJ VRAM)
- *   size: byte count for DMA transfer
  */
-void DecompressAndCopyToPalette(u32 *src, u32 dest, u16 size) {
-    u32 buf;
-    vu32 *dma3;
+void DecompressDma(void *src, void *dest, u16 size) {
+    void *heapPtr;
 
-    buf = thunk_sub_080001E0(*src & 0x7FFFFFFF, 0);
-    DecompressData(buf, (u32)src);
-
-    dma3 = (vu32 *)0x040000D4;
-    dma3[0] = buf + 4;
-    dma3[1] = dest;
-    dma3[2] = ((u32)size >> 1) | 0x80000000;
-    (void)dma3[2];
-
-    while (dma3[2] & 0x80000000)
-        ;
-
-    thunk_sub_0800020C(buf);
+    heapPtr = thunk_HeapAlloc(((u32 *)src)[0] & 0x7FFFFFFF, 0);
+    Decompress(heapPtr, src);
+    DmaCopy16Wait(3, (u8 *)heapPtr + 4, dest, size);
+    thunk_HeapFree(heapPtr);
 }
 /*
- * Allocates a buffer and decompresses/copies data into it.
+ * Allocates a buffer and decompresses data into it.
  * Reads the size from the first word of the source (masking off the top bit),
- * allocates that many bytes, then calls DecompressData to fill the buffer.
- *   src: pointer to compressed data header (first word = size | flags)
- *   returns: pointer to the newly allocated and filled buffer
+ * allocates that many bytes, then calls Decompress to fill the buffer.
  */
-u32 AllocAndDecompress(u32 *src) {
-    u32 buf = thunk_sub_080001E0(*src & 0x7FFFFFFF, 0);
-    DecompressData(buf, (u32)src);
-    return buf;
+void *DecompressAlloc(void *src) {
+    void *heapPtr;
+
+    heapPtr = thunk_HeapAlloc(((u32 *)src)[0] & 0x7FFFFFFF, 0);
+    Decompress(heapPtr, src);
+    return heapPtr;
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", InitSceneGraphics);
 INCLUDE_ASM("asm/nonmatchings/code_3", RunSceneScript);

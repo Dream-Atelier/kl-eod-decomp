@@ -15,7 +15,7 @@ void BitUnPack(void *src, void *dest, void *info) {
  *   r0: source pointer, r1: dest pointer
  *   no return value
  */
-void UnpackTilemap(void *src, void *dest) {
+void HuffUnComp(void *src, void *dest) {
     asm("swi #19");
 }
 

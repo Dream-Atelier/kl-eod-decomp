@@ -69,7 +69,7 @@ struct GfxStreamEntry {
 #define gStreamColorMirror (*(u16 *)0x030034AC)
 
 /* Decompressed data buffer pointer (allocated by LoadAndDecompress functions). */
-#define gDecompBuffer      (*(u32 *)0x030007D0)
+#define gDecompBuffer      (*(void **)0x030007D0)
 
 /* Graphics buffer freed by ShutdownGfxStream. */
 #define gGfxStreamBuffer   (*(u32 *)0x030007C8)
@@ -419,7 +419,7 @@ extern const u32 gLevelPaletteTable[];
 /* GFX data stream pointer table.
  * Indexed by stream ID; each entry is a ROM pointer to compressed
  * stream data. Used by LoadAndDecompressStream. */
-extern const u32 gStreamDataTable[];
+extern void *const gStreamDataTable[];
 #define ROM_STREAM_TABLE     0x08189AFC
 
 /* World map BG tile data. */
