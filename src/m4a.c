@@ -421,15 +421,30 @@ asm(".align 2, 0");
 
 /*
  * m4aMPlayFadeOutTemporarily: fade out, then pause (not stop).
- * Kept as INCLUDE_ASM: kleod's C body would duplicate the 8-byte
- * literal pool that asm/nonmatchings/m4a/MPlayTrackFadeAndVerify.s
- * already contains as its "prelude" (luvdis labels the next function
- * 6 bytes too early, capturing this pool as fake instructions).
+ * Semantic equivalent in C:
+ *     if (mplayInfo->lockStatus == ID_NUMBER) {
+ *         mplayInfo->fadeCounter = speed;
+ *         mplayInfo->fadeInterval = speed;
+ *         mplayInfo->fadeOV = (64 << FADE_VOL_SHIFT) | TEMPORARY_FADE;
+ *     }
+ * Kept as INCLUDE_ASM: tried 6 C-body variants (register pinning, inline-asm
+ * scheduler nudges, ordering tweaks) — agbcc's allocator consistently puts
+ * `speed` in r3 instead of r1 (5-byte diff in register encoding).  Structural
+ * mislabeling has been corrected (see hand-edited .s file).
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", m4aMPlayFadeOutTemporarily);
 /*
- * m4aMPlayFadeIn: fade in + clear PAUSE.  Kept as INCLUDE_ASM for
- * the same phantom-literal-pool reason as m4aMPlayFadeOutTemporarily.
+ * m4aMPlayFadeIn: fade in + clear PAUSE.
+ * Semantic equivalent in C:
+ *     if (mplayInfo->lockStatus == ID_NUMBER) {
+ *         mplayInfo->fadeCounter = speed;
+ *         mplayInfo->fadeInterval = speed;
+ *         mplayInfo->fadeOV = FADE_IN;
+ *         mplayInfo->status &= ~MUSICPLAYER_STATUS_PAUSE;
+ *     }
+ * Kept as INCLUDE_ASM: same agbcc-allocator quirk as m4aMPlayFadeOutTemporarily
+ * (speed gets r3 instead of r1, producing a 5-byte register-encoding diff).
+ * Structural mislabeling has been corrected (see hand-edited .s file).
  */
 INCLUDE_ASM("asm/nonmatchings/m4a", m4aMPlayFadeIn);
 /**
