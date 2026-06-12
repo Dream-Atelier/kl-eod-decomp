@@ -143,8 +143,54 @@ void VBlankCallback_MapScreen(void) {
     m4aSoundMain();
     gUnk_03003420 = 1;
 }
-INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_GameplayWithHUD);
-INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_MinimalHW);
+void VBlankCallback_GameplayWithHUD(void) {
+    TransformEntityScreenPositions();
+    RenderHUDTop();
+    VBlankIntrWait();
+    REG_BG0HOFS = (gUnk_03003430.bg0HOfs >> 2) & 0x1FF;
+    REG_BG0VOFS = (gUnk_03003430.bg0VOfs >> 5) & 0x1FF;
+    REG_BG1HOFS = gUnk_03003430.bg1HOfs & 0x1FF;
+    REG_BG1VOFS = gUnk_03003430.bg1VOfs & 0x1FF;
+    REG_BG2X_L = gBg2X;
+    REG_BG2X_H = (gBg2X & 0x0FFF0000) >> 0x10;
+    REG_BG2Y_L = gBg2Y;
+    REG_BG2Y_H = (gBg2Y & 0x0FFF0000) >> 0x10;
+    REG_BG2PA = gBg2PA;
+    REG_BG2PB = gBg2PB;
+    REG_BG2PC = gBg2PC;
+    REG_BG2PD = gBg2PD;
+    REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
+    REG_BLDY = gUnk_03005498;
+    REG_MOSAIC = (gUnk_030007D8 << 0xC) | (gUnk_030007D8 << 8) | (gUnk_030007D8 << 4) | gUnk_030007D8;
+    thunk_UpdateRng();
+    gUnk_03004C20.unk4 += 1;
+    gUnk_03004C20.unk0 += 1;
+    m4aSoundMain();
+    gUnk_03003420 = 1;
+}
+void VBlankCallback_MinimalHW(void) {
+    VBlankIntrWait();
+    REG_BG0HOFS = (gUnk_03003430.bg0HOfs >> 2) & 0x1FF;
+    REG_BG0VOFS = (gUnk_03003430.bg0VOfs >> 5) & 0x1FF;
+    REG_BG1HOFS = gUnk_03003430.bg1HOfs & 0x1FF;
+    REG_BG1VOFS = gUnk_03003430.bg1VOfs & 0x1FF;
+    REG_BG2X_L = gBg2X;
+    REG_BG2X_H = (gBg2X & 0x0FFF0000) >> 0x10;
+    REG_BG2Y_L = gBg2Y;
+    REG_BG2Y_H = (gBg2Y & 0x0FFF0000) >> 0x10;
+    REG_BG2PA = gBg2PA;
+    REG_BG2PB = gBg2PB;
+    REG_BG2PC = gBg2PC;
+    REG_BG2PD = gBg2PD;
+    REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
+    REG_BLDY = gUnk_03005498;
+    REG_MOSAIC = (gUnk_030007D8 << 0xC) | (gUnk_030007D8 << 8) | (gUnk_030007D8 << 4) | gUnk_030007D8;
+    thunk_UpdateRng();
+    gUnk_03004C20.unk4 += 1;
+    gUnk_03004C20.unk0 += 1;
+    m4aSoundMain();
+    gUnk_03003420 = 1;
+}
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_Cutscene); /* SetupDisplayConfig */
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_TitleScreen);
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_Credits); /* TextStateMachine — master UI/text state machine */
