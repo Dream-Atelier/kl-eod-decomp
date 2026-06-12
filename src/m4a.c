@@ -1770,46 +1770,52 @@ typedef struct {
     u8 *unk40;
 } TrackStruct;
 
-void ply_keysh(void *r0, TrackStruct *track) {
+/* MP2K_event_x* — extended-command (xcmd) handlers.  Each reads one byte
+   from track->cmdPtr and writes it to one field of the track or its embedded
+   voicegroup, then advances cmdPtr.  Dispatched via gXcmdTable from
+   MP2K_event_xcmd.  Bodies kept in legacy TrackStruct/unkXX form to
+   preserve byte-for-byte match; conversion to MP2KTrack/named fields is a
+   separate refactor. */
+void MP2K_event_xtype(void *r0, TrackStruct *track) {
     track->keyShift = *track->unk40;
     track->unk40++;
 }
-void ply_voice(void *r0, TrackStruct *track) {
+void MP2K_event_xatta(void *r0, TrackStruct *track) {
     track->unk2C = *track->unk40;
     track->unk40++;
 }
 
-void ply_vol(void *r0, TrackStruct *track) {
+void MP2K_event_xdeca(void *r0, TrackStruct *track) {
     track->unk2D = *track->unk40;
     track->unk40++;
 }
 
-void ply_pan(void *r0, TrackStruct *track) {
+void MP2K_event_xsust(void *r0, TrackStruct *track) {
     track->unk2E = *track->unk40;
     track->unk40++;
 }
-void ply_bend(void *r0, TrackStruct *track) {
+void MP2K_event_xrele(void *r0, TrackStruct *track) {
     track->unk2F[0] = *track->unk40;
     track->unk40++;
 }
-void ply_bendr(void *r0, TrackStruct *r1) {
+void MP2K_event_xiecv(void *r0, TrackStruct *r1) {
     u8 *ptr;
     ptr = r1->unk40;
     r1->unk1E = *ptr;
     r1->unk40 = ptr + 1;
 }
 
-void ply_lfos(void *r0, TrackStruct *r1) {
+void MP2K_event_xiecl(void *r0, TrackStruct *r1) {
     u8 *ptr;
     ptr = r1->unk40;
     r1->unk1F = *ptr;
     r1->unk40 = ptr + 1;
 }
-void ply_lfodl(void *r0, TrackStruct *track) {
+void MP2K_event_xleng(void *r0, TrackStruct *track) {
     track->unk26 = *track->unk40;
     track->unk40++;
 }
-void ply_mod(void *r0, TrackStruct *track) {
+void MP2K_event_xswee(void *r0, TrackStruct *track) {
     track->unk27 = *track->unk40;
     track->unk40++;
 }
