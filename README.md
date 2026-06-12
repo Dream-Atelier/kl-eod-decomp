@@ -61,31 +61,6 @@ After setup, just run `make`. Use `make tidy` to clean build artifacts.
 
 It's optional but highly recommended to install [Mizuchi](https://github.com/macabeus/mizuchi) and use it to browse the functions and decompile them automatically.
 
-### Transmuter
-
-[Transmuter](https://github.com/macabeus/transmuter) is an (optional) tool to automatically mutates a source code to match a the target assembly. It's useful as the last mile when a function is close to matching, or to integrate with LLMs for AI-assisted decompilation.
-
-You can set it up with:
-
-```bash
-bash setup-transmuter.sh
-```
-
-Example on how to call it:
-
-```bash
-bun tools/transmuter/packages/cli/dist/index.js match src/system.c \
-    --target build/transmuter/FreeAllDecompBuffers.o \
-    --function FreeAllDecompBuffers \
-    --isolate
-```
-
-Then, you can open the report file on the webapp. Example:
-
-```bash
-pnpm --dir tools/transmuter run dev:webapp -- "$PWD/session-1779230240367.json"
-```
-
 ### Useful Commands
 
 | Command | Description |
@@ -118,8 +93,7 @@ pnpm --dir tools/transmuter run dev:webapp -- "$PWD/session-1779230240367.json"
 ├── constants/                  GBA and game constants
 ├── tools/
 │   ├── agbcc/                  agbcc compiler (git submodule)
-│   ├── luvdis/                 GBA disassembler (git submodule)
-│   └── transmuter/             Transmuter (git submodule)
+│   └── luvdis/                 GBA disassembler (git submodule)
 ├── scripts/
 │   └── generate_asm.py         Generates asm/ from baserom.gba
 ├── klonoa-eod-decomp.toml      Module definitions and function renames
