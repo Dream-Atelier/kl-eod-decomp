@@ -206,7 +206,7 @@ sub_080006CC = "ReadKeyInput"
 sub_0800072C = "ProcessInputAndTimers"
 sub_0800087C = "LoadSpriteFrame"
 sub_080008DC = "FreeAllDecompBuffers"
-sub_08000948 = "FixedMul8"
+sub_08000948 = "MultiplyQ8"
 
 # M4A / sound engine
 sub_08051314 = "MP2K_event_xcmd"

@@ -56,79 +56,78 @@ struct GfxStreamEntry {
 /* Pointer to the current position in the graphics/music data stream.
  * Double indirection: the u32 at this address holds a u8* into the stream.
  * Nearly all gfx stream command functions read/advance this pointer. */
-#define gStreamPtr         (*(u8 **)0x03004D84)
+#define gStreamPtr    (*(u8 **)0x03004D84)
 
 /* Pointer to the graphics buffer control struct.
  * Dereferenced for palette state, flags, and buffer management. */
-#define gGfxBufferPtr      (*(u32 *)0x030034A0)
+#define gGfxBufferPtr (*(u32 *)0x030034A0)
 
-/* Secondary stream output: palette/color value mirror. */
-#define gStreamColorOut    (*(u16 *)0x03005420)
-
-/* Stream color mirror (written alongside gStreamColorOut). */
-#define gStreamColorMirror (*(u16 *)0x030034AC)
+/* BG2 affine magnification (Q_8_8). Used as 1/scale in BG2PA/PD calculations.
+ * Declared signed s16 to match the asm's `ldsh` (signed-halfword) loads. */
+extern s16 gBg2XMag;
+extern s16 gBg2YMag;
 
 /* Decompressed data buffer pointer (allocated by LoadAndDecompress functions). */
-#define gDecompBuffer      (*(void **)0x030007D0)
+#define gDecompBuffer    (*(void **)0x030007D0)
 
 /* Graphics buffer freed by ShutdownGfxStream. */
-#define gGfxStreamBuffer   (*(u32 *)0x030007C8)
+#define gGfxStreamBuffer (*(u32 *)0x030007C8)
 
 /* Buffer freed by FreeBuffer_52A4. */
-#define gBuffer_52A4       (*(u32 *)0x030052A4)
+#define gBuffer_52A4     (*(u32 *)0x030052A4)
 
 /* BLDY fade level counter. Incremented/decremented during transitions
  * and written to REG_BLDY (0x04000054) by the VBlank handler. */
-#define gBldyFadeLevel     (*(u8 *)0x030007D8)
+#define gBldyFadeLevel   (*(u8 *)0x030007D8)
 
 /* ── Sound / Music (m4a / MusicPlayer2000 / Sappy engine) ── */
 
 /* Main sound info struct pointer. Contains channel state, mixer config,
  * and pointers to the currently playing tracks. */
-#define gSoundInfo         (*(u32 *)0x0300081C)
+#define gSoundInfo       (*(u32 *)0x0300081C)
 
 /* Music player context pointers. Each MusicPlayer instance has its own
  * context for independent track playback. */
-#define gMPlayInfo_BGM     (*(u32 *)0x030064D8)
-#define gMPlayInfo_SE      (*(u32 *)0x030064DC)
+#define gMPlayInfo_BGM   (*(u32 *)0x030064D8)
+#define gMPlayInfo_SE    (*(u32 *)0x030064DC)
 
 /* Sound command dispatch table pointer.
  * (Same slot as gMPlayJumpTable[0] in m4a_internal.h; declared here as
  * a raw u32 for SoundCommand_6450's untyped indirect call.) */
-#define gSoundTablePtr     (*(u32 *)0x03006450)
+#define gSoundTablePtr   (*(u32 *)0x03006450)
 
 /* Sappy engine magic marker: "Smsh" (0x68736D53) in little-endian.
  * Used to verify the sound engine is properly initialized. */
-#define SAPPY_MAGIC        0x68736D53
+#define SAPPY_MAGIC      0x68736D53
 
 /* ── Input System ── */
 
 /* Current frame pressed keys (active-high, edge-detected).
  * Written by ReadKeyInput each frame. */
-#define gKeysPressed       (*(u16 *)0x03004DA0)
+#define gKeysPressed     (*(u16 *)0x03004DA0)
 
 /* Previous frame raw key state (active-high).
  * Used for edge detection in ReadKeyInput. */
-#define gKeysPrevious      (*(u16 *)0x030051E4)
+#define gKeysPrevious    (*(u16 *)0x030051E4)
 
 /* Extended input state for ProcessInputAndTimers.
  * Separate from the simple ReadKeyInput state. */
-#define gInputState        (*(u16 *)0x03004668)
-#define gInputPrevious     (*(u16 *)0x0300362C)
+#define gInputState      (*(u16 *)0x03004668)
+#define gInputPrevious   (*(u16 *)0x0300362C)
 
 /* ── Game State ── */
 
 /* Pause flag: when non-zero, GameUpdate skips the main update loop. */
-#define gPauseFlag         (*(vu8 *)0x030034E4)
+#define gPauseFlag       (*(vu8 *)0x030034E4)
 
 /* Frame/tick counter — decremented each frame, byte-sized. */
-#define gFrameCounter      (*(u8 *)0x03005498)
+#define gFrameCounter    (*(u8 *)0x03005498)
 
 /* Sound reset flag: when non-zero, VBlankHandler calls m4aSoundMain. */
-#define gSoundResetFlag    (*(u8 *)0x03003420)
+#define gSoundResetFlag  (*(u8 *)0x03003420)
 
 /* Interrupt Master Enable write address for VBlank acknowledge. */
-#define gIMEAcknowledge    (*(u16 *)0x03007FF8)
+#define gIMEAcknowledge  (*(u16 *)0x03007FF8)
 
 /* ── Entity / Object System ── */
 
@@ -143,7 +142,7 @@ extern u32 gOamBuffer1[]; /* 0x0300293C: entry 1 (skip first) */
 extern u32 gOamBuffer6[]; /* 0x03002A8C: entry 6 (skip first 6) */
 
 /* OAM shadow buffer entry pointer (used for sprite attribute writes). */
-#define gOamEntryPtr       (*(u32 *)0x03000820)
+#define gOamEntryPtr (*(u32 *)0x03000820)
 
 /* BG2 affine rotation angle (Q_8_8 fixed-point, full circle = 256). */
 extern u8 gBg2Alpha;
@@ -440,22 +439,22 @@ extern void *const gStreamDataTable[];
 extern const u32 gSoundCmdTable[];
 
 /* Sound configuration init data. */
-#define ROM_SOUND_INIT_DATA   0x081177E4
+#define ROM_SOUND_INIT_DATA 0x081177E4
 
 /* ── Camera / Scroll State ── */
 
 /* Camera state struct (accessed with s16 fields at various offsets).
  * Offset +0x0C low nibble = camera mode index (0-7, switch in CameraModeSwitchHandler).
  * Used by UpdateScrollPosition, UpdatePlayer*, CameraModeSwitchHandler. */
-#define gCameraState          ((u8 *)0x030007E0)
+#define gCameraState        ((u8 *)0x030007E0)
 
 /* Camera/scroll limits computed from level dimensions.
  * Used by UpdateScrollPosition, ComputeScrollLimits, InitLevelState. */
-#define gScrollLimits         ((u8 *)0x030007CC)
+#define gScrollLimits       ((u8 *)0x030007CC)
 
 /* Main loop state flag: controls game loop flow in MainGameFrameLoop.
  * Checked at loop entry and after transitions. */
-#define gMainLoopState        (*(u8 *)0x030007F8)
+#define gMainLoopState      (*(u8 *)0x030007F8)
 
 /* ── BG2 Affine Transform Shadows ── */
 /* These IWRAM values are written to hardware registers during VBlank:
@@ -465,16 +464,19 @@ extern const u32 gSoundCmdTable[];
  *   gBG2PD → REG_BG2PD (0x04000026) — vertical scale / cos(angle)
  *   gBG2X  → REG_BG2X  (0x04000028) — reference point X (32-bit fixed-point)
  *   gBG2Y  → REG_BG2Y  (0x0400002C) — reference point Y (32-bit fixed-point) */
-#define gBg2PA                (*(s16 *)0x030047B0)
-#define gBg2PB                (*(s16 *)0x03005464)
-#define gBg2PC                (*(s16 *)0x030051BC)
-#define gBg2PD                (*(s16 *)0x03000808)
-#define gBg2X                 (*(s32 *)0x030007FC)
-#define gBg2Y                 (*(s32 *)0x030051D0)
+#define gBg2PA              (*(s16 *)0x030047B0)
+#define gBg2PB              (*(s16 *)0x03005464)
+#define gBg2PC              (*(s16 *)0x030051BC)
+#define gBg2PD              (*(s16 *)0x03000808)
+#define gBg2X               (*(s32 *)0x030007FC)
+#define gBg2Y               (*(s32 *)0x030051D0)
 
 /* Per-frame cached sin/cos of gBg2Alpha (set by VBlankCallback_Dialog). */
-#define gUnk_03004678         (*(s16 *)0x03004678)
-#define gUnk_030051B0         (*(s16 *)0x030051B0)
+#define gUnk_03004678       (*(s16 *)0x03004678)
+#define gUnk_030051B0       (*(s16 *)0x030051B0)
+
+/* Map-screen wobble Q_8_8 (set by VBlankCallback_MapScreen). */
+extern s16 gUnk_030034F8;
 
 /* ── Scene / Transition State ── */
 

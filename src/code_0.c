@@ -10,6 +10,8 @@ extern void RenderDialogSprites(void);
 extern void thunk_UpdateRng(void);
 extern void m4aSoundMain(void);
 extern void VBlankIntrWait(void);
+extern s16 MultiplyQ8(s16 a, s16 b);
+extern s16 ReciprocalQ8(s16 a);
 
 INCLUDE_ASM("asm/nonmatchings/code_0", SetupOAMSprite); /* DrawSpriteTiles — core sprite/tile VRAM writer */
 INCLUDE_ASM("asm/nonmatchings/code_0", RenderHUDTop); /* RenderHUDTop */
@@ -106,7 +108,41 @@ void VBlankCallback_Dialog(void) {
     m4aSoundMain();
     gUnk_03003420 = 1;
 }
-INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_MapScreen);
+void VBlankCallback_MapScreen(void) {
+    RenderHUDTop();
+    VBlankIntrWait();
+    REG_BG0HOFS = gUnk_03003430.bg0HOfs & 0x1FF;
+    REG_BG0VOFS = gUnk_03003430.bg0VOfs & 0x1FF;
+    REG_BG1HOFS = gUnk_03003430.bg1HOfs & 0x1FF;
+    REG_BG1VOFS = gUnk_03003430.bg1VOfs & 0x1FF;
+    REG_BG2HOFS = (gUnk_03003430.bg2HOfs >> 4) & 0x1FF;
+    REG_BG2VOFS = (gUnk_03003430.bg2VOfs >> 4) & 0x1FF;
+    REG_BG3HOFS = (gUnk_03003430.bg3HOfs >> 4) & 0x1FF;
+    REG_BG3VOFS = (gUnk_03003430.bg3VOfs >> 4) & 0x1FF;
+    REG_BG2X_L = gBg2X;
+    REG_BG2X_H = (gBg2X & 0x0FFF0000) >> 0x10;
+    REG_BG2Y_L = gBg2Y;
+    REG_BG2Y_H = (gBg2Y & 0x0FFF0000) >> 0x10;
+    REG_BG2PA = gBg2PA;
+    REG_BG2PB = gBg2PB;
+    REG_BG2PC = gBg2PC;
+    REG_BG2PD = gBg2PD;
+    REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
+    REG_BLDY = gUnk_03005498;
+    REG_MOSAIC = (gUnk_030007D8 << 0xC) | (gUnk_030007D8 << 8) | (gUnk_030007D8 << 4) | gUnk_030007D8;
+    gUnk_030034F8 = MultiplyQ8(SIN((gUnk_03004C20.unk0 * 0x10) & 0xFF), MultiplyQ8(0x200, SIN((gUnk_03004C20.unk0 * 4) & 0x7F)));
+    gBg2PA = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2XMag));
+    gBg2PB = MultiplyQ8(SIN(gBg2Alpha), ReciprocalQ8(gBg2XMag));
+    gBg2PC = MultiplyQ8(-SIN(gBg2Alpha), ReciprocalQ8(gBg2YMag));
+    gBg2PD = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2YMag));
+    gBg2X = ((gUnk_03003430.bg2HOfs * 0x10) - (gBg2PA * DISPLAY_WIDTH_CENTER)) - (gBg2PB * 0x78);
+    gBg2Y = ((gUnk_03003430.bg2VOfs * 0x10) - (gBg2PC * 0x28)) - (gBg2PD * 0x28);
+    thunk_UpdateRng();
+    gUnk_03004C20.unk4 += 1;
+    gUnk_03004C20.unk0 += 1;
+    m4aSoundMain();
+    gUnk_03003420 = 1;
+}
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_GameplayWithHUD);
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_MinimalHW);
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_Cutscene); /* SetupDisplayConfig */

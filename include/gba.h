@@ -17,6 +17,12 @@
 #define OAM                        0x07000000
 #define ROM                        0x08000000
 
+/* ── Display dimensions ── */
+#define DISPLAY_WIDTH              240
+#define DISPLAY_HEIGHT             160
+#define DISPLAY_WIDTH_CENTER       (DISPLAY_WIDTH / 2)
+#define DISPLAY_HEIGHT_CENTER      (DISPLAY_HEIGHT / 2)
+
 /* ── DISPSTAT flag bits (project-specific subset; full set in io_reg.h) ── */
 #define DISPSTAT_VBLANK_IRQ_ENABLE DISPSTAT_VBLANK_INTR
 

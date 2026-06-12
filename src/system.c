@@ -157,10 +157,10 @@ void FreeAllDecompBuffers(void) {
 }
 
 /**
- * FixedMul8: 8.8 fixed-point signed multiply (s16*s16 >> 8).
+ * MultiplyQ8: 8.8 fixed-point signed multiply (s16*s16 >> 8).
  * Rounds negative results toward zero by adding 255 before shift.
  */
-s16 FixedMul8(s16 a, s16 b) {
+s16 MultiplyQ8(s16 a, s16 b) {
     s32 result = (s32)a * (s32)b;
     register s32 shifted asm("r1") = result;
     if (result < 0)
