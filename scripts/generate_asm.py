@@ -49,6 +49,24 @@ DECOMP_TOML = os.path.join(ROOT, "klonoa-eod-decomp.toml")
 CODE_END = 0x52000
 DATA_START = 0x52000
 
+# Hand-written ARM/Thumb blob lives in asm/m4a0.s (reused from kleod
+# decomp; same ROM, same bytes).  Functions in this range are emitted
+# from asm/m4a0.s itself, not from luvdis output, so we skip writing
+# individual .s files for them.
+HANDCRAFTED_M4A0_START = 0x0804F284
+HANDCRAFTED_M4A0_END = 0x0804FEA0  # exclusive
+
+# Mid-function entry points that luvdis identifies as separate functions
+# but are actually internal labels of a larger C-defined function.
+# Skip these so generate_asm.py doesn't emit .s files / re-add
+# INCLUDE_ASM lines for them.
+INSIDE_C_FUNCTION_ADDRESSES = {
+    # _08050C70: an internal sub-label of CgbSound (0x08050AFC).  In the
+    # original ROM this is the "SoundMixerMain" label luvdis split off,
+    # but kleod / pokeemerald / sa3 all treat it as part of CgbSound.
+    0x08050C70,
+}
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -667,6 +685,33 @@ def _merge_fragments(func_entries):
         i = j + 1
 
     return merged_entries, merged_groups
+
+
+def _filter_handcrafted_m4a0(entries):
+    """Drop entries whose ROM address lives inside ``asm/m4a0.s``.
+
+    The hand-written m4a0 blob (0x0804F284 - 0x0804FEA0) is its own
+    ground-truth assembly; we don't need luvdis-generated .s files for
+    those functions and don't want them duplicated in
+    ``asm/nonmatchings/m4a/``.
+    """
+    kept = []
+    skipped = 0
+    skipped_inside = 0
+    for entry in entries:
+        _name, addr, _module, _lines = entry
+        if HANDCRAFTED_M4A0_START <= addr < HANDCRAFTED_M4A0_END:
+            skipped += 1
+            continue
+        if addr in INSIDE_C_FUNCTION_ADDRESSES:
+            skipped_inside += 1
+            continue
+        kept.append(entry)
+    if skipped:
+        print(f"    Skipped {skipped} m4a0.s-range functions (own asm file)")
+    if skipped_inside:
+        print(f"    Skipped {skipped_inside} mid-C-function labels (folded into parent)")
+    return kept
 
 
 def _fix_non_word_aligned_starts(entries):
@@ -1563,12 +1608,6 @@ def _apply_fixups(module_funcs=None):
         break
     else:
         print("  WARNING: Could not find bx r0 SBZ fixup target")
-
-    # Split leaf function at 0x0804FE10 out of sub_0804FC10.
-    # This function uses push {r4, r5} (no lr) which the automatic
-    # prologue detection doesn't handle.  It ends with pop {r4, r5}; bx lr.
-    _manual_split_leaf(nm_root, "m4a", "sub_0804FC10.s",
-                       "push {r4, r5}", 0x0804FE10, "sub_0804FE10")
 
     # DeadCode_0804bb86 is the high halfword of FreeGfxBuffer's literal
     # pool (0x0300, the upper 16 bits of 0x030034A0).  FreeGfxBuffer.s
@@ -2669,6 +2708,7 @@ def main():
     func_entries, libgcc_lines, pre_func = _parse_luvdis(luvdis_output)
     func_entries = _expand_sub_functions(func_entries)
     merged_entries, merged_groups = _merge_fragments(func_entries)
+    merged_entries = _filter_handcrafted_m4a0(merged_entries)
     merged_entries = _fix_non_word_aligned_starts(merged_entries)
     module_funcs = _write_asm_files(merged_entries, libgcc_lines, pre_func)
 

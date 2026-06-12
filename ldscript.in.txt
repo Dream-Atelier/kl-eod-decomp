@@ -9,6 +9,7 @@ gItemDropParamTable = 0x080E2ADE;
 gLevelPaletteTable = 0x08189B4C;
 gStreamDataTable = 0x08189AFC;
 gSoundCmdTable = 0x08117C8C;
+gXcmdTable     = 0x08117C8C;  /* kleod-canonical alias of gSoundCmdTable */
 gGameFlagsPtr = 0x03005400;
 gVBlankCallbackArray = 0x030047C0;
 gCallbackStateArray = 0x03003510;
@@ -27,10 +28,40 @@ gEEPROMConfig512 = 0x08188DE4;
 gEEPROMConfig8k = 0x08188DF0;
 gEepromMaxTimers = 0x08188DFC;
 gNumMusicPlayers = 4;
-SoundMainRAM = 0x0804F319;
+gMaxLines = 0;
+
+/* m4a data table addresses — referenced from asm/m4a0.s and m4a.c. */
+gMPlayJumpTableTemplate = 0x081179E4;
+gClockTable = 0x08117C58;
+gScaleTable = 0x08117A74;
+gFreqTable = 0x08117B28;
+gCgbScaleTable = 0x08117B70;
+gCgbFreqTable = 0x08117BF4;
+gNoiseTable = 0x08117C0C;
+gCgb3Vol = 0x08117C48;
+gPcmSamplesPerVBlankTable = 0x08117B58;
+gMPlayJumpTable = 0x03006450;
+
+/* Raw sub_<address> names that luvdis still emits from neighbouring
+ * .s files into the asm/m4a0.s range.  Aliases route them to the
+ * kleod-declared globals from m4a0.s. */
+sub_0804F284 = umul3232H32;
+sub_0804F294 = SoundMain;
+sub_0804F724 = MPlayJumpTableCopy;
+sub_0804F8E8 = m4aSoundVSync;
+sub_0804FB9C = TrackStop;
+sub_0804FC10 = MP2K_event_nxx;
 
 /* libgcc helpers: route compiler-emitted runtime calls to the in-ROM blobs in asm/libgcc.s. */
 __divsi3 = sub_080518A4;
+
+/* libgcc thumb-interwork call-via-rN thunks — agbcc emits `bl _call_via_rN`
+ * when calling a function pointer held in rN.  Map them to the in-ROM
+ * stubs in asm/libgcc.s (sub_08051868 + N*4).  Higher-numbered thunks
+ * exist in libgcc.s but aren't .global-exported; add as needed. */
+_call_via_r0 = sub_08051868;
+_call_via_r1 = sub_0805186C;
+_call_via_r2 = sub_08051870;
 
 SECTIONS {
     . = 0x8000000;

@@ -92,14 +92,10 @@ struct GfxStreamEntry {
 #define gMPlayInfo_BGM     (*(u32 *)0x030064D8)
 #define gMPlayInfo_SE      (*(u32 *)0x030064DC)
 
-/* Sound command dispatch table pointer. */
+/* Sound command dispatch table pointer.
+ * (Same slot as gMPlayJumpTable[0] in m4a_internal.h; declared here as
+ * a raw u32 for SoundCommand_6450's untyped indirect call.) */
 #define gSoundTablePtr     (*(u32 *)0x03006450)
-
-/* Sound command dispatch secondary table pointer. */
-#define gSoundCmdTablePtr  (*(u32 *)0x03006454)
-
-/* Sound engine state/event buffer. */
-#define gSoundEventBuffer  ((u8 *)0x030054A0)
 
 /* Sappy engine magic marker: "Smsh" (0x68736D53) in little-endian.
  * Used to verify the sound engine is properly initialized. */
@@ -128,7 +124,7 @@ struct GfxStreamEntry {
 /* Frame/tick counter — decremented each frame, byte-sized. */
 #define gFrameCounter      (*(u8 *)0x03005498)
 
-/* Sound reset flag: when non-zero, VBlankHandler calls SoundInit. */
+/* Sound reset flag: when non-zero, VBlankHandler calls m4aSoundMain. */
 #define gSoundResetFlag    (*(u8 *)0x03003420)
 
 /* Interrupt Master Enable write address for VBlank acknowledge. */
@@ -433,55 +429,15 @@ extern const u32 gStreamDataTable[];
 
 /* ── Sound ROM Data Tables ── */
 
-/* MusicPlayer: 12-byte entry in the music player table.
- *   +0x00: u32 info   - pointer to MusicPlayerInfo struct
- *   +0x04: u32 track  - pointer to MusicPlayerTrack array
- *   +0x08: u16 numTracks, u8 unk_A, u8 pad */
-struct MusicPlayer {
-    u32 info;
-    u32 track;
-    u16 numTracks;
-    u8 unk_A;
-    u8 pad;
-};
-
-/* Song: 8-byte entry in the song table.
- *   +0x00: u32 header - pointer to song header data
- *   +0x04: u16 ms     - index into MusicPlayer table
- *   +0x06: u16 pad */
-struct Song {
-    u32 header;
-    u16 ms;
-    u16 pad;
-};
-
-/* Music player table: array of struct MusicPlayer (12 bytes each).
- * Indexed by Song.ms to find the player for a given song. */
-extern const struct MusicPlayer gMPlayTable[];
-#define ROM_MUSIC_TABLE 0x08118AB4
-
-/* Song metadata table: array of struct Song (8 bytes each).
- * Indexed by song ID to find header and player assignment. */
-extern const struct Song gSongTable[];
-#define ROM_MUSIC_META_TABLE 0x08118AE4
+/* struct MusicPlayer, struct Song, gMPlayTable, gSongTable are now
+ * declared in include/m4a_internal.h with kleod-canonical typed fields. */
 
 /* Sound command dispatch table.
  * Array of function pointers indexed by command byte. */
+/* gSoundCmdTable / gXcmdTable: x-cmd dispatch table (16 function
+ * pointers).  Kleod's name is gXcmdTable; we keep `gSoundCmdTable`
+ * as a back-compat alias for legacy uses. */
 extern const u32 gSoundCmdTable[];
-#define ROM_SOUND_CMD_TABLE   0x08117C8C
-
-/* Instrument/voice table.
- * Contains waveform, envelope, and pitch data for each instrument. */
-#define ROM_INSTRUMENT_TABLE  0x081179E4
-
-/* Pitch/frequency lookup tables for MIDI note-to-frequency conversion. */
-#define ROM_FREQ_TABLE_1      0x08117A74
-#define ROM_FREQ_TABLE_2      0x08117B28
-#define ROM_PITCH_TABLE       0x08117B70
-#define ROM_WAVE_DUTY_TABLE   0x08117BF4
-#define ROM_NOISE_TABLE       0x08117C0C
-#define ROM_ENVELOPE_TABLE    0x08117C48
-#define ROM_SWEEP_TABLE       0x08117C58
 
 /* Sound configuration init data. */
 #define ROM_SOUND_INIT_DATA   0x081177E4
@@ -581,13 +537,6 @@ extern const u32 gSoundCmdTable[];
 #define gSaveBuffer1          (*(u32 *)0x03005208)
 #define gSaveBuffer2          (*(u32 *)0x0300465C)
 #define gSaveBuffer3          (*(u32 *)0x030008E4)
-
-/* ── Sound / DMA (extended) ── */
-
-/* GBA BIOS sound info pointer at 0x03007FF0.
- * Standard m4a/MusicPlayer2000 location for SoundArea struct.
- * Used by InitSoundEngine, SoundHardwareInit, DirectSoundFifoSetup, CgbChannelMix. */
-#define gBiosSoundInfo        (*(u32 **)0x03007FF0)
 
 /* ── Entity Data Tables ── */
 

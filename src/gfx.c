@@ -860,13 +860,13 @@ void StreamCmd_StopMusic(void) {
     gStreamPtr += 2;
 }
 /*
- * Reads a command byte from the data stream and processes it via m4aMPlayCommand.
+ * Reads a command byte from the data stream and processes it via m4aSongNumStop.
  * Byte[2] is the command argument. Advances the stream pointer by 3.
  *   no parameters (reads from global data stream pointer at 0x03004D84)
  *   no return value
  */
 void ProcessStreamCommand_50094(void) {
-    m4aMPlayCommand(gStreamPtr[2]);
+    m4aSongNumStop(gStreamPtr[2]);
     gStreamPtr += 3;
 }
 /*
@@ -889,10 +889,10 @@ void DispatchMusicStreamCommand(void) {
 }
 /**
  * StreamCmd_StopSound: stream command to stop sound effects.
- * Calls StopSoundEffects, advances stream by 2.
+ * Calls m4aMPlayAllContinue, advances stream by 2.
  */
 void StreamCmd_StopSound(void) {
-    StopSoundEffects();
+    m4aMPlayAllContinue();
     gStreamPtr += 2;
 }
 void StreamCmd_Nop3(void) {
@@ -957,7 +957,7 @@ void EnableVBlankAndDispatchMusic(void) {
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_DisableVBlankAndStopMusic);
 /*
  * Enables VBlank interrupt and VBlank IRQ status, then calls two
- * interrupt setup handlers (m4aSoundVSyncOn, StopSoundEffects).
+ * interrupt setup handlers (m4aSoundVSyncOn, m4aMPlayAllContinue).
  * Advances the data stream pointer by 2.
  *   no parameters
  *   no return value
@@ -966,7 +966,7 @@ void EnableVBlankAndHandlers(void) {
     REG_IE |= IE_VBLANK;
     REG_DISPSTAT |= DISPSTAT_VBLANK_IRQ_ENABLE;
     m4aSoundVSyncOn();
-    StopSoundEffects();
+    m4aMPlayAllContinue();
     gStreamPtr += 2;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetMusicParams);

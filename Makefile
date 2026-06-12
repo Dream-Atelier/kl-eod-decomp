@@ -44,10 +44,12 @@ C_BUILDDIR := $(OBJ_DIR)/$(C_SUBDIR)
 DATA_SUBDIR   := data
 DATA_BUILDDIR := $(OBJ_DIR)/$(DATA_SUBDIR)
 
-ASM_SRCS := $(wildcard $(ASM_SUBDIR)/*.s)
+# asm/m4a0.s is .include'd into src/m4a.c (handcrafted MP2K blob);
+# it must not be assembled as a standalone .o.
+ASM_SRCS := $(filter-out $(ASM_SUBDIR)/m4a0.s,$(wildcard $(ASM_SUBDIR)/*.s))
 ASM_OBJS := $(patsubst $(ASM_SUBDIR)/%.s,$(ASM_BUILDDIR)/%.o,$(ASM_SRCS))
 
-C_SRCS := $(filter-out $(wildcard $(C_SUBDIR)/m4a_nopush_*.c),$(wildcard $(C_SUBDIR)/*.c))
+C_SRCS := $(wildcard $(C_SUBDIR)/*.c)
 C_OBJS := $(patsubst $(C_SUBDIR)/%.c,$(C_BUILDDIR)/%.o,$(C_SRCS))
 
 DATA_SRCS := $(wildcard $(DATA_SUBDIR)/*.s)
@@ -109,20 +111,9 @@ $(ASM_BUILDDIR)/%.o: $(ASM_SUBDIR)/%.s
 	@echo "$(AS) <flags> -o $@ $<"
 	@$(AS) $(ASFLAGS) -o $@ $<
 
-# Pre-compile nopush functions (leaf functions that need -fprologue-bugfix)
-# Each produces a .s snippet .include'd at the correct position in m4a.c.
-NOPUSH_SRCS := $(wildcard $(C_SUBDIR)/m4a_nopush_*.c)
-NOPUSH_ASM  := $(patsubst $(C_SUBDIR)/m4a_nopush_%.c,$(OBJ_DIR)/m4a_nopush_%.s,$(NOPUSH_SRCS))
-
-$(OBJ_DIR)/m4a_nopush_%.s: $(C_SUBDIR)/m4a_nopush_%.c
-	@echo "$(CC1_OLD) <nopush flags> -o $@ $<"
-	@$(CPP) $(CPPFLAGS) $< -o $(OBJ_DIR)/m4a_nopush_$*.i
-	@$(CC1_OLD) -mthumb-interwork -O2 -o $(OBJ_DIR)/m4a_nopush_$*_raw.s $(OBJ_DIR)/m4a_nopush_$*.i
-	@sed '/^@/d;/^\.code/d;/^\.gcc2_compiled/d;/^\.text$$/d;/^\.Lfe/d;/^[[:space:]]*\.size/d;/macros\.inc/d;s/\.L\([0-9]\)/.Lnp$*_\1/g' $(OBJ_DIR)/m4a_nopush_$*_raw.s > $@
-
 # Compile m4a with old_agbcc — Nintendo's MusicPlayer2000 was prebuilt
 # with an older GCC as part of the GBA SDK.
-$(C_BUILDDIR)/m4a.o: $(C_SUBDIR)/m4a.c $(NOPUSH_ASM)
+$(C_BUILDDIR)/m4a.o: $(C_SUBDIR)/m4a.c
 	@echo "$(CC1_OLD) <m4a flags> -o $@ $<"
 	@$(CPP) $(CPPFLAGS) $< -o $(C_BUILDDIR)/m4a.i
 	@$(CC1_OLD) -mthumb-interwork -O2 -o $(C_BUILDDIR)/m4a.s $(C_BUILDDIR)/m4a.i
