@@ -218,7 +218,7 @@ void EntityItemDrop(u8 arg0) {
         }
 
         case 0: {
-            gEntity.base[arg0].unk_2 = 0x10C - ((gEntity.base[arg0].unk_9 * gEntityAnimTable[gEntity.base[arg0].unk_14]) >> 8);
+            gEntity.base[arg0].unk_2 = 0x10C - ((gEntity.base[arg0].unk_9 * gSineTable[gEntity.base[arg0].unk_14]) >> 8);
             gEntity.base[arg0].unk_0 += gEntity.base[arg0].unk_8;
 
             gEntity.base[arg0].unk_14 += gEntity.base[arg0].unk_16;

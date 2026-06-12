@@ -503,8 +503,8 @@ thunk_HeapAlloc: @ 08051BAC
 	nop
 	.2byte 0xB98A
 	.2byte 0xEAFE
-	thumb_func_start thunk_sub_08000278
-thunk_sub_08000278: @ 08051BB4
+	thumb_func_start thunk_UpdateRng
+thunk_UpdateRng: @ 08051BB4
 	bx pc
 	nop
 	.2byte 0xB9AE

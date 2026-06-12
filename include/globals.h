@@ -145,8 +145,8 @@ extern u32 gOamBuffer6[]; /* 0x03002A8C: entry 6 (skip first 6) */
 /* OAM shadow buffer entry pointer (used for sprite attribute writes). */
 #define gOamEntryPtr       (*(u32 *)0x03000820)
 
-/* Entity work buffer / scratch space (allocated during transitions). */
-#define gEntityWorkBuffer  ((u8 *)0x03002910)
+/* BG2 affine rotation angle (Q_8_8 fixed-point, full circle = 256). */
+extern u8 gBg2Alpha;
 
 /* Entity index/status lookup table (entity behavior state tracking). */
 #define gEntityStatusTable ((u8 *)0x0300363C)
@@ -465,12 +465,16 @@ extern const u32 gSoundCmdTable[];
  *   gBG2PD → REG_BG2PD (0x04000026) — vertical scale / cos(angle)
  *   gBG2X  → REG_BG2X  (0x04000028) — reference point X (32-bit fixed-point)
  *   gBG2Y  → REG_BG2Y  (0x0400002C) — reference point Y (32-bit fixed-point) */
-#define gBG2PA                (*(u16 *)0x030047B0)
-#define gBG2PB                (*(u16 *)0x03005464)
-#define gBG2PC                (*(u16 *)0x030051BC)
-#define gBG2PD                (*(u16 *)0x03000808)
-#define gBG2X                 (*(u32 *)0x030007FC)
-#define gBG2Y                 (*(u32 *)0x030051D0)
+#define gBg2PA                (*(s16 *)0x030047B0)
+#define gBg2PB                (*(s16 *)0x03005464)
+#define gBg2PC                (*(s16 *)0x030051BC)
+#define gBg2PD                (*(s16 *)0x03000808)
+#define gBg2X                 (*(s32 *)0x030007FC)
+#define gBg2Y                 (*(s32 *)0x030051D0)
+
+/* Per-frame cached sin/cos of gBg2Alpha (set by VBlankCallback_Dialog). */
+#define gUnk_03004678         (*(s16 *)0x03004678)
+#define gUnk_030051B0         (*(s16 *)0x030051B0)
 
 /* ── Scene / Transition State ── */
 
@@ -549,7 +553,7 @@ extern const u8 gEntityDataTable[];
 /* Entity animation/behavior data table (172 refs, most-referenced unnamed ROM address).
  * Halfword-indexed: value >> 2 + 0xC0 or byte + 0x40, scaled ×2.
  * Used by EntityBoss*, sub_080158AC, sub_0801AF28, and many entity behavior functions. */
-extern const s16 gEntityAnimTable[];
+extern const s16 gSineTable[];
 #define ROM_ENTITY_ANIM_TABLE 0x080D8E14
 
 /* Item drop velocity parameter table (2 bytes per entry, indexed by item type).

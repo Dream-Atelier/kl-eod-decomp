@@ -53,6 +53,7 @@ start = 0x08051868
 [renames]
 thunk_sub_080001E0 = "thunk_HeapAlloc"
 thunk_sub_0800020C = "thunk_HeapFree"
+thunk_sub_08000278 = "thunk_UpdateRng"
 sub_08051B44 = "MemCopy"
 sub_0804B254 = "ReadUnalignedU16"
 sub_0804B260 = "ReadUnalignedS16"

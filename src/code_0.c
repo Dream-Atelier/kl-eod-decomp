@@ -1,5 +1,15 @@
 #include "global.h"
+#include "globals.h"
 #include "include_asm.h"
+#include "data/trig.h"
+#include "structs/variables.h"
+
+extern void TransformEntityScreenPositions(void);
+extern void RenderHUDTop(void);
+extern void RenderDialogSprites(void);
+extern void thunk_UpdateRng(void);
+extern void m4aSoundMain(void);
+extern void VBlankIntrWait(void);
 
 INCLUDE_ASM("asm/nonmatchings/code_0", SetupOAMSprite); /* DrawSpriteTiles — core sprite/tile VRAM writer */
 INCLUDE_ASM("asm/nonmatchings/code_0", RenderHUDTop); /* RenderHUDTop */
@@ -48,9 +58,54 @@ INCLUDE_ASM("asm/nonmatchings/code_0", HandlePauseMenuInput);
 INCLUDE_ASM("asm/nonmatchings/code_0", UpdateUIState); /* UpdateUIState */
 INCLUDE_ASM("asm/nonmatchings/code_0", RenderCharacterTiles); /* RenderCharacterTiles */
 INCLUDE_ASM("asm/nonmatchings/code_0", UpdateTextScroll); /* UpdateTextScroll */
-INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_Gameplay);
+void VBlankCallback_Gameplay(void) {
+    TransformEntityScreenPositions();
+    RenderHUDTop();
+    VBlankIntrWait();
+    REG_BG0HOFS = (gUnk_03003430.bg0HOfs >> 2) & 0x1FF;
+    REG_BG0VOFS = (gUnk_03003430.bg0VOfs >> 5) & 0x1FF;
+    REG_BG1HOFS = gUnk_03003430.bg1HOfs & 0x1FF;
+    REG_BG1VOFS = gUnk_03003430.bg1VOfs & 0x1FF;
+    REG_BG2X_L = gBg2X;
+    REG_BG2X_H = (gBg2X & 0x0FFF0000) >> 0x10;
+    REG_BG2Y_L = gBg2Y;
+    REG_BG2Y_H = (gBg2Y & 0x0FFF0000) >> 0x10;
+    REG_BG2PA = gBg2PA;
+    REG_BG2PB = gBg2PB;
+    REG_BG2PC = gBg2PC;
+    REG_BG2PD = gBg2PD;
+    REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
+    REG_BLDY = gUnk_03005498;
+    REG_MOSAIC = (gUnk_030007D8 << 0xC) | (gUnk_030007D8 << 8) | (gUnk_030007D8 << 4) | gUnk_030007D8;
+    thunk_UpdateRng();
+    gUnk_03004C20.unk4 += 1;
+    gUnk_03004C20.unk0 += 1;
+    m4aSoundMain();
+    gUnk_03003420 = 1;
+}
 INCLUDE_ASM("asm/nonmatchings/code_0", AnimatePaletteEffects);
-INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_Dialog);
+void VBlankCallback_Dialog(void) {
+    RenderDialogSprites();
+    gUnk_03004678 = SIN(gBg2Alpha);
+    gUnk_030051B0 = COS(gBg2Alpha);
+    VBlankIntrWait();
+    REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
+    REG_BLDY = gUnk_03005498;
+    REG_MOSAIC = (gUnk_030007D8 << 4) | gUnk_030007D8;
+    REG_BG0HOFS = (gUnk_03003430.bg0HOfs >> 2) & 0x1FF;
+    REG_BG0VOFS = (gUnk_03003430.bg0VOfs >> 5) & 0x1FF;
+    REG_BG1HOFS = gUnk_03003430.bg1HOfs & 0x1FF;
+    REG_BG1VOFS = gUnk_03003430.bg1VOfs & 0x1FF;
+    REG_BG2PA = gBg2PA;
+    REG_BG2PA = gBg2PA;
+    REG_BG2PB = gBg2PB;
+    REG_BG2PC = gBg2PC;
+    REG_BG2PD = gBg2PD;
+    gUnk_03004C20.unk4 += 1;
+    gUnk_03004C20.unk0 += 1;
+    m4aSoundMain();
+    gUnk_03003420 = 1;
+}
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_MapScreen);
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_GameplayWithHUD);
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_MinimalHW);
