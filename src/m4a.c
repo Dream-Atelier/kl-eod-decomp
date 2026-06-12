@@ -73,11 +73,30 @@ INCLUDE_ASM("asm/nonmatchings/m4a", DmaControllerInit);
  */
 /**
  * SoundInfoInit: update sound info timer and flags.
- *
- * Leaf function compiled with -fprologue-bugfix (separate compilation unit).
- * C source in src/m4a_nopush_SoundInfoInit.c.
+ * Leaf function — inlined directly here to test if the m4a_nopush_*
+ * mechanism is actually required.
  */
-asm(".include \"build/m4a_nopush_SoundInfoInit.s\"");
+void SoundInfoInit(void) {
+    u8 *soundInfo = (u8 *)*(u32 *)0x0300081C;
+    u16 uval = *(u16 *)(soundInfo + 0x14);
+    s16 val = *(s16 *)(soundInfo + 0x14);
+
+    if (val <= 0) {
+        *(u16 *)(soundInfo + 0x14) = 0;
+        *(volatile u8 *)(soundInfo + 0x16) = *(volatile u8 *)(soundInfo + 0x16) & 0x7F;
+        return;
+    }
+
+    if ((u16)(uval - 1) <= 14) {
+        u16 *p = (u16 *)0x03003430;
+        p[0x26 / 2] += 1;
+        *(u16 *)(soundInfo + 0x14) -= 1;
+    } else {
+        u16 *p = (u16 *)0x03003430;
+        p[0x26 / 2] += 2;
+        *(u16 *)(soundInfo + 0x14) -= 2;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_GetStreamPtr);
 INCLUDE_ASM("asm/nonmatchings/m4a", StreamCmd_ValidateStream);
 
