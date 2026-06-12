@@ -419,34 +419,35 @@ void m4aMPlayFadeOut(struct MP2KPlayerState *mplayInfo, u16 speed) {
 }
 asm(".align 2, 0");
 
-/*
+/**
  * m4aMPlayFadeOutTemporarily: fade out, then pause (not stop).
- * Semantic equivalent in C:
- *     if (mplayInfo->lockStatus == ID_NUMBER) {
- *         mplayInfo->fadeCounter = speed;
- *         mplayInfo->fadeInterval = speed;
- *         mplayInfo->fadeOV = (64 << FADE_VOL_SHIFT) | TEMPORARY_FADE;
- *     }
- * Kept as INCLUDE_ASM: tried 6 C-body variants (register pinning, inline-asm
- * scheduler nudges, ordering tweaks) — agbcc's allocator consistently puts
- * `speed` in r3 instead of r1 (5-byte diff in register encoding).  Structural
- * mislabeling has been corrected (see hand-edited .s file).
+ * Kleod-canonical body — the lockStatus++/restore pair gets dead-store
+ * eliminated by the optimizer but shapes the IR enough for agbcc's
+ * allocator to keep `speed` in r1.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", m4aMPlayFadeOutTemporarily);
-/*
+void m4aMPlayFadeOutTemporarily(struct MP2KPlayerState *mplayInfo, u16 speed) {
+    if (mplayInfo->lockStatus == ID_NUMBER) {
+        mplayInfo->lockStatus++;
+        mplayInfo->fadeCounter = speed;
+        mplayInfo->fadeInterval = speed;
+        mplayInfo->fadeOV = (64 << FADE_VOL_SHIFT) | TEMPORARY_FADE;
+        mplayInfo->lockStatus = ID_NUMBER;
+    }
+}
+/**
  * m4aMPlayFadeIn: fade in + clear PAUSE.
- * Semantic equivalent in C:
- *     if (mplayInfo->lockStatus == ID_NUMBER) {
- *         mplayInfo->fadeCounter = speed;
- *         mplayInfo->fadeInterval = speed;
- *         mplayInfo->fadeOV = FADE_IN;
- *         mplayInfo->status &= ~MUSICPLAYER_STATUS_PAUSE;
- *     }
- * Kept as INCLUDE_ASM: same agbcc-allocator quirk as m4aMPlayFadeOutTemporarily
- * (speed gets r3 instead of r1, producing a 5-byte register-encoding diff).
- * Structural mislabeling has been corrected (see hand-edited .s file).
+ * Kleod-canonical body.
  */
-INCLUDE_ASM("asm/nonmatchings/m4a", m4aMPlayFadeIn);
+void m4aMPlayFadeIn(struct MP2KPlayerState *mplayInfo, u16 speed) {
+    if (mplayInfo->lockStatus == ID_NUMBER) {
+        mplayInfo->lockStatus++;
+        mplayInfo->fadeCounter = speed;
+        mplayInfo->fadeInterval = speed;
+        mplayInfo->fadeOV = (0 << FADE_VOL_SHIFT) | FADE_IN;
+        mplayInfo->status &= ~MUSICPLAYER_STATUS_PAUSE;
+        mplayInfo->lockStatus = ID_NUMBER;
+    }
+}
 /**
  * m4aMPlayImmInit: for each track whose status has START+EXIST set,
  * Clear64byte the track then seed its defaults (bendRange=2,
