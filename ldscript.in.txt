@@ -10,6 +10,25 @@ gBg2XMag   = 0x030034AC;
 gBg2YMag   = 0x03005420;
 gUnk_030034F8 = 0x030034F8;
 gUnk_03003430 = 0x03003430;
+gUnk_03002920 = 0x03002920;
+gUnk_03005428 = 0x03005428;
+gUnk_03003410 = 0x03003410;
+gUnk_03003510 = 0x03003510;
+gNewKeys      = 0x03004DA0;
+gHeldKeys     = 0x030051E4;
+gUnk_03004790 = 0x03004790;
+gUnk_03004DB0 = 0x03004DB0;
+gUnk_03005468 = 0x03005468;
+gUnk_030034E8 = 0x030034E8;
+gUnk_030051B8 = 0x030051B8;
+gUnk_03005480 = 0x03005480;
+gUnk_030007C0 = 0x030007C0;
+gUnk_03005474 = 0x03005474;
+gUnk_03005220 = 0x03005220;
+gUnk_03004660 = 0x03004660;
+gUnk_030007E0 = 0x030007E0;
+gUnk_03005400 = 0x03005400;
+gUnk_03005440 = 0x03005440;
 gItemDropParamTable = 0x080E2ADE;
 gLevelPaletteTable = 0x08189B4C;
 gStreamDataTable = 0x08189AFC;
@@ -58,7 +77,10 @@ sub_0804FB9C = TrackStop;
 sub_0804FC10 = MP2K_event_nxx;
 
 /* libgcc helpers: route compiler-emitted runtime calls to the in-ROM blobs in asm/libgcc.s. */
-__divsi3 = sub_080518A4;
+__divsi3  = sub_080518A4;
+__modsi3  = sub_0805193C;
+__udivsi3 = sub_08051A0C;
+__umodsi3 = sub_08051A84;
 
 /* libgcc thumb-interwork call-via-rN thunks — agbcc emits `bl _call_via_rN`
  * when calling a function pointer held in rN.  Map them to the in-ROM

@@ -75,4 +75,171 @@ struct Unk_03004C20 {
 #define gUnk_03005498 (*(u8 *)0x03005498)
 #define gUnk_030007D8 (*(u8 *)0x030007D8)
 
+/* Entity/OAM struct (~36 bytes per element).
+ * Address: 0x03002920.  Mirrored from kleod's variables.h. */
+struct Unk_03002920 {
+    /* 0x00 */ u16 xPosBg2;
+    /* 0x02 */ u16 yPosBg2;
+    /* 0x04 */ u16 xPosScreen;
+    /* 0x06 */ u16 yPosScreen;
+    /* 0x08 */ u8 unk8;
+    /* 0x09 */ u8 unk9;
+    /* 0x0A */ u8 unkA;
+    /* 0x0B */ u8 unkB;
+    /* 0x0C_0 */ u32 priority : 2;
+    /* 0x0C_2 */ u32 unkC_2 : 2;
+    /* 0x0C_4 */ u32 unkC_4 : 4;
+    /* 0x0D_0 */ u32 objMode : 2;
+    /* 0x0D_2 */ u32 affineHFlip_matrixNum : 4;
+    /* 0x0D_6 */ u32 unkD_6 : 2;
+    /* 0x0E_0 */ u32 affineEnable : 1;
+    /* 0x0E_1 */ u32 affineDouble : 1;
+    /* 0x0F */ u8 unkF;
+    /* 0x10 */ u8 unk10;
+    /* 0x11 */ u8 unk11;
+    /* 0x12 */ u8 pad12[0x1C - 0x12];
+}; /* size = 0x1C */
+extern struct Unk_03002920 gUnk_03002920[];
+
+/* Active entity count (number of slots in gUnk_03002920 to iterate). */
+extern u8 gUnk_03005428;
+
+/* Per-frame edge-detected key state. */
+extern u16 gNewKeys;
+extern u16 gHeldKeys;
+
+/* Game-state struct at 0x03003410 (mirrored from kleod). */
+struct Unk_03003410 {
+    u32 unk0;
+    u8 unk4;
+    u8 unk5;
+    u8 unk6;
+    u8 unk7;
+    u8 unk8;
+    u8 unk9;
+    u8 unkA;
+    u8 unkB;
+};
+extern struct Unk_03003410 gUnk_03003410;
+
+/* Frame-callback dispatch table at 0x03003510 (mirrored from kleod). */
+typedef void (*IntrFunc)(void);
+struct Unk_03003510 {
+    /* 0x00 */ IntrFunc unk0[3];
+    /* 0x0C */ s32 unkC;
+    /* 0x10 */ IntrFunc unk10;
+    /* 0x14 */ u8 pad14[0x28 - 0x14];
+    /* 0x28 */ IntrFunc unk28[3];
+    /* 0x34 */ void *unk34;
+    /* 0x38 */ void *unk38;
+    /* 0x3C */ u32 unk3C;
+    /* 0x40 */ IntrFunc unk40;
+    /* 0x44 */ u32 unk44;
+    /* 0x48 */ u8 pad48[0x50 - 0x48];
+    /* 0x50 */ IntrFunc unk50[1];
+    /* 0x54 */ u8 pad54[0x78 - 0x54];
+    /* 0x78 */ u8 unk78;
+    /* 0x79 */ u8 unk79;
+    /* 0x7A */ u8 unk7A;
+    /* 0x7B */ u8 pad7B[0x7C - 0x7B];
+};
+extern struct Unk_03003510 gUnk_03003510;
+
+/* BG-tile/tilemap workbuffer pointers (mirrored from kleod). */
+struct Unk_03004790 {
+    /* 0x00 */ void *pBufBg0Tiles;
+    /* 0x04 */ u16 *pBufBg0Tilemap;
+    /* 0x08 */ void *pBufBg1Tiles;
+    /* 0x0C */ u16 *pBufBg1Tilemap;
+    /* 0x10 */ void *pBufBg2Tiles;
+    /* 0x14 */ u8 *pBufBg2Tilemap;
+};
+extern struct Unk_03004790 gUnk_03004790;
+
+/* BG2 column tile scratch buffer. */
+extern u8 gUnk_03004DB0[];
+
+/* Room/scroll bounds. */
+struct Unk_03005468 {
+    u16 unk0;
+    u16 unk2;
+    u16 unk4;
+    u16 unk6;
+};
+extern struct Unk_03005468 gUnk_03005468;
+
+/* World-load lockout flag. */
+extern u8 gUnk_03004660;
+
+/* Camera mode-switch state at 0x030007E0 (mirrored from kleod). */
+struct Unk_030007E0 {
+    /* 0x0 */ s16 unk0;
+    /* 0x2 */ s16 unk2;
+    /* 0x4 */ s16 unk4;
+    /* 0x6 */ s16 unk6;
+    /* 0x8 */ s16 unk8;
+    /* 0xA */ s16 unkA;
+    /* 0xC_0 */ u8 unkC_0 : 4;
+    /* 0xC_4 */ u8 unkC_4 : 4;
+    /* 0xD */ u8 padD[0x10 - 0xD];
+};
+extern struct Unk_030007E0 gUnk_030007E0;
+
+/* World-4 wobble state at 0x03005400 (partial). */
+struct Unk_03005400 {
+    /* 0x0 */ u8 pad0[0x2 - 0x0];
+    /* 0x2 */ u16 unk2;
+    /* 0x4 */ u8 pad4[0x6 - 0x4];
+    /* 0x6 */ u16 unk6;
+    /* 0x8 */ u8 pad8[0xA - 0x8];
+    /* 0xA */ u8 unkA;
+    /* 0xB */ u8 unkB;
+    /* 0xC */ u8 unkC;
+    /* 0xD */ u8 unkD;
+    /* 0xE_0 */ u8 unkE_0 : 1;
+    /* 0xE_1 */ u8 unkE_1 : 1;
+    /* 0xE_2 */ u8 unkE_2 : 1;
+    /* 0xE_3 */ u8 unkE_3 : 4;
+    /* 0xE_7 */ u8 unkE_7 : 1;
+    /* 0x0F */ u8 padF[0x14 - 0xF];
+    /* 0x14 */ u8 unk14;
+    /* 0x15 */ u8 pad15[0x16 - 0x15];
+    /* 0x16 */ s8 unk16;
+    /* 0x17 */ u8 pad17[0x18 - 0x17];
+};
+extern struct Unk_03005400 gUnk_03005400;
+
+/* Affine reference points at 0x03005440. */
+struct Unk_03005440 {
+    u16 unk0;
+    u16 unk2;
+    u16 unk4;
+    u16 unk6;
+};
+extern struct Unk_03005440 gUnk_03005440;
+
+/* Camera scroll auto-advance offsets. */
+struct Unk_030034E8 {
+    s32 unk0;
+    s32 unk4;
+};
+extern struct Unk_030034E8 gUnk_030034E8;
+extern u8 gUnk_030051B8;
+extern s32 gUnk_03005480;
+extern s32 gUnk_030007C0;
+extern u16 gUnk_03005474;
+
+/* Game-state struct at 0x03005220 (partial — fields used by current ports). */
+struct Unk_03005220 {
+    /* 0x00 */ u8 pad0[0x2E - 0x00];
+    /* 0x2E */ u8 unk2E;
+    /* 0x2F */ s8 unk2F;
+    /* 0x30 */ u8 unk30;
+    /* 0x31 */ u8 unk31;
+    /* 0x32 */ u8 pad32[0x46 - 0x32];
+    /* 0x46 */ u8 unk46;
+    /* 0x47 */ u8 pad47[0x64 - 0x47];
+};
+extern struct Unk_03005220 gUnk_03005220;
+
 #endif /* GUARD_STRUCTS_VARIABLES_H */
