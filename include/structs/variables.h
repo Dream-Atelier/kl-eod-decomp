@@ -515,4 +515,92 @@ struct Unk_0800BEF0 {
     s8 unk8;
 };
 
+/* sub_08003DC0 (SetupOAMSprite) — sprite-bookkeeping table at 0x080E2B64
+ * indexed [world-1][level-1][slot] giving per-slot {unk0[5]=room rec, unk28, unk29}. */
+struct Unk_080E2B64_0 {
+    u16 unk0;
+    u16 unk2;
+    u8 unk4;
+    u8 unk5;
+    u8 unk6;
+    u8 pad7[0x8 - 0x7];
+};
+struct Unk_080E2B64 {
+    struct Unk_080E2B64_0 unk0[5];
+    u8 unk28;
+    u8 unk29;
+    u8 pad2A[0x2C - 0x2A];
+};
+extern struct Unk_080E2B64 gUnk_080E2B64[6][8][0x64];
+
+/* Sprite-related side tables used by sub_08003DC0. */
+struct Unk_03000790 {
+    /* 0x0 */ u16 unk0;
+    /* 0x2 */ u16 unk2;
+    /* 0x4 */ u16 unk4;
+    /* 0x6 */ u16 unk6;
+    /* 0x8 */ u16 unk8;
+    /* 0xA */ u8 padA[0x10 - 0xA];
+}; /* size = 0x10 */
+extern struct Unk_03000790 gUnk_03000790[];
+
+struct Unk_03003610 {
+    u8 unk0;
+    u8 unk1;
+    u8 unk2;
+    u8 unk3;
+}; /* size = 0x4 */
+extern struct Unk_03003610 gUnk_03003610[];
+
+/* Loose globals first referenced by sub_08003DC0 (SetupOAMSprite). */
+extern s32 gUnk_030007D4;
+extern s32 gUnk_030007F0;
+extern s32 gUnk_030007F4;
+extern s32 gUnk_03000804;
+extern u8 gUnk_03000818;
+extern s32 gUnk_03000824;
+extern s32 gUnk_0300082C;
+extern u8 gUnk_030008EC;
+extern s32 gUnk_030008F0;
+extern s32 gUnk_030008F4;
+extern s32 gUnk_030008FC;
+extern s32 gUnk_03002904;
+extern s32 gUnk_03002908;
+extern s32 gUnk_0300290C;
+extern s32 gUnk_030034A4;
+extern s32 gUnk_030034C8;
+extern s32 gUnk_030034CC;
+extern s32 gUnk_030034D8;
+extern s32 gUnk_03003500;
+extern s32 gUnk_03003504;
+extern s32 gUnk_03003630;
+extern s32 gUnk_03003634;
+extern s32 gUnk_03003638;
+extern s32 gUnk_03003640;
+extern s32 gUnk_03004650;
+extern s32 gUnk_03004664;
+extern s32 gUnk_03004674;
+extern s32 gUnk_03004788;
+extern s32 gUnk_030047B4;
+extern s32 gUnk_030047BC;
+extern s32 gUnk_030047F8;
+extern u8 gUnk_03004C00;
+extern s32 gUnk_03004C04;
+extern u8 gUnk_03004C38;
+extern u8 gUnk_030051B4;
+extern s32 gUnk_030051C4;
+extern s32 gUnk_030051D4;
+extern s32 gUnk_030051D8;
+extern u8 gUnk_03005288;
+extern u8 gUnk_03005298;
+extern s32 gUnk_0300529C;
+extern u8 gUnk_030052A8;
+extern s32 gUnk_030052B0;
+extern s32 gUnk_030052B4;
+extern s32 gUnk_0300541C;
+extern s32 gUnk_03005424;
+extern s32 gUnk_03005430;
+extern u8 gUnk_0300547C;
+extern s32 gUnk_03005484;
+
 #endif /* GUARD_STRUCTS_VARIABLES_H */
