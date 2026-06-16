@@ -414,6 +414,8 @@ struct Unk_080D2E88 {
 };
 extern struct Unk_080D2E88 gUnk_080D2E88[6][7][0x14];
 extern u16 gUnk_08051EFE[6][9][3];
+/* ROM lookup table at gUnk_08051EFE + 0xEA = 0x08051FE8: per-(world, slot) row */
+extern u8 gLevelRoomData[6][8][0x1C];
 extern u8 gUnk_08052624[6][9];
 extern void gUnk_03003650;
 

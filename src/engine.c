@@ -61,7 +61,7 @@ INCLUDE_ASM("asm/nonmatchings/engine", UpdateAffineBGParams);
  * Used for iris-in/out screen transitions.
  */
 void UpdateWindowCircleEffect(void) {
-    u16 vcount = *(volatile u16 *)0x04000006;
+    u16 vcount = REG_VCOUNT;
     u32 radius = gSceneScriptState;
     u32 half_r = radius >> 1;
     s32 y = vcount - half_r;
@@ -76,12 +76,12 @@ void UpdateWindowCircleEffect(void) {
     sqr = BiosSquareRoot(val);
     hw = (u8)sqr >> 1;
     if (hw <= 0x78) {
-        u32 winAddr = 0x04000042;
+        u32 winAddr = (u32)&REG_WIN1H;
         volatile u16 *win;
         asm("" : "=r"(win) : "0"(winAddr));
         *win = ((0x78 - hw) << 8) | (hw + 0x78);
     } else {
-        *(volatile u16 *)0x04000042 = 0;
+        REG_WIN1H = 0;
     }
 }
 INCLUDE_ASM("asm/nonmatchings/engine", UpdateBGScrollWithWave);
@@ -936,7 +936,7 @@ void InitLevelFromROMTable(void) {
 
     var_r6 = 0;
 
-    gUnk_03004654 = ((u8(*)[8][0x1C])((u8 *)gUnk_08051EFE + 0xEA))[gUnk_03004C20.world - 1][gUnk_03004C20.level + 8];
+    gUnk_03004654 = gLevelRoomData[gUnk_03004C20.world - 1][gUnk_03004C20.level + 8];
     gUnk_03000800 = gUnk_08052624[gUnk_03004C20.world - 1][gUnk_03004C20.level];
 
     if (gUnk_03004C20.level == 0) {
