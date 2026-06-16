@@ -603,11 +603,11 @@ void WritePaletteColor(void) {
  *   no return value
  */
 void WriteStreamValue_Dual(void) {
-    u16 *dest1 = (u16 *)0x030034AC;
-    u8 **gp = (u8 **)0x03004D84;
+    u16 *dest1 = &gBg2XMag;
+    u8 **gp = &gStreamPtr;
 
     int val = ReadUnalignedU16(*gp + 2);
-    *(u16 *)0x03005420 = val;
+    gBg2YMag = val;
     *dest1 = val;
 
     *gp += 4;
@@ -797,7 +797,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGModeTiled);
  * Clears low 2 bits of gGfxBuffer[0], sets bit 1. Advances stream by 2.
  */
 void StreamCmd_SetRenderModeTiled(void) {
-    u8 *buf = *(u8 **)0x030034A0;
+    u8 *buf = (u8 *)gGfxBufferPtr;
     u8 val = buf[0];
     s32 mask = -4;
     mask &= val;
@@ -808,9 +808,9 @@ void StreamCmd_ClearRenderMode(void) {
     s8 *p;
     u8 **streamPtr;
 
-    p = *(s8 **)0x030034A0;
+    p = (s8 *)gGfxBufferPtr;
     *p &= -4;
-    streamPtr = (u8 **)0x03004D84;
+    streamPtr = &gStreamPtr;
     *streamPtr += 2;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
@@ -827,8 +827,8 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGScreenSize);
  * Advances stream by 6.
  */
 void StreamCmd_SetWindowRegs(void) {
-    vu16 *reg = (vu16 *)0x04000048;
-    u8 **streamPtrAddr = (u8 **)0x03004D84;
+    vu16 *reg = &REG_WININ;
+    u8 **streamPtrAddr = &gStreamPtr;
     u8 *stream = *streamPtrAddr;
 
     *reg = stream[2] | (stream[3] << 8);
@@ -863,7 +863,7 @@ void ProcessStreamCommand_50094(void) {
  *   no return value
  */
 void DispatchMusicStreamCommand(void) {
-    u8 *ptr = *(u8 **)0x03004D84;
+    u8 *ptr = gStreamPtr;
 
     if (ptr[2] <= 0x22) {
         m4aSongNumStart(ptr[2]);
@@ -871,7 +871,7 @@ void DispatchMusicStreamCommand(void) {
         m4aSongNumStart(ptr[2]);
     }
 
-    *(u8 **)0x03004D84 += 3;
+    gStreamPtr += 3;
 }
 /**
  * StreamCmd_StopSound: stream command to stop sound effects.
@@ -898,8 +898,8 @@ void StreamCmd_StopMusicAndDisableIRQ(void) {
  * m4aSoundVSyncOff. Advances stream by 2.
  */
 void StreamCmd_DisableVBlank(void) {
-    *(vu16 *)0x04000200 &= 0xFFFE; /* REG_IE &= ~INT_VBLANK */
-    *(vu16 *)0x04000004 &= 0xFFF7; /* REG_DISPSTAT &= ~VBLANK_IRQ */
+    REG_IE &= 0xFFFE; /* clear INT_VBLANK */
+    REG_DISPSTAT &= 0xFFF7; /* clear VBLANK_IRQ */
     m4aSoundVSyncOff();
     gStreamPtr += 2;
 }
@@ -923,22 +923,22 @@ void EnableVBlankHandler(void) {
  *   no return value
  */
 void EnableVBlankAndDispatchMusic(void) {
-    u8 **gp = (u8 **)0x03004D84;
+    u8 **gp = &gStreamPtr;
     u8 *ptr = *gp;
 
     if (ptr[2] <= 0x22) {
-        *(vu16 *)0x04000200 |= 1;
-        *(vu16 *)0x04000004 |= 8;
+        REG_IE |= 1;
+        REG_DISPSTAT |= 8;
         m4aSoundVSyncOn();
         m4aSongNumStart((*gp)[2]);
     } else {
-        *(vu16 *)0x04000200 |= 1;
-        *(vu16 *)0x04000004 |= 8;
+        REG_IE |= 1;
+        REG_DISPSTAT |= 8;
         m4aSoundVSyncOn();
         m4aSongNumStart((*gp)[2]);
     }
 
-    *(u8 **)0x03004D84 += 3;
+    gStreamPtr += 3;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_DisableVBlankAndStopMusic);
 /*

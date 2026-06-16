@@ -43,12 +43,12 @@ INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_WithWindowScroll);
  * via sub_08051A0C, then writes to REG_BLDY if within valid range (<=16).
  */
 void UpdateFadeEffect(void) {
-    vu8 *vcount_reg = (vu8 *)0x04000006;
-    u8 *entity = (u8 *)0x03002920;
+    vu8 *vcount_reg = &REG_VCOUNT_L;
+    u8 *entity = gEntityArray;
     u8 fade = sub_08051A0C(*vcount_reg, entity[0x08]);
 
     if (fade <= 16) {
-        *(vu16 *)0x04000052 = ((u32)fade << 8) | fade;
+        REG_BLDALPHA = ((u32)fade << 8) | fade;
     }
 }
 INCLUDE_ASM("asm/nonmatchings/engine", HBlankScrollUpdate);
