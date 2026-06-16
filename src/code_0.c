@@ -69,7 +69,69 @@ void TransformEntityScreenPositions(void) {
         }
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_0", TransformSingleEntityToScreen);
+/**
+ * TransformSingleEntityToScreen: project entity arg0's BG2 position into
+ * screen space, applying the BG2 affine inverse (mag) and a per-sprite Y
+ * offset selected by the sprite's shape_size class.
+ */
+void TransformSingleEntityToScreen(u8 arg0, s8 arg1, s8 arg2) {
+    s32 temp_r0;
+    s32 temp_r0_2;
+    s16 temp_r1;
+    s16 temp_r2;
+    s32 var_r2;
+    s32 var_r4;
+    struct Unk_0300466C_4 *var_r0;
+
+    arg1++, arg1--; /* fake */
+    gUnk_03002920[arg0].xPosScreen = gUnk_03002920[arg0].xPosBg2 - arg1 - gUnk_03003430.bg2HOfs;
+    gUnk_03002920[arg0].yPosScreen = gUnk_03002920[arg0].yPosBg2 - arg2 - gUnk_03003430.bg2VOfs;
+
+    temp_r1 = gUnk_03003430.bg2HOfs - gUnk_03002920[arg0].xPosScreen;
+    temp_r2 = gUnk_03003430.bg2VOfs - gUnk_03002920[arg0].yPosScreen;
+
+    temp_r0 = temp_r1 * gBg2XMag;
+    if (temp_r0 < 0) {
+        temp_r0 += 0xFF;
+    }
+    var_r4 = temp_r0 >> 8;
+
+    temp_r0_2 = temp_r2 * gBg2YMag;
+    if (temp_r0_2 < 0) {
+        temp_r0_2 += 0xFF;
+    }
+    var_r2 = temp_r0_2 >> 8;
+
+    var_r4 = gUnk_03003430.bg2HOfs - var_r4;
+    if (arg0 > 0xC) {
+        var_r0 = (void *)gUnk_030051DC[arg0 - 0xD].unk4;
+    } else {
+        var_r0 = gUnk_08078FC8[arg0].unk4;
+    }
+
+    switch (var_r0->shape_size & 0xF) {
+        case 3:
+        case 11:
+            var_r2 = gUnk_03003430.bg2VOfs - var_r2 + ((0x100 - gBg2YMag) >> 3);
+            break;
+        case 1:
+        case 6:
+        case 8:
+            var_r2 = gUnk_03003430.bg2VOfs - var_r2 + ((0x100 - gBg2YMag) >> 5);
+            break;
+        case 0:
+        case 4:
+        case 5:
+            var_r2 = gUnk_03003430.bg2VOfs - var_r2 + ((0x100 - gBg2YMag) >> 6);
+            break;
+        default:
+            var_r2 = gUnk_03003430.bg2VOfs - var_r2 + ((0x100 - gBg2YMag) >> 4);
+            break;
+    }
+
+    gUnk_03002920[arg0].xPosScreen = var_r4;
+    gUnk_03002920[arg0].yPosScreen = var_r2;
+}
 INCLUDE_ASM("asm/nonmatchings/code_0", TransformAllEntitiesToScreen);
 INCLUDE_ASM("asm/nonmatchings/code_0", HandlePauseMenuInput);
 INCLUDE_ASM("asm/nonmatchings/code_0", UpdateUIState); /* UpdateUIState */
