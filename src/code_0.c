@@ -1508,7 +1508,324 @@ void TransformAllEntitiesToScreen(s8 arg0, s8 arg1) {
 }
 INCLUDE_ASM("asm/nonmatchings/code_0", HandlePauseMenuInput);
 INCLUDE_ASM("asm/nonmatchings/code_0", UpdateUIState); /* UpdateUIState */
-INCLUDE_ASM("asm/nonmatchings/code_0", RenderCharacterTiles); /* RenderCharacterTiles */
+extern void ClearOamEntries6Plus(void);
+extern void SetPaletteAnimEntry(s32, u8); /* SetPaletteAnimEntry */
+extern void DecompressAndLoadLevel(u8); /* DecompressAndLoadLevel */
+extern u8 gUnk_08061FC8[0x80];
+extern u8 gUnk_080627C8[0x80];
+extern u8 gUnk_08063368[0x80];
+extern u8 gUnk_080635E8[0x80];
+extern u8 gUnk_08063FE8[0x80];
+extern u8 gUnk_08064868[0x200];
+extern u8 gUnk_08064A68[0x200];
+extern u8 gUnk_080B8F68[0x80];
+extern u8 gUnk_080B9068[0x80];
+extern u8 gUnk_080B90E8[0x80];
+extern u8 gUnk_080B9168[0x80];
+extern u8 gUnk_080B91E8[0x80];
+extern u8 gUnk_080B9268[0x80];
+extern u8 gUnk_080B92E8[0x80];
+extern u8 gUnk_080B9468[0x200];
+extern u8 gUnk_080B9668[0x200];
+
+/**
+ * RenderCharacterTiles: per-room sprite setup pass.  Resets all per-sprite
+ * tracker globals, walks the level's sprite table at gUnk_080E2B64 calling
+ * SetupOAMSprite for each, then walks gUnk_03002920[D..count] dispatching
+ * tile-VRAM DMA blits or palette-anim entries by sprite unk11 subtype.
+ */
+void RenderCharacterTiles(void) {
+    s32 sp14;
+    s32 sp18;
+    s32 sp1C;
+    s32 sp20;
+    s32 sp24;
+    s32 sp28;
+    s32 temp_r3_3;
+    u32 var_sb;
+
+    sp14 = 0;
+    sp18 = 0;
+    sp1C = 0;
+    sp20 = 0;
+    sp24 = 0;
+    sp28 = 0;
+
+    ClearOamEntries6Plus();
+    gUnk_03005428 = 0xD;
+
+    gUnk_03005298 = gUnk_0300528C = gUnk_03005288 = gUnk_030047B8 = gUnk_03005470 = gUnk_030034E0 = gUnk_030052A8 = gUnk_03004C38
+        = gUnk_03003610[0].unk2 = gUnk_03003610[0].unk3 = 0;
+
+    gUnk_03005484 = gUnk_03004650 = gUnk_030007F4 = gUnk_0300290C = gUnk_030051D4 = gUnk_030034C8 = gUnk_03003500 = gUnk_03004664
+        = gUnk_030051D8 = gUnk_03004788 = gUnk_03003630 = gUnk_03004674 = gUnk_03003634 = gUnk_03005430 = gUnk_030034D8 = gUnk_0300541C
+        = gUnk_030034CC = gUnk_0300529C = gUnk_03000804 = gUnk_0300082C = gUnk_030047B4 = gUnk_03003640 = gUnk_030008F4 = gUnk_030008F0
+        = gUnk_030007F0 = gUnk_03004C04 = gUnk_03000824 = gUnk_03005424 = gUnk_030052B4 = gUnk_030051C4 = gUnk_030034A4 = gUnk_030052B0
+        = gUnk_03003638 = gUnk_03002908 = gUnk_030047BC = gUnk_030007D4 = gUnk_030047F8 = gUnk_03003504 = gUnk_03002904 = gUnk_030008FC
+        = 0;
+
+    for (var_sb = 0; var_sb < 3; var_sb++) {
+        gUnk_03003610[var_sb].unk1 = 0;
+        gUnk_03003610[var_sb].unk0 = 0;
+    }
+
+    gUnk_0300547C = gUnk_03000818 = gUnk_030051B4 = gUnk_030008EC = 0;
+
+    for (var_sb = 0; gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb].unk0[0].unk0 != 0xFFFF; var_sb++) {
+        SetupOAMSprite(gUnk_03005428++, gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb].unk28,
+                       gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb].unk0[gUnk_03004C20.room - 1].unk0,
+                       gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb].unk0[gUnk_03004C20.room - 1].unk2,
+                       gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb].unk0[gUnk_03004C20.room - 1].unk4, 0,
+                       gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb].unk0[gUnk_03004C20.room - 1].unk5,
+                       gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb].unk0[gUnk_03004C20.room - 1].unk6,
+                       gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb].unk29);
+
+        if ((gUnk_03002920[gUnk_03005428 - 1].unk11 <= 0x37 || gUnk_03002920[gUnk_03005428 - 1].unk11 >= 0x42)) {
+            if (gUnk_03002920[gUnk_03005428 - 1].unk11 <= 8 || gUnk_03002920[gUnk_03005428 - 1].unk11 >= 11) {
+                DecompressAndLoadLevel(gUnk_03005428 - 1);
+            }
+        }
+    }
+
+    if (gUnk_03004C20.unkA == 1) {
+        gUnk_03005220.unk1A = gUnk_03002920->xPosBg2;
+        gUnk_03005220.unk10 = gUnk_03002920->xPosBg2 << 0x10;
+        gUnk_03005220.unk2F = 0;
+    }
+    gUnk_03004C10 = NULL;
+
+    for (var_sb = 0xD; var_sb < gUnk_03005428; var_sb++) {
+        switch (gUnk_03002920[var_sb].unk11 - 6) {
+            case 0x5:
+                if (gUnk_03004C20.level != 8) {
+                    SetPaletteAnimEntry(var_sb, 3);
+                } else {
+                    SetPaletteAnimEntry(var_sb, 1);
+                }
+                break;
+
+            case 0x70:
+            case 0x75:
+                SetPaletteAnimEntry(var_sb, 1);
+                break;
+
+            case 0x0:
+            case 0x2:
+                if (sp14 == 0) {
+                    SetPaletteAnimEntry(var_sb, 0);
+                    sp14 = 1;
+                }
+                break;
+
+            case 0x3D:
+                if (sp18 == 0) {
+                    SetPaletteAnimEntry(var_sb, 0);
+                    sp18 = 1;
+                }
+                break;
+
+            case 0x3B:
+                if (gUnk_03005220.unk3_5 != 0) {
+                    SetPaletteAnimEntry(var_sb, 2);
+                } else {
+                    SetPaletteAnimEntry(var_sb, 0);
+                }
+                break;
+
+            case 0x29:
+            case 0x2A:
+            case 0x2B:
+            case 0x2C:
+            case 0x2D:
+            case 0x39:
+            case 0x43:
+            case 0x71:
+            case 0x72:
+            case 0x73:
+            case 0x74:
+            case 0x76:
+            case 0x77:
+                SetPaletteAnimEntry(var_sb, 0);
+                break;
+
+            case 0x6B:
+                if (gUnk_03002920[var_sb].unkC_4 == 0) {
+                    DmaCopy16(
+                        3, &gUnk_08063FE8,
+                        OBJ_VRAM0
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                        0x80);
+                } else {
+                    DmaCopy16(
+                        3, &gUnk_080B9268,
+                        OBJ_VRAM0
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                        0x80);
+                }
+                break;
+
+            case 0x6C:
+                if (gUnk_03002920[var_sb].yPosBg2 & 1) {
+                    if (gUnk_03002920[var_sb].unk9 == 1) {
+                        if (gUnk_03002920[var_sb].unkC_4 == 0) {
+                            DmaCopy16(
+                                3, &gUnk_080635E8,
+                                OBJ_VRAM0
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)]
+                                       << 5),
+                                0x80);
+                            DmaCopy16(
+                                3, &gUnk_080635E8,
+                                OBJ_VRAM0
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x70 / 2)]
+                                       << 5),
+                                0x80);
+                            DmaCopy16(
+                                3, &gUnk_080635E8,
+                                OBJ_VRAM0
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x78 / 2)]
+                                       << 5),
+                                0x80);
+                        } else {
+                            DmaCopy16(
+                                3, &gUnk_080B9068,
+                                OBJ_VRAM0
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)]
+                                       << 5),
+                                0x80);
+                            DmaCopy16(
+                                3, &gUnk_080B9068,
+                                OBJ_VRAM0
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x70 / 2)]
+                                       << 5),
+                                0x80);
+                            DmaCopy16(
+                                3, &gUnk_080B9068,
+                                OBJ_VRAM0
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x78 / 2)]
+                                       << 5),
+                                0x80);
+                        }
+                    }
+                } else {
+                    if (gUnk_03002920[var_sb].unkC_4 == 0) {
+                        DmaCopy16(
+                            3, &gUnk_08061FC8,
+                            OBJ_VRAM0
+                                + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                            0x80);
+                    } else {
+                        DmaCopy16(
+                            3, &gUnk_080B8F68,
+                            OBJ_VRAM0
+                                + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                            0x80);
+                    }
+                    break;
+                }
+                break;
+
+            case 0x6E:
+                gUnk_03002920[var_sb].unkC_4 = gUnk_03005220.unk3_6;
+                if (gUnk_03005220.unk3_6 == 0) {
+                    DmaCopy16(
+                        3, &gUnk_08063368,
+                        OBJ_VRAM0
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                        0x80);
+                } else {
+                    DmaCopy16(
+                        3, &gUnk_080B92E8,
+                        OBJ_VRAM0
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                        0x80);
+                }
+                break;
+
+            case 0x6D:
+                temp_r3_3 = ((s32)gUnk_03004C20.unk8 >> ((gUnk_03004C20.room - 1) * 2)) & 3;
+                if (gUnk_03004C10 == NULL) {
+                    gUnk_03004C10 = OBJ_VRAM0
+                        + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5);
+                }
+
+                if (temp_r3_3 == 0) {
+                    DmaCopy16(3, &gUnk_080627C8, gUnk_03004C10, 0x80);
+                } else if (temp_r3_3 == 1) {
+                    DmaCopy16(3, &gUnk_080B90E8, gUnk_03004C10, 0x80);
+                } else if (temp_r3_3 == 2) {
+                    DmaCopy16(3, &gUnk_080B9168, gUnk_03004C10, 0x80);
+                } else {
+                    DmaCopy16(3, &gUnk_080B91E8, gUnk_03004C10, 0x80);
+                }
+                break;
+
+            case 0x30:
+                if ((gUnk_03002920[var_sb].unkC_4 == 3) || (gUnk_03002920[var_sb].unkC_4 == 1)) {
+                    DmaCopy16(
+                        3, &gUnk_08064868,
+                        OBJ_VRAM0
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                        0x200);
+                } else {
+                    DmaCopy16(
+                        3, &gUnk_080B9468,
+                        OBJ_VRAM0
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                        0x200);
+                }
+                break;
+
+            case 0x6F:
+                if ((gUnk_03002920[var_sb].unkC_4 == 3) || (gUnk_03002920[var_sb].unkC_4 == 1)) {
+                    DmaCopy16(
+                        3, &gUnk_08064A68,
+                        OBJ_VRAM0
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                        0x200);
+                } else {
+                    DmaCopy16(
+                        3, &gUnk_080B9668,
+                        OBJ_VRAM0
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                        0x200);
+                }
+                break;
+
+            case 0x32:
+                if (sp1C == 0) {
+                    SetPaletteAnimEntry(var_sb, 0);
+                    sp1C = 1;
+                }
+                break;
+
+            case 0x34:
+                if (sp20 == 0) {
+                    SetPaletteAnimEntry(var_sb, 2);
+                    sp20 = 1;
+                }
+                break;
+
+            case 0x33:
+                if (sp24 == 0) {
+                    SetPaletteAnimEntry(var_sb, 1);
+                    sp24 = 1;
+                }
+                break;
+
+            case 0x28:
+                if (sp28 == 0) {
+                    SetPaletteAnimEntry(var_sb, 0);
+                    sp28 = 1;
+                }
+                break;
+
+            case 0x20:
+                SetPaletteAnimEntry(var_sb, 0);
+                break;
+        }
+    }
+}
 /**
  * UpdateTextScroll: advance a packed (X|Y<<16) position one Bresenham step
  * along a fixed direction toward arg1's endpoint, using gUnk_030034DC as

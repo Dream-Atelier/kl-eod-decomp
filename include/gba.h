@@ -76,6 +76,19 @@
 
 #define DmaFill16(dmaNum, value, dest, size) DMA_FILL(dmaNum, value, dest, size, 16)
 #define DmaFill32(dmaNum, value, dest, size) DMA_FILL(dmaNum, value, dest, size, 32)
+
+/* DmaCopy16/32 — kleod-canonical no-wait variant (see [[feedback-dma-macro-no-wait-variant]]). */
+#define DMA_COPY(dmaNum, src, dest, size, bit)                                              \
+    DmaSet(dmaNum,                                                                          \
+           src,                                                                             \
+           dest,                                                                            \
+           (DMA_ENABLE | DMA_START_NOW | DMA_##bit##BIT | DMA_SRC_INC | DMA_DEST_INC) << 16 \
+         | ((size)/(bit/8)))
+
+#define DmaCopy16(dmaNum, src, dest, size) DMA_COPY(dmaNum, src, dest, size, 16)
+#define DmaCopy32(dmaNum, src, dest, size) DMA_COPY(dmaNum, src, dest, size, 32)
 /* clang-format on */
+
+#define OBJ_VRAM0                  (void *)(VRAM + 0x10000)
 
 #endif /* GUARD_GBA_H */
