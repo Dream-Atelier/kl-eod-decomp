@@ -132,7 +132,49 @@ void TransformSingleEntityToScreen(u8 arg0, s8 arg1, s8 arg2) {
     gUnk_03002920[arg0].xPosScreen = var_r4;
     gUnk_03002920[arg0].yPosScreen = var_r2;
 }
-INCLUDE_ASM("asm/nonmatchings/code_0", TransformAllEntitiesToScreen);
+/**
+ * TransformAllEntitiesToScreen: project every active entity into screen
+ * space.  Entities 0..0xA always get the affine transform; entities 0xD..
+ * gUnk_03005428 are filtered by their unkF (sprite type) and affineEnable
+ * fields, with bounds-based culling that sets unk10 (visible flag).
+ */
+void TransformAllEntitiesToScreen(s8 arg0, s8 arg1) {
+    s32 var_r5;
+
+    for (var_r5 = 0; var_r5 < 0xB; var_r5++) {
+        TransformSingleEntityToScreen(var_r5, arg0, arg1);
+    }
+
+    for (var_r5 = 0xD; var_r5 < gUnk_03005428; var_r5++) {
+        if (gUnk_03002920[var_r5].unkF == 0x1A) {
+            gUnk_03002920[var_r5].unk10 = 0;
+            continue;
+        }
+
+        if (gUnk_03002920[var_r5].affineEnable == 1) {
+            if (gUnk_03002920[var_r5].unkF < 0x19) {
+                TransformSingleEntityToScreen(var_r5, arg0, arg1);
+                if (gUnk_03002920[var_r5].unk11 != 0) {
+                    if ((gUnk_03002920[var_r5].xPosScreen >= (DISPLAY_WIDTH + 67) && gUnk_03002920[var_r5].xPosScreen <= (u16)(-68))
+                        || (gUnk_03002920[var_r5].yPosScreen >= (DISPLAY_HEIGHT + 96)
+                            && gUnk_03002920[var_r5].yPosScreen <= (u16)(-68))) {
+                        gUnk_03002920[var_r5].unk10 = 0;
+                    } else {
+                        gUnk_03002920[var_r5].unk10 = 1;
+                    }
+                }
+            }
+        } else {
+            if (gUnk_03002920[var_r5].unkF == 0x1C) {
+                gUnk_03002920[var_r5].unk10 = 0;
+            } else {
+                gUnk_03002920[var_r5].xPosScreen = gUnk_03002920[var_r5].xPosBg2;
+                gUnk_03002920[var_r5].yPosScreen = gUnk_03002920[var_r5].yPosBg2;
+                gUnk_03002920[var_r5].unk10 = 1;
+            }
+        }
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_0", HandlePauseMenuInput);
 INCLUDE_ASM("asm/nonmatchings/code_0", UpdateUIState); /* UpdateUIState */
 INCLUDE_ASM("asm/nonmatchings/code_0", RenderCharacterTiles); /* RenderCharacterTiles */
