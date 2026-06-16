@@ -155,6 +155,12 @@ extern void *gUnk_03005290;
 /* Sprite/palette state byte (kleod-canonical, address 0x030052A0). */
 extern u8 gUnk_030052A0;
 
+/* HandlePauseMenuInput / UpdateUIState entity-link state. */
+extern u8 gUnk_030047B8;
+extern u8 gUnk_0300528C;
+extern u8 gUnk_03005470;
+extern u8 gUnk_030034BC;
+
 struct Unk_03003510 {
     /* 0x00 */ void (*unk0[3])(void);
     /* 0x0C */ s32 unkC;
