@@ -15,7 +15,7 @@ void UpdateSceneTransition(void);
  * and switching to scene transition when complete.
  */
 void FadeOutController(void) {
-    u32 *sceneCtrl = (u32 *)0x03004C20;
+    u32 *sceneCtrl = (u32 *)gControlBlock;
     u32 fadeTimer;
     u8 *fadeCounter;
 
@@ -23,7 +23,7 @@ void FadeOutController(void) {
         UpdateBGScrollRegisters();
 
     fadeTimer = *(vu32 *)sceneCtrl;
-    fadeCounter = (u8 *)0x03005498;
+    fadeCounter = &gFrameCounter;
 
     if (fadeTimer > 0x0F)
         *fadeCounter = (fadeTimer - 0x10) >> 1;
@@ -468,7 +468,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", LoadGfxStreamEntry); /* ProcessStreamOpcode 
  *   no return value
  */
 void DispatchStreamCommand_C0EC(void) {
-    u8 **gp = (u8 **)0x03004D84;
+    u8 **gp = &gStreamPtr;
     u8 *ptr = *gp;
     u8 byte = ptr[2];
     u8 val = byte & 0x7F;
@@ -589,7 +589,7 @@ void StreamCmd_SetBGScroll(void) {
  *   no return value (writes directly to GBA palette RAM at 0x05000000)
  */
 void WritePaletteColor(void) {
-    u8 **gp = (u8 **)0x03004D84;
+    u8 **gp = &gStreamPtr;
     u16 color = ReadUnalignedU16(*gp + 3);
     u8 *ptr = *gp;
     *(u16 *)(BG_PAL_RAM + ptr[2] * 2) = color;

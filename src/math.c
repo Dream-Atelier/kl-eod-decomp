@@ -1,4 +1,5 @@
 #include "global.h"
+#include "game.h"
 #include "include_asm.h"
 
 extern s16 sub_080518A4(s32, s16);
@@ -70,5 +71,5 @@ void m4aSoundMain(void);
 void VBlankHandlerMinimal(void) {
     m4aSoundVSync();
     m4aSoundMain();
-    *(vu16 *)0x03007FF8 = 1;
+    gIMEAcknowledge = 1;
 }
