@@ -1507,7 +1507,299 @@ void TransformAllEntitiesToScreen(s8 arg0, s8 arg1) {
     }
 }
 INCLUDE_ASM("asm/nonmatchings/code_0", HandlePauseMenuInput);
-INCLUDE_ASM("asm/nonmatchings/code_0", UpdateUIState); /* UpdateUIState */
+extern void InitGameplayState(void); /* InitGameplayState — literal-pool stored callback */
+extern void EntityPositionFromROMTable(u8); /* EntityPositionFromROMTable */
+extern void EntityScrollBoundsCheck(u8); /* EntityScrollBoundsCheck */
+extern void EntityItemDrop(s32); /* EntityItemDrop */
+extern void EntityTimerAction(u8); /* EntityTimerAction */
+extern void EntityComplexBehavior(u8); /* EntityComplexBehavior */
+extern void EntityMovingObstacle(u8); /* sub_0801FFF0 */
+extern void EntityBossPhaseA(u8); /* sub_080202D4 */
+extern void EntityCrushingBlock(u8); /* EntityCrushingBlock */
+extern void EntityBossPhaseB(u8); /* EntityBossPhaseB */
+extern void EntitySpringBoard(u8); /* sub_0802192C */
+extern void EntityCutsceneActor(u8); /* EntityCutsceneActor */
+extern void EntityBossPhaseD(u8); /* EntityBossPhaseD */
+extern void EntityMiniBoss(u8); /* sub_08023988 */
+extern void EntityBossPhaseC(s32); /* sub_08021DAC */
+extern void EntityMiniBossAlt(u8); /* sub_08023BC0 */
+extern void UpdateEntitySpawnState(u8); /* sub_0803CE14 */
+extern void UpdatePaletteAnimations(void); /* UpdatePaletteAnimations */
+extern void VBlankCallback_Credits(void); /* VBlankCallback_Credits */
+extern void ApplyEntityTileMovement(void); /* ApplyEntityTileMovement */
+extern void TransitionFadeOutWithMusic(void); /* TransitionFadeOutWithMusic */
+extern void TransitionGameOver(void); /* TransitionGameOver */
+extern void SetPaletteAnimEntry(s32, u8);
+extern void PlayerFollowEntityMovement(u8);
+extern void EntityGravityAndFloorCheck(u8);
+
+/**
+ * UpdateUIState: per-frame entity dispatcher.  On START press (with
+ * other guards) saves the active VBlank-callback array and pushes the
+ * pause-menu sub-state (InitGameplayState / AnimatePaletteEffects).
+ * Otherwise sweeps gUnk_03002920[0..count] dispatching one of ~20
+ * entity-type-specific update handlers per slot based on unk11.
+ */
+void UpdateUIState(void) {
+    s32 var_r6;
+    struct Unk_03002920 *temp_r1_2;
+    struct Unk_03002920 *temp_r1_5;
+    u32 var_r2;
+
+    if (gUnk_03005220.unk0_0 == 0) {
+        gUnk_03002920->priority = 0;
+    }
+
+    if ((gNewKeys & START_BUTTON) && (gUnk_030034E4 == 0) && (gUnk_03005220.unk46 == 0) && (gUnk_03005400.unkC != 0)) {
+        for (var_r2 = 0; var_r2 < 10; var_r2++) {
+            gUnk_03003510.unk50[var_r2] = gUnk_03003510.unk0[var_r2];
+        }
+
+        gUnk_03003510.unk7A = gUnk_03003510.unk78;
+        if ((gUnk_03004C20.world == 5) && ((gUnk_03005400.unkA == 5) || (gUnk_03005400.unkA == 7) || (gUnk_03005400.unkA == 9))) {
+            gUnk_030034BC = 1;
+        } else {
+            gUnk_030034BC = 0;
+        }
+
+        gUnk_03003410.unk4 = 1;
+        gUnk_03003510.unk28[0] = InitGameplayState;
+        gUnk_03003510.unk28[1] = AnimatePaletteEffects;
+        gUnk_03003510.unk28[2] = (void (*)())1;
+        gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
+        gUnk_03003510.unk79 = 3;
+        gUnk_03003510.unk78 = 1;
+        gUnk_03003510.unk0[0] = NULL;
+        return;
+    }
+
+    UpdatePaletteAnimations();
+
+    for (var_r6 = 0; var_r6 < gUnk_03005428; var_r6++) {
+        if (gUnk_03002920[var_r6].unk11 == 7) {
+            if (gUnk_03002920[var_r6].unkF == 0x1C) {
+                if (gUnk_03002920[var_r6].unk8 == 0) {
+                    if (gUnk_03005400.unk2 < 0xE10) {
+                        gUnk_03005400.unk2 += 1;
+                    }
+                    if (gUnk_03005400.unk2 == 0xE10) {
+                        gUnk_03002920[var_r6].unkF = 0x19;
+                        gUnk_03005400.unk2 = 0;
+                    }
+                }
+            }
+        }
+
+        if (gUnk_03002920[var_r6].unkF != 0x1C) {
+            if (gUnk_03002920[var_r6].unk11 != 0) {
+                gUnk_03002920[var_r6].affineHFlip_matrixNum = gUnk_03002920[var_r6].unkC_2;
+                gUnk_03002920[var_r6].affineDouble = 0;
+
+                switch (gUnk_03002920[var_r6].unk11 - 7) {
+                    case 0x4:
+                    case 0x6F:
+                    case 0x70:
+                    case 0x71:
+                        if (gUnk_03004C20.world == 2) {
+                            if (gUnk_03002920[var_r6].unkF == 0x13) {
+                                gUnk_03002920[var_r6].affineHFlip_matrixNum = gUnk_03005288;
+                            }
+                        }
+                        sub_08016EEC((u8)var_r6);
+                        break;
+
+                    case 0x0:
+                        gUnk_03002920[var_r6].affineHFlip_matrixNum = 4;
+                        gUnk_03002920[var_r6].affineDouble = 1;
+                        EntityPositionFromROMTable((u8)var_r6);
+                        break;
+
+                    case 0x9:
+                        switch (gUnk_03002920[var_r6].unkF) {
+                            case 0:
+                                break;
+
+                            case 25:
+                                SetPaletteAnimEntry(var_r6, 0);
+                                gUnk_03002920[var_r6].unk10 = 1;
+                                gUnk_03002920[var_r6].unkF = 0;
+                                break;
+                        }
+                        break;
+
+                    case 0xA:
+                        EntityScrollBoundsCheck((u8)var_r6);
+                        break;
+
+                    case 0xB:
+                        EntityItemDrop(var_r6);
+                        break;
+
+                    case 0xC:
+                        EntityTimerAction((u8)var_r6);
+                        break;
+
+                    case 0xD:
+                        EntityComplexBehavior((u8)var_r6);
+                        break;
+
+                    case 0xF:
+                        EntityMovingObstacle((u8)var_r6);
+                        break;
+
+                    case 0xE:
+                        gUnk_03002920[var_r6].affineEnable = 1;
+                        gUnk_03002920[var_r6].affineHFlip_matrixNum = 3;
+                        if (gUnk_03000830[0x12 - gUnk_0300363C].unk0 == 0) {
+                            gUnk_03002920[var_r6].unkF = 0;
+                            gUnk_03002920[var_r6].unk10 = 1;
+                            gUnk_03002920[var_r6].xPosBg2 = gUnk_03002920[0x12].xPosBg2;
+                            gUnk_03002920[var_r6].yPosBg2 = gUnk_03002920[0x12].yPosBg2 - 0x3C;
+                        } else {
+                            gUnk_03002920[var_r6].unkF = 0x1A;
+                            gUnk_03002920[var_r6].unk10 = 0;
+                        }
+                        break;
+
+                    case 0x10:
+                        gUnk_03002920[var_r6].affineDouble = 1;
+                        EntityBossPhaseA((u8)var_r6);
+                        break;
+
+                    case 0x11:
+                        EntityBossPhaseB((u8)var_r6);
+                        break;
+
+                    case 0x12:
+                        EntityCrushingBlock((u8)var_r6);
+                        break;
+
+                    case 0x13:
+                        EntitySpringBoard((u8)var_r6);
+                        break;
+
+                    case 0x16:
+                        EntityCutsceneActor((u8)var_r6);
+                        break;
+
+                    case 0x15:
+                        gUnk_03002920[var_r6].affineHFlip_matrixNum = 5;
+                        gUnk_03002920[var_r6].affineDouble = 1;
+                        EntityBossPhaseD((u8)var_r6);
+                        break;
+
+                    case 0x17:
+                        gUnk_03002920[var_r6].affineHFlip_matrixNum = 6;
+                        gUnk_03003590[3].unk5_0 = gUnk_03002920[var_r6].unkC_2;
+                        EntityMiniBoss((u8)var_r6);
+                        break;
+
+                    case 0x14:
+                        EntityBossPhaseC(var_r6);
+                        break;
+
+                    case 0x18:
+                        if (var_r6 > 0x18) {
+                            gUnk_03002920[var_r6].affineHFlip_matrixNum = 10;
+                        } else {
+                            gUnk_03002920[var_r6].affineHFlip_matrixNum = var_r6 - 0xF;
+                        }
+                        EntityMiniBossAlt((u8)var_r6);
+                        break;
+
+                    case 0x1B:
+                        gUnk_030034A8((u8)var_r6);
+                        break;
+
+                    case 0x2:
+                    case 0x3:
+                        EntityGravityAndFloorCheck((u8)var_r6);
+                        break;
+
+                    case 0x28:
+                    case 0x29:
+                    case 0x2A:
+                    case 0x2B:
+                    case 0x2C:
+                        PlayerFollowEntityMovement((u8)var_r6);
+                        break;
+
+                    case 0x2F:
+                        gUnk_03002920[var_r6].affineHFlip_matrixNum = var_r6 - 0x13;
+                        gUnk_03003590[var_r6 - 0x16].unk2 = 0x40;
+                        gUnk_03003590[var_r6 - 0x16].unk0 = 0x40;
+                        gUnk_03003590[var_r6 - 0x16].unk5_0 = gUnk_03002920[var_r6].unkC_2;
+
+                        if (gUnk_03002920[var_r6].unkC_2 & 2) {
+                            gUnk_03003590[var_r6 - 0x16].unk4 = 0x80;
+                        } else {
+                            gUnk_03003590[var_r6 - 0x16].unk4 = 0;
+                        }
+                        break;
+
+                    case 0x3D:
+                    case 0x3E:
+                        temp_r1_2 = &gUnk_03002920[gUnk_080E2A84[gUnk_03004C20.world - 1]
+                                                                [var_r6 - gUnk_080E2A84[gUnk_03004C20.world - 1][0]]];
+                        if (((temp_r1_2->unk11 != 0x22) && (temp_r1_2->unkF == 0x1C)) || (temp_r1_2->unkF == 0x19)) {
+                            gUnk_03002920[var_r6].xPosBg2 = 0x200;
+                            break;
+                        }
+
+                        gUnk_03002920[var_r6].xPosBg2 = temp_r1_2->xPosBg2;
+                        gUnk_03002920[var_r6].yPosBg2
+                            = gUnk_03002920[gUnk_080E2A84[gUnk_03004C20.world - 1][var_r6 - gUnk_080E2A84[gUnk_03004C20.world - 1][0]]]
+                                  .yPosBg2
+                            & ~7;
+
+                        temp_r1_5 = &gUnk_03002920[gUnk_080E2A84[gUnk_03004C20.world - 1]
+                                                                [var_r6 - gUnk_080E2A84[gUnk_03004C20.world - 1][0]]];
+                        if (temp_r1_5->unk11 == 0x22) {
+                            if (temp_r1_5->unkC_2 == 0) {
+                                gUnk_03002920[var_r6].xPosBg2 -= 6;
+                            } else {
+                                gUnk_03002920[var_r6].xPosBg2 += 9;
+                            }
+
+                            gUnk_03002920[var_r6].affineHFlip_matrixNum = 5;
+                            gUnk_03002920[var_r6].affineDouble = 1;
+                            gUnk_03003590[2].unk0 = 0x100;
+                            gUnk_03003590[2].unk2 = 0x80;
+                        }
+
+                        while (1) {
+                            u32 tmp2 = gUnk_03004790.pBufBg2Tilemap[(gUnk_03002920[var_r6].xPosBg2 >> 3)
+                                                                    + ((gUnk_03002920[var_r6].yPosBg2 >> 3) * gUnk_03003430.unk48)];
+                            if (gUnk_03004654[0x1B] <= tmp2) {
+                                gUnk_03002920[var_r6].yPosBg2 += 0xA;
+                                break;
+                            }
+
+                            gUnk_03002920[var_r6].yPosBg2 += 8;
+                        }
+
+                        break;
+
+                    case 0x19:
+                        UpdateEntitySpawnState((u8)var_r6);
+                        break;
+                }
+            }
+        }
+    }
+
+    if (gUnk_03005400.unkE_7 && (gUnk_03003510.unk10 != TransitionGameOver) && (gUnk_03003510.unk10 != TransitionFadeOutWithMusic)) {
+        VBlankCallback_Credits();
+    }
+
+    if (gUnk_03005220.unk37 != 0) {
+        UpdatePaletteAnimations();
+    }
+
+    if (gUnk_03005220.unk3F != 0) {
+        ApplyEntityTileMovement();
+    }
+}
 extern void ClearOamEntries6Plus(void);
 extern void SetPaletteAnimEntry(s32, u8); /* SetPaletteAnimEntry */
 extern void DecompressAndLoadLevel(u8); /* DecompressAndLoadLevel */

@@ -158,13 +158,15 @@ gUnk_080B92E8 = 0x080B92E8;
 gUnk_080B9468 = 0x080B9468;
 gUnk_080B9668 = 0x080B9668;
 
-/* code_1 alternate-entry points referenced by HandlePauseMenuInput. */
-sub_08016EEC = 0x08016EEC;
-sub_0801BB6C = 0x0801BB6C;
-sub_0801BCC0 = 0x0801BCC0;
-sub_0801B044 = 0x0801B044;
-sub_0801E1A8 = 0x0801E1A8;
-sub_0801E354 = 0x0801E354;
+/* sub_0800AC34 (UpdateUIState) globals. */
+gUnk_03003590 = 0x03003590;
+gUnk_030034A8 = 0x030034A8;
+gUnk_0300363C = 0x0300363C;
+gUnk_080E2A84 = 0x080E2A84;
+
+/* code_1 alternate-entry points referenced by HandlePauseMenuInput.
+ * Bindings live in asm/thumb_aliases.s so the linker marks the symbols
+ * as Thumb and emits a direct `bl` (not an interwork stub). */
 gUnk_0818B7AC = 0x0818B7AC;
 gUnk_08188F5C = 0x08188F5C;
 gUnk_08051C76 = 0x08051C76;
@@ -252,6 +254,7 @@ SECTIONS {
         src/syscalls.o(.text);
         src/eeprom.o(.text);
         asm/libgcc.o(.text);
+        asm/thumb_aliases.o(.text);
         data/data.o(.text);
     }
 }

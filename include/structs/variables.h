@@ -606,4 +606,17 @@ extern s32 gUnk_03005484;
 extern u8 gUnk_030034E0;
 extern void *gUnk_03004C10;
 
+/* sub_0800AC34 (UpdateUIState) — entity affine-matrix scratch table and friends. */
+struct Unk_03003590 {
+    /* 0x0 */ u16 unk0;
+    /* 0x2 */ u16 unk2;
+    /* 0x4 */ u8 unk4;
+    /* 0x5_0 */ u8 unk5_0 : 1;
+    /* 0x6 */ u8 pad6[0x8 - 0x6];
+}; /* size = 0x8 */
+extern struct Unk_03003590 gUnk_03003590[];
+extern void (*gUnk_030034A8)(u8);
+extern u8 gUnk_0300363C;
+extern const u8 gUnk_080E2A84[0x6][0x8];
+
 #endif /* GUARD_STRUCTS_VARIABLES_H */
