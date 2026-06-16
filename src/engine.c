@@ -332,7 +332,195 @@ void UpdateCameraScrollPlayer2(void) {
         = (((gUnk_03003430.bg2HOfs + DISPLAY_WIDTH_CENTER) << 8) - (gBg2PA * DISPLAY_WIDTH_CENTER)) - (gBg2PB * DISPLAY_HEIGHT_CENTER);
     gBg2Y = (((gUnk_03003430.bg2VOfs + 0x50) << 8) - (gBg2PC * DISPLAY_WIDTH_CENTER)) - (gBg2PD * DISPLAY_HEIGHT_CENTER);
 }
-INCLUDE_ASM("asm/nonmatchings/engine", CameraModeSwitchHandler);
+void CameraModeSwitchHandler(void) {
+    s16 var_r1;
+    s16 var_r5;
+    u32 cWorld;
+
+    switch (gUnk_030007E0.unkC_0) {
+        case 0:
+            break;
+
+        case 1:
+            gUnk_030007E0.unk6 = gUnk_03002920[0].xPosBg2 - 0x78;
+            gUnk_030007E0.unk8 = gUnk_03002920[0].yPosBg2 - 0x8C;
+            break;
+
+        case 2:
+            gUnk_030007E0.unk6 = (gUnk_03002920[0].xPosBg2 + ((gUnk_03002920[0x12].xPosBg2 - gUnk_03002920[0].xPosBg2) / 2)) - 0x78;
+            gUnk_030007E0.unk8 = (gUnk_03002920[0].yPosBg2 + (((gUnk_03002920[0x12].yPosBg2 - 0x40) - (gUnk_03002920[0].yPosBg2)) / 2)) - 0x50;
+            break;
+
+        case 3:
+            gUnk_030007E0.unk6 = gUnk_03002920[0].xPosBg2 - 0x78;
+            break;
+
+        case 4:
+            gUnk_030007E0.unk6 = 0x1E0 - gUnk_03002920[0].xPosBg2;
+            gUnk_030007E0.unk8 = 0x140 - gUnk_03002920[0].yPosBg2;
+            break;
+
+        case 5:
+            gUnk_030007E0.unk6 = (gUnk_03002920[0].xPosBg2 + ((gUnk_03002920[0x12].xPosBg2 - gUnk_03002920[0].xPosBg2) / 2)) - 0x78;
+            gUnk_030007E0.unk8 = 0x94;
+            break;
+
+        case 6:
+            gUnk_030007E0.unk6 = gUnk_03002920[0].xPosBg2 - 0x78;
+            gUnk_030007E0.unk8 = 0x5C;
+            break;
+
+        case 7:
+            gUnk_030007E0.unk6 = gUnk_03002920[0].xPosBg2 - 0x78;
+            if (gUnk_03002920[0].yPosBg2 <= 0xA9) {
+                gUnk_030007E0.unk8 = 0x3C;
+            } else {
+                gUnk_030007E0.unk8 = 0xA0;
+            }
+            break;
+    }
+
+    if (gUnk_030007E0.unk0 > gUnk_030007E0.unk6) {
+        gUnk_030007E0.unk0 -= 1;
+    }
+    if (gUnk_030007E0.unk0 < gUnk_030007E0.unk6) {
+        gUnk_030007E0.unk0 += 1;
+    }
+
+    if (gUnk_030007E0.unk2 > gUnk_030007E0.unk8) {
+        gUnk_030007E0.unk2 -= 1;
+    }
+    if (gUnk_030007E0.unk2 < gUnk_030007E0.unk8) {
+        gUnk_030007E0.unk2 += 1;
+    }
+
+    if (gUnk_030007E0.unk0 < 0) {
+        gUnk_030007E0.unk0 = 0;
+    }
+    if (gUnk_030007E0.unk2 < 0x3C) {
+        gUnk_030007E0.unk2 = 0x3C;
+    }
+
+    if (gUnk_030007E0.unk0 > 0xF0) {
+        gUnk_030007E0.unk0 = 0xF0;
+    }
+    if (gUnk_030007E0.unk2 > 0xA0) {
+        gUnk_030007E0.unk2 = 0xA0;
+    }
+
+    gUnk_03003430.bg2HOfs = (u16)gUnk_030007E0.unk0;
+    if (gBg2Alpha == 0) {
+        gUnk_03003430.bg2VOfs = (u16)gUnk_030007E0.unk2 + 0x10;
+    } else {
+        gUnk_03003430.bg2VOfs = (u16)gUnk_030007E0.unk2;
+    }
+    gUnk_03003430.bg1HOfs = ((s16)gUnk_030007E0.unk0 / 15);
+
+    switch (gUnk_030007E0.unkC_4) {
+        case 0:
+            break;
+
+        case 1:
+            var_r5 = Abs(gUnk_03002920[0].xPosBg2 - gUnk_03002920[0x12].xPosBg2) - 0xA0;
+            if (var_r5 < 0) {
+                var_r5 = 0;
+            }
+
+            var_r1 = Abs(gUnk_03002920[0].yPosBg2 - gUnk_03002920[0x12].yPosBg2);
+            if (var_r1 < 0) {
+                var_r1 = 0;
+            }
+
+            if (var_r5 > var_r1) {
+                gUnk_030007E0.unkA = var_r5 & 0xFE;
+            } else {
+                gUnk_030007E0.unkA = var_r1 & 0xFE;
+            }
+            break;
+    }
+
+    if ((u16)gUnk_030007E0.unk4 > (u16)gUnk_030007E0.unkA) {
+        gUnk_030007E0.unk4 -= 2;
+    }
+    if ((u16)gUnk_030007E0.unk4 < (u16)gUnk_030007E0.unkA) {
+        gUnk_030007E0.unk4 += 2;
+    }
+
+    if (gUnk_030007E0.unkC_4) {
+        if ((u16)gUnk_030007E0.unk4 > 0x60U) {
+            gUnk_030007E0.unk4 = 0x60;
+        }
+        if ((u16)gUnk_030007E0.unk4 == 0) {
+            gUnk_030007E0.unk4 = 0;
+        }
+    }
+
+    gBg2XMag = 0x100 - gUnk_030007E0.unk4;
+    gBg2YMag = 0x100 - gUnk_030007E0.unk4;
+
+    cWorld = gUnk_03004C20.world;
+    if (cWorld == 4) {
+        if (gUnk_03005400.unkE_2 == 0) {
+            gUnk_03005400.unk16 = gBg2Alpha;
+            gUnk_03005400.unk14 = 0;
+        } else if (gUnk_03004C20.unk0 & 2) {
+            if (Abs(gUnk_03005400.unk16) <= 4) {
+                gBg2Alpha = ((gUnk_03005400.unk16 * COS(gUnk_03005400.unk14)) >> 8);
+                if (gUnk_03004C20.unk0 & 4) {
+                    gUnk_03005400.unk14 += 4;
+                }
+            } else {
+                gBg2Alpha = ((gUnk_03005400.unk16 * COS(gUnk_03005400.unk14)) >> 8);
+                gUnk_03005400.unk14 += 4;
+                if (!(gUnk_03005400.unk14 % 0x40)) {
+                    if (gUnk_03005400.unk16 > 0) {
+                        gUnk_03005400.unk16 -= 1;
+                    } else {
+                        gUnk_03005400.unk16 += 1;
+                    }
+                }
+            }
+        }
+
+        gUnk_03005440.unk0 = -((COS(gBg2Alpha) * 0xF) >> 5);
+        gUnk_03005440.unk4 = ((COS(gBg2Alpha) * 0xF) >> 5);
+        gUnk_03005440.unk2 = -((SIN(gBg2Alpha) * 0xF) >> 5);
+        gUnk_03005440.unk6 = ((SIN(gBg2Alpha) * 0xF) >> 5);
+
+        if ((((u32)gUnk_03004C20.unk0 % (u32)(0xA - Abs((s8)gBg2Alpha / 2))) == 0) && (gUnk_03005400.unkC != 0) && (gUnk_03005220.unk31 != 0)
+            && (((s8)gBg2Alpha < -2) || ((s8)gBg2Alpha > 2))) {
+            if ((s8)gBg2Alpha > 0) {
+                gUnk_03002920[0].xPosBg2 += 3;
+            }
+            if ((s8)gBg2Alpha < 0) {
+                gUnk_03002920[0].xPosBg2 -= 3;
+            }
+        }
+
+        if ((s8)gBg2Alpha > 0x14) {
+            gBg2Alpha = 0x14;
+        }
+        if ((s8)gBg2Alpha < -0x14) {
+            gBg2Alpha = -0x14;
+        }
+
+        gUnk_03003430.bg2VOfs = 0x58;
+        gUnk_03005440.unk0 += 0xF0;
+        gUnk_03005440.unk4 += 0xF0;
+        gUnk_03005440.unk2 += 0xDC;
+        gUnk_03005440.unk6 += 0xDC;
+    }
+
+    gBg2PA = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2XMag));
+    gBg2PB = MultiplyQ8(SIN(gBg2Alpha), ReciprocalQ8(gBg2XMag));
+    gBg2PC = MultiplyQ8(-SIN(gBg2Alpha), ReciprocalQ8(gBg2YMag));
+    gBg2PD = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2YMag));
+
+    ComputeScrollLimits();
+    if (gUnk_03004C20.world == 1) {
+        gUnk_03003430.bg1VOfs = (gBg2YMag / 3) - 0x28;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/engine", InitLevelFromROMTable);
 void ScrollBGColumnLoad(u8 arg0) {
     u32 temp_r5;
