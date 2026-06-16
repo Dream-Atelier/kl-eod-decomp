@@ -218,7 +218,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", SetupWorldMapBG);
  * text palette from ROM, sets REG_BG3CNT=0x700, clears BG3 scroll.
  */
 void SetupTextBGLayer(void) {
-    u32 tblAddr = 0x03003430;
+    u32 tblAddr = (u32)gBGLayerState;
     register u8 *tbl asm("r4");
     asm("" : "=r"(tbl) : "0"(tblAddr));
     {
@@ -240,7 +240,7 @@ void SetupTextBGLayer(void) {
         }
         *(u16 *)(tbl + 0x30) = *(u16 *)(tbl + 0x16);
         {
-            u32 dmaAddr = 0x040000D4;
+            u32 dmaAddr = REG_ADDR_DMA3SAD;
             register volatile u32 *dma asm("r1");
             u32 romPal = 0x080576B4;
             u32 palDst = 0x050001E0;
@@ -257,7 +257,7 @@ void SetupTextBGLayer(void) {
             *(volatile u16 *)dma = 0x700;
         }
         {
-            u32 scrollAddr = 0x04000014;
+            u32 scrollAddr = (u32)REG_ADDR_BG1HOFS;
             volatile u16 *scroll;
             asm("" : "=r"(scroll) : "0"(scrollAddr));
             *scroll = zero;
@@ -554,10 +554,10 @@ INCLUDE_ASM("asm/nonmatchings/gfx", DispatchLevelLayerSetup);
  * table indexed by byte[2]. Advances stream by 7.
  */
 void StreamCmd_SetBGScroll(void) {
-    u32 spAddr = 0x03004D84;
+    u32 spAddr = (u32)&gStreamPtr;
     register u8 **sp asm("r4");
     register u16 scrollX asm("r3");
-    u32 tblAddr = 0x03003430;
+    u32 tblAddr = (u32)gBGLayerState;
     register u8 *tbl asm("r5");
     u8 *p;
     u8 layer;

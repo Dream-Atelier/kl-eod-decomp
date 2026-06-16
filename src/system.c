@@ -97,7 +97,7 @@ INCLUDE_ASM("asm/nonmatchings/system", ProcessInputAndTimers);
  * 16 words (32-bit) to transfer the sprite tile data.
  */
 void LoadSpriteFrame(u8 frame, u8 tilesetIdx) {
-    vu32 *dma = (vu32 *)0x040000D4;
+    vu32 *dma = (vu32 *)REG_ADDR_DMA3SAD;
     u32 tsAddr = ROM_SPRITE_SUBTABLE;
     register u32 *tilesetTable asm("r2");
     u32 spAddr = ROM_TILESET_TABLE;
@@ -119,7 +119,7 @@ void LoadSpriteFrame(u8 frame, u8 tilesetIdx) {
             u32 tileData = spriteData[1];
 
             u16 tileIndex = *(u16 *)(tileData + (u32)frame * 8 - 0x68);
-            dma[1] = 0x06010000 + (u32)tileIndex * 32;
+            dma[1] = OBJ_VRAM + (u32)tileIndex * 32;
         }
     }
 
