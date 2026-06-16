@@ -81,7 +81,7 @@ void RollRandomLevelVariant(void) {
     u8 difficulty = state[0x0C];
     register u32 d asm("r4") = (u8)(difficulty - 1);
     u32 rng;
-    u32 addr = 0x03004C20;
+    u32 addr = (u32)gControlBlock;
     register u8 *levelState asm("r6");
     register u32 parity asm("r5");
     u8 randByte;

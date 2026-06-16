@@ -678,9 +678,9 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitFrameAnimation);
  * @return     1 if still waiting, 0 if timer expired
  */
 u32 ProcessHBlankWait(u32 idx) {
-    u32 ieAddr = 0x04000200;
+    u32 ieAddr = (u32)REG_ADDR_IE;
     register volatile u16 *ie asm("r3");
-    u32 dsAddr = 0x04000004;
+    u32 dsAddr = (u32)REG_ADDR_DISPSTAT;
     register volatile u16 *dispstat asm("r4");
     u8 *buf;
     u32 off;
@@ -693,7 +693,7 @@ u32 ProcessHBlankWait(u32 idx) {
 
     {
         u8 **bufPtr;
-        u32 bAddr = 0x030052A4;
+        u32 bAddr = (u32)&gBuffer_52A4;
         asm("" : "=r"(bufPtr) : "0"(bAddr));
         buf = *bufPtr;
     }

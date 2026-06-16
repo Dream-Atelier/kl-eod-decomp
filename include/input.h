@@ -18,4 +18,8 @@
 #define gInputState    (*(u16 *)0x03004668)
 #define gInputPrevious (*(u16 *)0x0300362C)
 
+/* A-button hold counter: incremented each frame while A is held, reset
+ * to 0 on release.  Used by ReadKeyInput for press-and-hold detection. */
+#define gAButtonHold   (*(u16 *)0x030034F0)
+
 #endif /* GUARD_INPUT_H */

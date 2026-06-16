@@ -40,11 +40,11 @@ INCLUDE_ASM("asm/nonmatchings/system", AgbMain);
  * A-button hold duration for repeat input.
  */
 void ReadKeyInput(void) {
-    u16 raw = *(volatile u16 *)0x04000130;
+    u16 raw = REG_KEYINPUT;
     u32 maskAddr = 0x3FF;
     register u32 mask asm("r2");
-    u32 nkAddr = 0x03004DA0;
-    u32 pkAddr = 0x030051E4;
+    u32 nkAddr = (u32)&gKeysPressed;
+    u32 pkAddr = (u32)&gKeysPrevious;
     register u16 *newKeys asm("r3");
     register u16 *prevKeys asm("r4");
     register u32 pressed asm("r1");
@@ -72,10 +72,10 @@ void ReadKeyInput(void) {
         u16 aBtn = 1;
         aBtn &= cur;
         if (aBtn) {
-            u16 *counter = (u16 *)0x030034F0;
+            u16 *counter = &gAButtonHold;
             *counter = *counter + 1;
         } else {
-            *(u16 *)0x030034F0 = aBtn;
+            gAButtonHold = aBtn;
         }
     }
 }
