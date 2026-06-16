@@ -471,8 +471,8 @@ extern s32 gBg2X;
 extern s32 gBg2Y;
 
 /* Per-frame cached sin/cos of gBg2Alpha (set by VBlankCallback_Dialog). */
-#define gUnk_03004678       (*(s16 *)0x03004678)
-#define gUnk_030051B0       (*(s16 *)0x030051B0)
+#define gUnk_03004678 (*(s16 *)0x03004678)
+#define gUnk_030051B0 (*(s16 *)0x030051B0)
 
 /* Map-screen wobble Q_8_8 (set by VBlankCallback_MapScreen). */
 extern s16 gUnk_030034F8;

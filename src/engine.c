@@ -348,7 +348,8 @@ void CameraModeSwitchHandler(void) {
 
         case 2:
             gUnk_030007E0.unk6 = (gUnk_03002920[0].xPosBg2 + ((gUnk_03002920[0x12].xPosBg2 - gUnk_03002920[0].xPosBg2) / 2)) - 0x78;
-            gUnk_030007E0.unk8 = (gUnk_03002920[0].yPosBg2 + (((gUnk_03002920[0x12].yPosBg2 - 0x40) - (gUnk_03002920[0].yPosBg2)) / 2)) - 0x50;
+            gUnk_030007E0.unk8
+                = (gUnk_03002920[0].yPosBg2 + (((gUnk_03002920[0x12].yPosBg2 - 0x40) - (gUnk_03002920[0].yPosBg2)) / 2)) - 0x50;
             break;
 
         case 3:
@@ -487,8 +488,8 @@ void CameraModeSwitchHandler(void) {
         gUnk_03005440.unk2 = -((SIN(gBg2Alpha) * 0xF) >> 5);
         gUnk_03005440.unk6 = ((SIN(gBg2Alpha) * 0xF) >> 5);
 
-        if ((((u32)gUnk_03004C20.unk0 % (u32)(0xA - Abs((s8)gBg2Alpha / 2))) == 0) && (gUnk_03005400.unkC != 0) && (gUnk_03005220.unk31 != 0)
-            && (((s8)gBg2Alpha < -2) || ((s8)gBg2Alpha > 2))) {
+        if ((((u32)gUnk_03004C20.unk0 % (u32)(0xA - Abs((s8)gBg2Alpha / 2))) == 0) && (gUnk_03005400.unkC != 0)
+            && (gUnk_03005220.unk31 != 0) && (((s8)gBg2Alpha < -2) || ((s8)gBg2Alpha > 2))) {
             if ((s8)gBg2Alpha > 0) {
                 gUnk_03002920[0].xPosBg2 += 3;
             }
@@ -553,8 +554,10 @@ void ComputeRotationMatrix(void) {
     gBg2PC = MultiplyQ8(-SIN(gBg2Alpha), ReciprocalQ8(gBg2YMag));
     gBg2PD = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2YMag));
 
-    gBg2X = (((gUnk_03003430.bg2HOfs + DISPLAY_WIDTH_CENTER) << 8) - (gBg2PA * DISPLAY_WIDTH_CENTER)) - (gBg2PB * DISPLAY_HEIGHT_CENTER);
-    gBg2Y = (((gUnk_03003430.bg2VOfs + DISPLAY_HEIGHT_CENTER) << 8) - (gBg2PC * DISPLAY_WIDTH_CENTER)) - (gBg2PD * DISPLAY_HEIGHT_CENTER);
+    gBg2X
+        = (((gUnk_03003430.bg2HOfs + DISPLAY_WIDTH_CENTER) << 8) - (gBg2PA * DISPLAY_WIDTH_CENTER)) - (gBg2PB * DISPLAY_HEIGHT_CENTER);
+    gBg2Y = (((gUnk_03003430.bg2VOfs + DISPLAY_HEIGHT_CENTER) << 8) - (gBg2PC * DISPLAY_WIDTH_CENTER))
+        - (gBg2PD * DISPLAY_HEIGHT_CENTER);
 
     if (gBg2XMag != 0x100) {
         gBg2Alpha += 8;

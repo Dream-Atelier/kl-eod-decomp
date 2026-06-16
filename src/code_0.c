@@ -74,7 +74,58 @@ INCLUDE_ASM("asm/nonmatchings/code_0", TransformAllEntitiesToScreen);
 INCLUDE_ASM("asm/nonmatchings/code_0", HandlePauseMenuInput);
 INCLUDE_ASM("asm/nonmatchings/code_0", UpdateUIState); /* UpdateUIState */
 INCLUDE_ASM("asm/nonmatchings/code_0", RenderCharacterTiles); /* RenderCharacterTiles */
-INCLUDE_ASM("asm/nonmatchings/code_0", UpdateTextScroll); /* UpdateTextScroll */
+/**
+ * UpdateTextScroll: advance a packed (X|Y<<16) position one Bresenham step
+ * along a fixed direction toward arg1's endpoint, using gUnk_030034DC as
+ * the rolling fractional error.
+ */
+void *UpdateTextScroll(s32 *arg0, struct Unk_0800BEF0 arg1) {
+    u32 temp_r0;
+    u32 var_r4;
+    s8 var_r2;
+    s8 var_r3;
+    s8 var_r5;
+    s8 var_r7;
+
+    var_r3 = (arg1.unk4 - arg1.unk0) >> 3;
+    var_r5 = (arg1.unk6 - arg1.unk2) >> 3;
+    var_r4 = (arg1.unk2 << 0x10) | arg1.unk0;
+
+    if (var_r3 < 0) {
+        temp_r0 = arg1.unk8;
+        var_r7 = -temp_r0;
+        var_r3 = -var_r3;
+    } else {
+        var_r7 = arg1.unk8;
+    }
+
+    if (var_r5 < 0) {
+        temp_r0 = arg1.unk8;
+        var_r2 = -temp_r0;
+        var_r5 = -var_r5;
+    } else {
+        var_r2 = arg1.unk8;
+    }
+
+    if (var_r3 >= var_r5) {
+        var_r4 = (u16)(var_r7 + var_r4) | (var_r4 & 0xFFFF0000);
+        gUnk_030034DC += var_r5;
+        if (gUnk_030034DC >= var_r3) {
+            var_r4 = (((var_r4 >> 0x10) + var_r2) << 0x10) | (var_r4 & 0xFFFF);
+            gUnk_030034DC -= var_r3;
+        }
+    } else {
+        var_r4 = (((var_r4 >> 0x10) + var_r2) << 0x10) | (var_r4 & 0xFFFF);
+        gUnk_030034DC += var_r3;
+        if (gUnk_030034DC >= var_r5) {
+            var_r4 = (u16)(var_r7 + var_r4) | (var_r4 & 0xFFFF0000);
+            gUnk_030034DC -= var_r5;
+        }
+    }
+
+    *arg0 = var_r4;
+    return arg0;
+}
 void VBlankCallback_Gameplay(void) {
     TransformEntityScreenPositions();
     RenderHUDTop();

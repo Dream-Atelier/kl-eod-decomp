@@ -301,8 +301,8 @@ struct Unk_0818B8E0 {
 };
 extern struct Unk_0818B8E0 *gUnk_030051DC;
 
-/* Text-scroll Bresenham accumulator. */
-extern s32 gUnk_030034DC;
+/* Text-scroll Bresenham accumulator (mirrors kleod's u16 typing). */
+extern u16 gUnk_030034DC;
 
 /* sub_0800BEF0 (UpdateTextScroll) parameter struct. */
 struct Unk_0800BEF0 {
