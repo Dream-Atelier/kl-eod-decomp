@@ -1506,7 +1506,201 @@ void TransformAllEntitiesToScreen(s8 arg0, s8 arg1) {
         }
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_0", HandlePauseMenuInput);
+extern void VBlankCallback_Gameplay(void); /* VBlankCallback_Gameplay — literal-pool stored callback */
+extern void InitGameplayState(void); /* InitGameplayState — literal-pool stored callback */
+extern void TransitionGameOver(void); /* TransitionGameOver */
+extern void TransitionFadeOutWithMusic(void); /* TransitionFadeOutWithMusic */
+extern void VBlankCallback_Credits(void); /* VBlankCallback_Credits */
+extern void ApplyEntityTileMovement(void); /* ApplyEntityTileMovement */
+extern void UpdatePaletteAnimations(void); /* UpdatePaletteAnimations */
+extern void EntityGravityAndFloorCheck(u8); /* EntityGravityAndFloorCheck */
+extern void PlayerFollowEntityMovement(u8); /* PlayerFollowEntityMovement */
+extern void EntityBehaviorMasterUpdate(u8); /* EntityBehaviorMasterUpdate */
+extern void sub_08016EEC(u8); /* code_1 alternate-entry, see asm/thumb_aliases.s */
+extern void sub_0801BB6C(u8);
+extern void sub_0801BCC0(u8);
+extern void sub_0801B044(u8);
+extern void sub_0801E1A8(u8);
+extern void sub_0801E354(u8);
+extern void EntityStateSwitch_Carried(u8); /* EntityStateSwitch_Carried */
+extern void EntityPairUpdate(u8); /* EntityPairUpdate */
+extern void EntityProximityDamageCheck(u8); /* EntityProximityDamageCheck */
+extern void EntitySpriteFrameUpdate(u32); /* EntitySpriteFrameUpdate — kleod declares as u32 */
+extern void EntityPositionFromLevelTable(u8); /* EntityPositionFromLevelTable */
+extern void EntityThrowUpdate(u8); /* EntityThrowUpdate */
+extern void EntityPlatformRide(u8); /* EntityPlatformRide */
+extern void EntityDeathAnimation(u8); /* EntityDeathAnimation */
+extern void EntityBounceOffWall(u8); /* EntityBounceOffWall */
+extern void EntityProjectileUpdate(void); /* EntityProjectileUpdate */
+
+/**
+ * HandlePauseMenuInput: on START press (with guards) save the active
+ * VBlank-callback array and push the pause-menu sub-state pair
+ * (InitGameplayState / VBlankCallback_Gameplay).  Otherwise iterate
+ * gUnk_03002920[D..count] dispatching a per-unk11 entity update handler.
+ */
+void HandlePauseMenuInput(void) {
+    u32 var_r2;
+    u32 var_r4;
+
+    if ((gNewKeys & START_BUTTON) && (gUnk_030034E4 == 0) && (gUnk_03005220.unk46 == 0)) {
+        for (var_r2 = 0; var_r2 < 10; var_r2++) {
+            gUnk_03003510.unk50[var_r2] = gUnk_03003510.unk0[var_r2];
+        }
+
+        gUnk_03003510.unk7A = gUnk_03003510.unk78;
+        gUnk_030034BC = 0;
+        gUnk_03003410.unk4 = 1;
+        gUnk_03003510.unk28[0] = InitGameplayState;
+        gUnk_03003510.unk28[1] = VBlankCallback_Gameplay;
+        gUnk_03003510.unk28[2] = (void (*)())1;
+        gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
+        gUnk_03003510.unk79 = 3;
+        gUnk_03003510.unk78 = 1;
+        gUnk_03003510.unk0[0] = NULL;
+        return;
+    }
+
+    if (gUnk_030052A0 == 0xFE) {
+        if ((gUnk_03003510.unk10 != TransitionGameOver) && (gUnk_03003510.unk10 != TransitionFadeOutWithMusic)) {
+            VBlankCallback_Credits();
+        }
+
+        for (var_r4 = 0xD; var_r4 < gUnk_03005428; var_r4++) {
+            if (gUnk_03002920[var_r4].unkF != 0x1C) {
+                switch (gUnk_03002920[var_r4].unk11 - 1) {
+                    case 0x24:
+                    case 0x6E:
+                        if (gUnk_03002920[var_r4].unk8 != 1) {
+                            EntityBehaviorMasterUpdate((u8)var_r4);
+                        }
+                        break;
+
+                    case 0x5:
+                    case 0x7:
+                    case 0xA:
+                    case 0x75:
+                    case 0x76:
+                    case 0x77:
+                    case 0x78:
+                    case 0x79:
+                    case 0x7A:
+                    case 0x7B:
+                    case 0x7C:
+                        sub_08016EEC((u8)var_r4);
+                        break;
+
+                    case 0x0:
+                    case 0x1:
+                    case 0x3:
+                        EntityPositionFromLevelTable((u8)var_r4);
+                        break;
+
+                    case 0x2E:
+                    case 0x2F:
+                    case 0x30:
+                    case 0x31:
+                    case 0x32:
+                        PlayerFollowEntityMovement((u8)var_r4);
+                        break;
+
+                    case 0x26:
+                    case 0x27:
+                    case 0x28:
+                    case 0x29:
+                    case 0x2A:
+                        EntityStateSwitch_Carried((u8)var_r4);
+                        break;
+
+                    case 0x3E:
+                        sub_0801BB6C((u8)var_r4);
+                        break;
+
+                    case 0x3F:
+                        sub_0801BCC0((u8)var_r4);
+                        break;
+
+                    case 0x36:
+                    case 0x70:
+                    case 0x71:
+                    case 0x73:
+                        EntityPairUpdate((u8)var_r4);
+                        break;
+
+                    case 0x38:
+                        EntityProximityDamageCheck((u8)var_r4);
+                        break;
+
+                    case 0x3C:
+                        EntitySpriteFrameUpdate(var_r4);
+                        break;
+
+                    case 0x8:
+                    case 0x9:
+                        EntityGravityAndFloorCheck((u8)var_r4);
+                        break;
+
+                    case 0x34:
+                        if ((var_r4 == gUnk_030047B8) || (var_r4 == gUnk_03005470)) {
+                            EntityThrowUpdate((u8)var_r4);
+                        }
+                        break;
+
+                    case 0x6F:
+                        EntityThrowUpdate((u8)var_r4);
+                        break;
+
+                    case 0xB:
+                        EntityDeathAnimation((u8)var_r4);
+                        break;
+
+                    case 0x42:
+                        EntityBounceOffWall((u8)var_r4);
+                        break;
+
+                    case 0x74:
+                        if (gUnk_03002920[var_r4].unk8 != 0) {
+                            gUnk_03002920[var_r4].unk8 -= 1;
+                        }
+                        break;
+
+                    case 0x25:
+                        EntityPlatformRide((u8)var_r4);
+                        break;
+
+                    case 0x41: {
+                        u16 *tmp = (void *)&gUnk_03002920[var_r4];
+                        if (tmp[4] != 0) {
+                            sub_0801B044((u8)var_r4);
+                        }
+                    } break;
+
+                    case 0x2:
+                        if (gUnk_03002920[var_r4].unkF == 2) {
+                            sub_0801E1A8((u8)var_r4);
+                        }
+                        break;
+
+                    case 0x2D:
+                        if (gUnk_03002920[var_r4].unkF == 2) {
+                            sub_0801E354((u8)var_r4);
+                        }
+                        break;
+                }
+            }
+        }
+
+        UpdatePaletteAnimations();
+    }
+
+    if (gUnk_0300528C != 0) {
+        EntityProjectileUpdate();
+    }
+
+    if (gUnk_03005220.unk3F != 0) {
+        ApplyEntityTileMovement();
+    }
+}
 extern void InitGameplayState(void); /* InitGameplayState — literal-pool stored callback */
 extern void EntityPositionFromROMTable(u8); /* EntityPositionFromROMTable */
 extern void EntityScrollBoundsCheck(u8); /* EntityScrollBoundsCheck */
