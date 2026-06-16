@@ -306,14 +306,14 @@ void m4aSoundInit(void) {
 
     BitUnPack((u32)SoundMainRAM & ~1, 0x03000388, 0x04000100);
     SoundInit((struct SoundMixerState *)0x030054A0);
-    MPlayExtender((struct MixerSource *)0x030064E0);
-    m4aSoundMode(0x0094F800);
+    MPlayExtender(gCgbChans);
+    m4aSoundMode(DEFAULT_SOUND_MODE);
 
     for (i = 0; i < NUM_MUSIC_PLAYERS; i++) {
         struct MP2KPlayerState *mplayInfo = gMPlayTable[i].info;
         MPlayOpen((u32 *)mplayInfo, (u8 *)gMPlayTable[i].track, gMPlayTable[i].numTracks);
         mplayInfo->checkSongPriority = gMPlayTable[i].unk_A;
-        *(u32 *)((u8 *)mplayInfo + 0x18) = 0x030066A0; /* memAccArea (Phase C will name this field) */
+        mplayInfo->memAccArea = gMPlayMemAccArea;
     }
 }
 /**

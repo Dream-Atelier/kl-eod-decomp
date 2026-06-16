@@ -429,6 +429,14 @@ extern char gMaxLines[];
  * we only need its address, not its prototype.                          */
 extern char SoundMainRAM[];
 
+/* CGB voice mixer-source array used as the MPlayExtender argument
+ * (IWRAM 0x030064E0). */
+extern struct MixerSource gCgbChans[];
+
+/* Memory-access scratch area assigned into each player's memAccArea
+ * field at the end of m4aSoundInit (IWRAM 0x030066A0). */
+extern u8 gMPlayMemAccArea[];
+
 u32 umul3232H32(u32 multiplier, u32 multiplicand);
 u32 MidiKeyToFreq(struct WaveData *wav, u8 key, u8 fineAdjust);
 u32 MidiKeyToCgbFreq(u8 chanNum, u8 key, u8 fineAdjust);

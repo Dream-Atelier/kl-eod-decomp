@@ -214,6 +214,8 @@ gNoiseTable = 0x08117C0C;
 gCgb3Vol = 0x08117C48;
 gPcmSamplesPerVBlankTable = 0x08117B58;
 gMPlayJumpTable = 0x03006450;
+gCgbChans = 0x030064E0;
+gMPlayMemAccArea = 0x030066A0;
 
 /* Raw sub_<address> names that luvdis still emits from neighbouring
  * .s files into the asm/m4a0.s range.  Aliases route them to the
