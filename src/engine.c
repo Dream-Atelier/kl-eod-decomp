@@ -9,6 +9,14 @@ extern s16 ReciprocalQ8(s16 a);
 extern void TransitionGameplayInit(void);
 extern void ComputeScrollLimits(void);
 extern s32 Abs(s32 n);
+extern void InitScrollState(void);
+extern void InitLevelGameplay(u32 arg0); /* InitLevelGameplay */
+extern void ReadKeyInput(void); /* ReadKeyInput == kleod InputHandler_Normal */
+extern void InitGameplayFromWorldMap(void);
+extern void VBlankCallback_Dialog(void); /* VBlankCallback_Dialog */
+extern void UpdateWorldMapLogic(void); /* sub_08048028 (off-by-2 in our split) */
+extern void TransitionInitLevelMusic(void); /* sub_080242C0 */
+extern void ScrollBGColumnLoad(u8 arg0); /* ScrollBGColumnLoad */
 
 INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_ModeA);
 INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_ModeB);
@@ -522,7 +530,114 @@ void CameraModeSwitchHandler(void) {
         gUnk_03003430.bg1VOfs = (gBg2YMag / 3) - 0x28;
     }
 }
-INCLUDE_ASM("asm/nonmatchings/engine", InitLevelFromROMTable);
+void InitLevelFromROMTable(void) {
+    u32 var_r6;
+
+    var_r6 = 0;
+
+    gUnk_03004654 = ((u8(*)[8][0x1C])((u8 *)gUnk_08051EFE + 0xEA))[gUnk_03004C20.world - 1][gUnk_03004C20.level + 8];
+    gUnk_03000800 = gUnk_08052624[gUnk_03004C20.world - 1][gUnk_03004C20.level];
+
+    if (gUnk_03004C20.level == 0) {
+        gUnk_03005210 = 0xFFFF;
+        gUnk_03004C20.room = 1;
+        gUnk_03005468.unk0 = 0;
+        gUnk_03005468.unk2 = 0;
+        gUnk_03005468.unk4 = 0x100;
+        gUnk_03005468.unk6 = 0x100;
+    } else if (gUnk_03004C20.level == 8) {
+        gUnk_03005210 = 0xFFFF;
+        gUnk_03004C20.room = 1;
+        gUnk_03005468.unk0 = 0;
+        gUnk_03005468.unk2 = 0;
+        gUnk_03005468.unk4 = 0x200;
+        gUnk_03005468.unk6 = 0x200;
+    } else {
+        if (gUnk_03004C20.room == 0) {
+            gUnk_030051C8 = gUnk_03004654[1] - 1;
+            gUnk_03005210 = 0xFFFF;
+            gUnk_03004C20.unk8 = 0;
+            gUnk_03005284->unk6 = 0;
+            gUnk_03005284->unk18 = gUnk_03005220.unk4 = 0;
+        } else if (gUnk_03004C20.room == 0xFF) {
+            gUnk_03005210 = 0xFFFF;
+            if ((gUnk_03005284->unk6 == 0)
+                || ((gUnk_03004C20.world == 6) && ((gUnk_03004C20.level == 1) || (gUnk_03004C20.level == 3)))) {
+                gUnk_030051C8 = gUnk_03004654[1] - 1;
+                gUnk_03004C20.unk8 = 0;
+            } else {
+                gUnk_030051C8 = gUnk_03005284->unk6;
+                var_r6 = 1;
+            }
+        } else {
+            var_r6 = 2;
+        }
+
+        gUnk_03004C20.room
+            = gUnk_080D48C8[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_030051C8 - (gUnk_03004654[1] - 1)].unk4_2;
+        gUnk_03005468.unk0 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk0;
+        gUnk_03005468.unk2 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk2;
+        gUnk_03005468.unk4 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk4;
+        gUnk_03005468.unk6 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk6;
+        gUnk_030051CC.unk0 = gUnk_03005468.unk0 + ((s32)(gUnk_03005468.unk4 - gUnk_03005468.unk0) >> 1);
+        gUnk_030051CC.unk2 = gUnk_03005468.unk2 + ((s32)(gUnk_03005468.unk6 - gUnk_03005468.unk2) >> 1);
+    }
+    gUnk_03004C20.unkA = 0;
+    gUnk_03004C20.unkB = 0;
+    gUnk_03004C20.unk0 = 0;
+    InitScrollState();
+    if (gUnk_03004C20.level != 0) {
+        InitLevelGameplay(var_r6);
+    } else {
+        gUnk_030034E4 = 1;
+        gUnk_03003510.unk28[0] = ReadKeyInput;
+        gUnk_03003510.unk28[1] = InitGameplayFromWorldMap;
+        gUnk_03003510.unk28[2] = VBlankCallback_Dialog;
+        gUnk_03003410.unk5 = 0;
+        gUnk_03003510.unk34 = &UpdateWorldMapLogic;
+        gUnk_03003510.unk38 = &TransitionInitLevelMusic;
+        gUnk_03003510.unk3C = 1;
+        gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = 0;
+        gUnk_03003510.unk79 = 6;
+    }
+    if (gUnk_03002920[0].xPosBg2 < (gUnk_03005468.unk0 + 0x78)) {
+        gUnk_03003430.bg2HOfs = gUnk_03005468.unk0;
+    } else {
+        if ((gUnk_03005468.unk4 - 0x78) < gUnk_03002920[0].xPosBg2) {
+            gUnk_03003430.bg2HOfs = gUnk_03005468.unk4 - 0xF0;
+        } else {
+            gUnk_03003430.bg2HOfs = gUnk_03002920[0].xPosBg2 - 0x78;
+        }
+    }
+    if (gUnk_03002920[0].yPosBg2 < (gUnk_03005468.unk2 + 0x78)) {
+        gUnk_03003430.bg2VOfs = gUnk_03005468.unk2;
+    } else {
+        if ((gUnk_03005468.unk6 - 0x28) < gUnk_03002920[0].yPosBg2) {
+            gUnk_03003430.bg2VOfs = gUnk_03005468.unk6 - 0xA0;
+        } else {
+            gUnk_03003430.bg2VOfs = gUnk_03002920[0].yPosBg2 - 0x78;
+        }
+    }
+    if ((gUnk_03004C20.level == 6) && (gUnk_030034E8.unk0 == 0) && (gUnk_030034E8.unk4 != 0)) {
+        gUnk_03003430.bg2VOfs += 0x30;
+    }
+    if (gUnk_03004C20.level != 8) {
+        ScrollBGColumnLoad(0);
+        DmaCopy16Wait(3, gUnk_03004DB0, gUnk_03003430.pVramBg2Tilemap, 0x400);
+    } else {
+        DmaFill16(3, 0, &gUnk_03003650, 0x1000);
+        for (var_r6 = 0; var_r6 < 0x28; var_r6++) {
+            DmaCopy16Wait(3, &gUnk_03004790.pBufBg2Tilemap[var_r6 * gUnk_03003430.unk48], (void *)((var_r6 << 6) + &gUnk_03003650),
+                          0x1E * 2);
+        }
+        DmaCopy16Wait(3, &gUnk_03003650, gUnk_03003430.pVramBg2Tilemap, 0x1000);
+    }
+    if (gUnk_03004C20.level == 8) {
+        gUnk_03003430.bg1VOfs = 0;
+    } else {
+        gUnk_03003430.bg1VOfs = 0x50;
+    }
+}
 void ScrollBGColumnLoad(u8 arg0) {
     u32 temp_r5;
     u32 temp_r1;

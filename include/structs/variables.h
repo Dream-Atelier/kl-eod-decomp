@@ -350,6 +350,26 @@ extern u8 gUnk_030034C4;
 extern u8 gUnk_030034E4; /* same address as gPauseFlag macro; kleod-style alias */
 extern u8 *gUnk_03004654; /* small ROM/IWRAM byte pointer (indexed [1] in level lookup) */
 
+/* Globals first referenced by sub_08002FD0 (InitLevelFromROMTable). */
+extern u8 gUnk_03000800;
+extern u16 gUnk_03005210;
+struct Unk_030051CC {
+    s16 unk0;
+    s16 unk2;
+};
+extern struct Unk_030051CC gUnk_030051CC;
+
+struct Unk_080D2E88 {
+    u16 unk0;
+    u16 unk2;
+    u16 unk4;
+    u16 unk6;
+};
+extern struct Unk_080D2E88 gUnk_080D2E88[6][7][0x14];
+extern u8 gUnk_08051EFE[];
+extern u8 gUnk_08052624[6][9];
+extern void gUnk_03003650;
+
 /* OAM-entry union (matches kleod's variables.h).  Used by InitOamEntries,
  * RenderHUDTop, RenderDialogSprites, and other OAM writers. */
 union Unk_03000820 {
