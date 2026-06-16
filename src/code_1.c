@@ -259,7 +259,7 @@ void TransitionToWorldMap(void) {
 
     gPauseFlag = 1;
 
-    sceneCtrl = (u32 *)0x03004C20;
+    sceneCtrl = (u32 *)gControlBlock;
     isActive = sceneCtrl[1] & 1;
     if (isActive != 0)
         return;
@@ -273,7 +273,7 @@ void TransitionToWorldMap(void) {
     InitOamEntries();
     sceneCtrl[0] = (u32)-1;
 
-    callbackState = (u32 *)0x03003510;
+    callbackState = gCallbackStateArray;
     callbackState[0x28 / 4] = (u32)ReadKeyInput;
     callbackState[0x2C / 4] = (u32)UpdateWorldMapScene;
     callbackState[0x30 / 4] = (u32)TransitionWorldMapFadeOut;
@@ -304,7 +304,7 @@ void TransitionSoftReset(void) {
 
     gPauseFlag = 1;
 
-    sceneCtrl = (u32 *)0x03004C20;
+    sceneCtrl = (u32 *)gControlBlock;
     if (sceneCtrl[1] & 1)
         return;
 

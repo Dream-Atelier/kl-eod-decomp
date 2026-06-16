@@ -336,7 +336,7 @@ void SetupGfxCallbacks(void) {
     vblankHandlers[0] = (u32)VBlankHandler_WithWindowScroll;
     vblankHandlers[1] = (u32)UpdateBGScrollWithWave;
 
-    callbackState = (u32 *)0x03003510;
+    callbackState = gCallbackStateArray;
     callbackState[0x28 / 4] = (u32)ReadKeyInput;
     callbackState[0x2C / 4] = (u32)sub_0804EB64;
     callbackState[0x30 / 4] = (u32)VBlankCallback_MapScreen;
@@ -355,11 +355,11 @@ INCLUDE_ASM("asm/nonmatchings/gfx", InitWorldMapGfx);
  */
 void ShutdownGfxSubsystem(void) {
     vu32 *dest = (vu32 *)0x03000814;
-    u32 *src = (u32 *)0x03004C20;
+    u32 *src = (u32 *)gControlBlock;
     *dest = src[1];
 
-    *(vu16 *)0x04000200 &= 0xFFFD; /* REG_IE &= ~INT_HBLANK */
-    *(vu16 *)0x04000004 &= 0xFFEF; /* REG_DISPSTAT &= ~HBLANK_IRQ */
+    REG_IE &= 0xFFFD; /* clear INT_HBLANK */
+    REG_DISPSTAT &= 0xFFEF; /* clear HBLANK_IRQ */
 
     ShutdownGfxStream();
     FreeSoundStruct();
@@ -377,14 +377,14 @@ void ShutdownGfxSubsystem(void) {
  */
 void InitGfxStreamState(void) {
     u16 zero_src;
-    u32 bufAddr = 0x030007C8;
+    u32 bufAddr = (u32)&gGfxStreamBuffer;
     register u32 *bufPtr asm("r4");
     u32 *buf;
     asm("" : "=r"(bufPtr) : "0"(bufAddr));
     buf = (u32 *)thunk_HeapAlloc(0x80 << 1, 0);
     *bufPtr = (u32)buf;
     {
-        u32 dmaAddr = 0x040000D4;
+        u32 dmaAddr = REG_ADDR_DMA3SAD;
         register volatile u32 *dma asm("r4");
         u32 sp_ptr = (u32)&zero_src;
         zero_src = 0;
@@ -399,7 +399,7 @@ void InitGfxStreamState(void) {
         }
         ClearVideoState();
         {
-            u32 oamSrc = 0x03004800;
+            u32 oamSrc = (u32)gOamBuffer;
             u32 ctrl2 = 0x84000100;
             asm("" : "=r"(oamSrc) : "0"(oamSrc));
             dma[0] = oamSrc;
@@ -410,14 +410,14 @@ void InitGfxStreamState(void) {
         }
     }
     {
-        u32 modeAddr = 0x03005428;
+        u32 modeAddr = (u32)&gRenderFlags;
         u8 *mode;
         asm("" : "=r"(mode) : "0"(modeAddr));
         *mode = 0x0D;
     }
     {
-        u32 d1 = 0x030007DC;
-        u32 s1 = 0x030034F4;
+        u32 d1 = (u32)&gVramWriteCursor;
+        u32 s1 = (u32)&gVramCursorInit;
         u32 *dst1;
         u32 *src1;
         asm("" : "=r"(dst1) : "0"(d1));
@@ -425,8 +425,8 @@ void InitGfxStreamState(void) {
         *dst1 = *src1;
     }
     {
-        u32 d2 = 0x03005490;
-        u32 s2 = 0x030052AC;
+        u32 d2 = (u32)&gPaletteVramCursor;
+        u32 s2 = (u32)&gPaletteCursorInit;
         u32 *dst2;
         u32 *src2;
         asm("" : "=r"(dst2) : "0"(d2));
@@ -528,7 +528,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_FillBGTilemap);
  * Advances stream pointer by 3.
  */
 void StreamCmd_EnableMosaic(void) {
-    vu16 *bg2cnt = (vu16 *)0x0400000C;
+    vu16 *bg2cnt = &REG_BG2CNT;
     *bg2cnt |= 0x40;
     bg2cnt++;
     *bg2cnt |= 0x40;
