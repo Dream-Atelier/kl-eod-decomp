@@ -67,7 +67,7 @@ CC1FLAGS := -mthumb-interwork -Wimplicit -Wparentheses -O2 -fhex-asm -fprologue-
 # emitted bytes. Opt-out with AGENT_INSTRUMENT=0.
 AGENT_INSTRUMENT ?= 1
 ifeq ($(AGENT_INSTRUMENT),1)
-CC1FLAGS += -finstrument-src-locs -fdump-function-size -fdump-reg-lifetimes
+CC1FLAGS += -finstrument-src-locs -fdump-function-size -fdump-reg-lifetimes -fdump-pool-literals
 endif
 
 DECOMP_TOML := klonoa-eod-decomp.toml
