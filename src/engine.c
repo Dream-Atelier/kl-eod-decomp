@@ -359,7 +359,28 @@ void ScrollBGColumnLoad(u8 arg0) {
     gUnk_03003430.bg2VOfs += (arg0 * 8);
 }
 INCLUDE_ASM("asm/nonmatchings/engine", InitVideoAndBG);
-INCLUDE_ASM("asm/nonmatchings/engine", ComputeRotationMatrix);
+void ComputeRotationMatrix(void) {
+    gBg2PA = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2XMag));
+    gBg2PB = MultiplyQ8(SIN(gBg2Alpha), ReciprocalQ8(gBg2XMag));
+    gBg2PC = MultiplyQ8(-SIN(gBg2Alpha), ReciprocalQ8(gBg2YMag));
+    gBg2PD = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2YMag));
+
+    gBg2X = (((gUnk_03003430.bg2HOfs + DISPLAY_WIDTH_CENTER) << 8) - (gBg2PA * DISPLAY_WIDTH_CENTER)) - (gBg2PB * DISPLAY_HEIGHT_CENTER);
+    gBg2Y = (((gUnk_03003430.bg2VOfs + DISPLAY_HEIGHT_CENTER) << 8) - (gBg2PC * DISPLAY_WIDTH_CENTER)) - (gBg2PD * DISPLAY_HEIGHT_CENTER);
+
+    if (gBg2XMag != 0x100) {
+        gBg2Alpha += 8;
+        gBg2XMag -= 0x10;
+        gBg2YMag -= 0x10;
+        gUnk_03004C20.unk0 = 0;
+    } else if ((gUnk_03004C20.unk0 == 0x258) || (gNewKeys & (START_BUTTON | B_BUTTON | A_BUTTON))) {
+        gUnk_030007D8 = 0;
+        gUnk_03003410.unk7 = 1;
+        gUnk_03004C20.world = 6;
+        gUnk_03004C20.level = 3;
+        gUnk_03003510.unk0[1] = TransitionGameplayInit;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/engine", ResetVideoRegisters); /* RenderFrame — per-frame rendering dispatch */
 /**
  * ClearVideoState: zeroes all 99 OAM shadow entries then calls InitOamEntries.

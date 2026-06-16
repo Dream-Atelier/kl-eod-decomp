@@ -62,10 +62,9 @@ struct GfxStreamEntry {
  * Dereferenced for palette state, flags, and buffer management. */
 #define gGfxBufferPtr (*(u32 *)0x030034A0)
 
-/* BG2 affine magnification (Q_8_8). Used as 1/scale in BG2PA/PD calculations.
- * Declared signed s16 to match the asm's `ldsh` (signed-halfword) loads. */
-extern s16 gBg2XMag;
-extern s16 gBg2YMag;
+/* BG2 affine magnification (Q_8_8). Used as 1/scale in BG2PA/PD calculations. */
+extern u16 gBg2XMag;
+extern u16 gBg2YMag;
 
 /* Decompressed data buffer pointer (allocated by LoadAndDecompress functions). */
 #define gDecompBuffer    (*(void **)0x030007D0)
@@ -464,12 +463,12 @@ extern const u32 gSoundCmdTable[];
  *   gBG2PD → REG_BG2PD (0x04000026) — vertical scale / cos(angle)
  *   gBG2X  → REG_BG2X  (0x04000028) — reference point X (32-bit fixed-point)
  *   gBG2Y  → REG_BG2Y  (0x0400002C) — reference point Y (32-bit fixed-point) */
-#define gBg2PA              (*(s16 *)0x030047B0)
-#define gBg2PB              (*(s16 *)0x03005464)
-#define gBg2PC              (*(s16 *)0x030051BC)
-#define gBg2PD              (*(s16 *)0x03000808)
-#define gBg2X               (*(s32 *)0x030007FC)
-#define gBg2Y               (*(s32 *)0x030051D0)
+extern s16 gBg2PA;
+extern s16 gBg2PB;
+extern s16 gBg2PC;
+extern s16 gBg2PD;
+extern s32 gBg2X;
+extern s32 gBg2Y;
 
 /* Per-frame cached sin/cos of gBg2Alpha (set by VBlankCallback_Dialog). */
 #define gUnk_03004678       (*(s16 *)0x03004678)
