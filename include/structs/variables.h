@@ -606,6 +606,14 @@ extern s32 gUnk_03005484;
 extern u8 gUnk_030034E0;
 extern void *gUnk_03004C10;
 
+/* sub_0800BFF4 family (kleod code_0800BFF4.c) state struct at 0x030051F0. */
+struct Unk_030051F0 {
+    s32 unk0;
+    u8 pad4[0xE - 0x4];
+    u8 unkE;
+};
+extern struct Unk_030051F0 gUnk_030051F0;
+
 /* sub_0800AC34 (UpdateUIState) — entity affine-matrix scratch table and friends. */
 struct Unk_03003590 {
     /* 0x0 */ u16 unk0;

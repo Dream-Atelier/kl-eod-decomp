@@ -140,6 +140,7 @@ gUnk_03005484 = 0x03005484;
 gUnk_030034E0 = 0x030034E0;
 gUnk_03004C10 = 0x03004C10;
 gUnk_0818B8E0 = 0x0818B8E0;
+gUnk_030051F0 = 0x030051F0;
 /* RenderCharacterTiles tile-blob VRAM source pointers. */
 gUnk_08061FC8 = 0x08061FC8;
 gUnk_080627C8 = 0x080627C8;
