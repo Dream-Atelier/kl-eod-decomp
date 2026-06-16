@@ -28,8 +28,425 @@ extern void VBlankCallback_Gameplay(void); /* VBlankCallback_Gameplay */
 extern void TransitionInitLevelMusic(void); /* sub_080242C0 (off-by-2 in our split) */
 
 INCLUDE_ASM("asm/nonmatchings/code_0", SetupOAMSprite); /* DrawSpriteTiles — core sprite/tile VRAM writer */
-INCLUDE_ASM("asm/nonmatchings/code_0", RenderHUDTop); /* RenderHUDTop */
-INCLUDE_ASM("asm/nonmatchings/code_0", RenderHUDBottom); /* RenderHUDBottom */
+extern void InitOamEntries(void); /* InitOamEntries — used by RenderHUDTop */
+void RenderHUDTop(void) {
+    s32 sp0;
+    s32 sp4;
+    struct Unk_0300466C_4 *var_r5;
+    struct Unk_0300466C_4 *var_r5_2;
+    struct Unk_0300466C_4 *var_r6;
+    struct Unk_0300466C_4 *var_r6_2;
+    struct Unk_0300466C_4 *var_r6_3;
+    struct Unk_0300466C_4 *var_r6_4;
+    struct Unk_0300466C_4 *var_r6_5;
+    u8 temp_r0_4;
+    u8 temp_r1;
+    u8 temp_r1_12;
+    u8 temp_r1_13;
+    u8 temp_r1_17;
+    u8 temp_r1_18;
+    u8 temp_r1_22;
+    u8 temp_r1_25;
+    u8 temp_r1_26;
+    u8 temp_r1_29;
+    u8 temp_r1_30;
+    u8 temp_r1_4;
+    u8 temp_r1_8;
+    u8 temp_r1_9;
+    s32 var_sb;
+    s32 var_sb_2;
+    s32 var_sb_3;
+    s32 var_sb_4;
+    s32 var_sb_5;
+    s32 var_sl;
+
+    InitOamEntries();
+    gUnk_03000820 = gUnk_03004800;
+
+    if (gUnk_03002920[0xB].unk10 == 1) {
+        temp_r1_29 = gUnk_03002920[0xB].unkA;
+        if (gUnk_03002920[0xB].unkA < 0xD) {
+            gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[0xB].unkA];
+        } else {
+            gUnk_0300466C = (void *)&gUnk_030051DC[gUnk_03002920[0xB].unkA - 0xD];
+        }
+
+        temp_r1 = gUnk_0300466C->unk0;
+        var_r5 = gUnk_0300466C->unk4;
+        for (var_sl = 0; var_sl < temp_r1; var_sl++) {
+            if (gUnk_03002920[0xB].affineDouble) {
+                if (gUnk_03002920[0xB].unk11 == 0x1C) {
+                    gUnk_03000820->split.x
+                        = (var_r5->unk3 * 2) + gUnk_03002920[0xB].xPosScreen + ((s32)(gUnk_03002920[0xB].unkB << 0x1C) >> 0x18);
+                    gUnk_03000820->split.y = var_r5->unk4 + ((s8)var_r5->unk4 >> 1) + gUnk_03002920[0xB].yPosScreen
+                        + (((s8)gUnk_03002920[0xB].unkB >> 4) << 4);
+                } else {
+                    gUnk_03000820->split.x
+                        = (var_r5->unk3 * 2) + gUnk_03002920[0xB].xPosScreen + ((s32)(gUnk_03002920[0xB].unkB << 0x1C) >> 0x1C);
+                    gUnk_03000820->split.y = var_r5->unk4 + ((s8)var_r5->unk4 >> 1) + gUnk_03002920[0xB].yPosScreen
+                        + ((s8)(gUnk_03002920[0xB].unkB) >> 0x4);
+                }
+            } else {
+                gUnk_03000820->split.x
+                    = var_r5->unk3 + gUnk_03002920[0xB].xPosScreen + ((s32)(gUnk_03002920[0xB].unkB << 0x1C) >> 0x1C);
+                gUnk_03000820->split.y = gUnk_03002920[0xB].yPosScreen + var_r5->unk4 + ((s8)(gUnk_03002920[0xB].unkB) >> 0x4);
+            }
+
+            gUnk_03000820->split.bpp = var_r5->bpp_paletteNum >> 7;
+            gUnk_03000820->split.tileNum = var_r5->tileNum;
+            gUnk_03000820->split.paletteNum = var_r5->bpp_paletteNum & 0x7F;
+            gUnk_03000820->split.shape = (var_r5->shape_size & 0xC) >> 2;
+            gUnk_03000820->split.size = var_r5->shape_size & 3;
+
+            gUnk_03000820->split.priority = gUnk_03002920[0xB].priority;
+            gUnk_03000820->split.objMode = gUnk_03002920[0xB].objMode;
+            gUnk_03000820->split.affineMode = (gUnk_03002920[0xB].affineDouble << 1) | gUnk_03002920[0xB].affineEnable;
+            gUnk_03000820->split.matrixNum = gUnk_03002920[0xB].affineHFlip_matrixNum;
+
+            if (gUnk_03002920[sp0].affineEnable) {
+                gUnk_03000820->split.hFlip = gUnk_03002920[0xB].affineHFlip_matrixNum >> 3;
+            } else {
+                gUnk_03000820->split.hFlip = gUnk_03002920[0xB].unkC_2 & 1;
+                gUnk_03000820->split.vFlip = gUnk_03002920[0xB].unkC_2 >> 1;
+            }
+
+            gUnk_03000820 += 1;
+            var_r5 += 1;
+        }
+    }
+
+    if (gUnk_03002920[0xC].unk10 == 1) {
+        temp_r1_30 = gUnk_03002920[0xC].unkA;
+        if (gUnk_03002920[0xC].unkA < 0xD) {
+            gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[0xC].unkA];
+        } else {
+            gUnk_0300466C = (void *)&gUnk_030051DC[gUnk_03002920[0xC].unkA - 0xD];
+        }
+
+        temp_r1_4 = gUnk_0300466C->unk0;
+        var_r5_2 = gUnk_0300466C->unk4;
+        for (sp4 = 0; sp4 < temp_r1_4; sp4++) {
+            if (gUnk_03002920[0xC].affineDouble) {
+                if (gUnk_03002920[0xC].unk11 == 0x1C) {
+                    gUnk_03000820->split.x
+                        = (var_r5_2->unk3 * 2) + gUnk_03002920[0xC].xPosScreen + ((s32)(gUnk_03002920[0xC].unkB << 0x1C) >> 0x18);
+                    gUnk_03000820->split.y = var_r5_2->unk4 + ((s8)var_r5_2->unk4 >> 1) + gUnk_03002920[0xC].yPosScreen
+                        + (((s8)gUnk_03002920[0xC].unkB >> 4) << 4);
+                } else {
+                    gUnk_03000820->split.x
+                        = (var_r5_2->unk3 * 2) + gUnk_03002920[0xC].xPosScreen + ((s32)(gUnk_03002920[0xC].unkB << 0x1C) >> 0x1C);
+                    gUnk_03000820->split.y = var_r5_2->unk4 + ((s8)var_r5_2->unk4 >> 1) + gUnk_03002920[0xC].yPosScreen
+                        + ((s8)(gUnk_03002920[0xC].unkB) >> 0x4);
+                }
+            } else {
+                gUnk_03000820->split.x
+                    = var_r5_2->unk3 + gUnk_03002920[0xC].xPosScreen + ((s32)(gUnk_03002920[0xC].unkB << 0x1C) >> 0x1C);
+                gUnk_03000820->split.y = gUnk_03002920[0xC].yPosScreen + var_r5_2->unk4 + ((s8)(gUnk_03002920[0xC].unkB) >> 0x4);
+            }
+
+            gUnk_03000820->split.bpp = var_r5_2->bpp_paletteNum >> 7;
+            gUnk_03000820->split.tileNum = var_r5_2->tileNum;
+            gUnk_03000820->split.paletteNum = var_r5_2->bpp_paletteNum & 0x7F;
+            gUnk_03000820->split.shape = (var_r5_2->shape_size & 0xC) >> 2;
+            gUnk_03000820->split.size = var_r5_2->shape_size & 3;
+
+            gUnk_03000820->split.priority = gUnk_03002920[0xC].priority;
+            gUnk_03000820->split.objMode = gUnk_03002920[0xC].objMode;
+            gUnk_03000820->split.affineMode = (gUnk_03002920[0xC].affineDouble << 1) | gUnk_03002920[0xC].affineEnable;
+            gUnk_03000820->split.matrixNum = gUnk_03002920[0xC].affineHFlip_matrixNum;
+
+            if (gUnk_03002920[sp0].affineEnable) {
+                gUnk_03000820->split.hFlip = gUnk_03002920[0xC].affineHFlip_matrixNum >> 3;
+            } else {
+                gUnk_03000820->split.hFlip = gUnk_03002920[0xC].unkC_2 & 1;
+                gUnk_03000820->split.vFlip = gUnk_03002920[0xC].unkC_2 >> 1;
+            }
+
+            gUnk_03000820 += 1;
+            var_r5_2 += 1;
+        }
+    }
+
+    for (sp0 = 1; sp0 <= 8; sp0++) {
+        if (gUnk_03002920[sp0].unk10 == 1) {
+            if (gUnk_03000830[sp0].unk0 != 1) {
+                temp_r1_8 = gUnk_03002920[sp0].unkA;
+                if (gUnk_03002920[sp0].unkA < 0xD) {
+                    gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[sp0].unkA];
+                } else {
+                    gUnk_0300466C = (void *)&gUnk_030051DC[gUnk_03002920[sp0].unkA - 0xD];
+                }
+
+                temp_r1_9 = gUnk_0300466C->unk0;
+                var_r6 = gUnk_0300466C->unk4;
+                for (var_sb = 0; var_sb < temp_r1_9; var_sb++) {
+                    if (gUnk_03002920[sp0].affineDouble) {
+                        if (gUnk_03002920[sp0].unk11 == 0x1C) {
+                            gUnk_03000820->split.x = (var_r6->unk3 * 2) + gUnk_03002920[sp0].xPosScreen
+                                + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x18);
+                            gUnk_03000820->split.y = var_r6->unk4 + ((s8)var_r6->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
+                                + (((s8)gUnk_03002920[sp0].unkB >> 4) << 4);
+                        } else {
+                            gUnk_03000820->split.x = (var_r6->unk3 * 2) + gUnk_03002920[sp0].xPosScreen
+                                + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x1C);
+                            gUnk_03000820->split.y = var_r6->unk4 + ((s8)var_r6->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
+                                + ((s8)(gUnk_03002920[sp0].unkB) >> 0x4);
+                        }
+                    } else {
+                        gUnk_03000820->split.x
+                            = var_r6->unk3 + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x1C);
+                        gUnk_03000820->split.y = gUnk_03002920[sp0].yPosScreen + var_r6->unk4 + ((s8)(gUnk_03002920[sp0].unkB) >> 0x4);
+                    }
+
+                    gUnk_03000820->split.bpp = var_r6->bpp_paletteNum >> 7;
+                    gUnk_03000820->split.tileNum = var_r6->tileNum;
+                    gUnk_03000820->split.paletteNum = var_r6->bpp_paletteNum & 0x7F;
+                    gUnk_03000820->split.shape = (var_r6->shape_size & 0xC) >> 2;
+                    gUnk_03000820->split.size = var_r6->shape_size & 3;
+
+                    gUnk_03000820->split.priority = gUnk_03002920[sp0].priority;
+                    gUnk_03000820->split.objMode = gUnk_03002920[sp0].objMode;
+                    gUnk_03000820->split.affineMode = (gUnk_03002920[sp0].affineDouble << 1) | gUnk_03002920[sp0].affineEnable;
+                    gUnk_03000820->split.matrixNum = gUnk_03002920[sp0].affineHFlip_matrixNum;
+
+                    if (gUnk_03002920[sp0].affineEnable) {
+                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].affineHFlip_matrixNum >> 3;
+                    } else {
+                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].unkC_2 & 1;
+                        gUnk_03000820->split.vFlip = gUnk_03002920[sp0].unkC_2 >> 1;
+                    }
+
+                    gUnk_03000820 += 1;
+                    var_r6 += 1;
+                }
+            }
+
+            if (gUnk_03000830[sp0].unk0 == 7) {
+                temp_r1_12 = gUnk_03002920[sp0].unkA;
+                if (gUnk_03002920[sp0].unkA < 0xD) {
+                    gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[sp0].unkA];
+                } else {
+                    gUnk_0300466C = (void *)&gUnk_030051DC[gUnk_03002920[sp0].unkA - 0xD];
+                }
+
+                temp_r1_13 = gUnk_0300466C->unk0;
+                var_r6_2 = gUnk_0300466C->unk4;
+                for (var_sb_2 = 0; var_sb_2 < temp_r1_13; var_sb_2++) {
+                    if (gUnk_03002920[sp0].affineDouble) {
+                        if (gUnk_03002920[sp0].unk11 == 0x1C) {
+                            gUnk_03000820->split.x = (var_r6_2->unk3 * 2) + gUnk_03002920[sp0].xPosScreen
+                                + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x18);
+                            gUnk_03000820->split.y = var_r6_2->unk4 + ((s8)var_r6_2->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
+                                + (((s8)gUnk_03002920[sp0].unkB >> 4) << 4);
+                        } else {
+                            gUnk_03000820->split.x = (var_r6_2->unk3 * 2) + gUnk_03002920[sp0].xPosScreen
+                                + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x1C);
+                            gUnk_03000820->split.y = var_r6_2->unk4 + ((s8)var_r6_2->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
+                                + ((s8)(gUnk_03002920[sp0].unkB) >> 0x4);
+                        }
+                    } else {
+                        gUnk_03000820->split.x
+                            = var_r6_2->unk3 + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x1C);
+                        gUnk_03000820->split.y
+                            = gUnk_03002920[sp0].yPosScreen + var_r6_2->unk4 + ((s8)(gUnk_03002920[sp0].unkB) >> 0x4);
+                    }
+
+                    gUnk_03000820->split.bpp = var_r6_2->bpp_paletteNum >> 7;
+                    gUnk_03000820->split.tileNum = var_r6_2->tileNum;
+                    gUnk_03000820->split.paletteNum = var_r6_2->bpp_paletteNum & 0x7F;
+                    gUnk_03000820->split.shape = (var_r6_2->shape_size & 0xC) >> 2;
+                    gUnk_03000820->split.size = var_r6_2->shape_size & 3;
+
+                    gUnk_03000820->split.priority = gUnk_03002920[sp0].priority;
+                    gUnk_03000820->split.objMode = gUnk_03002920[sp0].objMode;
+                    gUnk_03000820->split.affineMode = (gUnk_03002920[sp0].affineDouble << 1) | gUnk_03002920[sp0].affineEnable;
+                    gUnk_03000820->split.matrixNum = gUnk_03002920[sp0].affineHFlip_matrixNum;
+
+                    if (gUnk_03002920[sp0].affineEnable) {
+                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].affineHFlip_matrixNum >> 3;
+                    } else {
+                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].unkC_2 & 1;
+                        gUnk_03000820->split.vFlip = gUnk_03002920[sp0].unkC_2 >> 1;
+                    }
+
+                    gUnk_03000820 += 1;
+                    var_r6_2 += 1;
+                }
+            }
+        }
+    }
+
+    for (sp0 = 0; sp0 <= 0xC; sp0++) {
+        if (gUnk_03002920[sp0].unk11 == 0x34)
+            continue;
+
+        if (sp0 == 0xB || sp0 == 0xC)
+            continue;
+
+        if (gUnk_03002920[sp0].unk10 == 1) {
+            temp_r1_17 = gUnk_03002920[sp0].unkA;
+            if (gUnk_03002920[sp0].unkA < 0xD) {
+                gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[sp0].unkA];
+            } else {
+                gUnk_0300466C = (void *)&gUnk_030051DC[gUnk_03002920[sp0].unkA - 0xD];
+            }
+
+            temp_r1_18 = gUnk_0300466C->unk0;
+            var_r6_3 = gUnk_0300466C->unk4;
+            for (var_sb_3 = 0; var_sb_3 < temp_r1_18; var_sb_3++) {
+                if (gUnk_03002920[sp0].affineDouble) {
+                    if (gUnk_03002920[sp0].unk11 == 0x1C) {
+                        gUnk_03000820->split.x
+                            = (var_r6_3->unk3 * 2) + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x18);
+                        gUnk_03000820->split.y = var_r6_3->unk4 + ((s8)var_r6_3->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
+                            + (((s8)gUnk_03002920[sp0].unkB >> 4) << 4);
+                    } else {
+                        gUnk_03000820->split.x
+                            = (var_r6_3->unk3 * 2) + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x1C);
+                        gUnk_03000820->split.y = var_r6_3->unk4 + ((s8)var_r6_3->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
+                            + ((s8)(gUnk_03002920[sp0].unkB) >> 0x4);
+                    }
+                } else {
+                    gUnk_03000820->split.x
+                        = var_r6_3->unk3 + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x1C);
+                    gUnk_03000820->split.y = gUnk_03002920[sp0].yPosScreen + var_r6_3->unk4 + ((s8)(gUnk_03002920[sp0].unkB) >> 0x4);
+                }
+
+                gUnk_03000820->split.bpp = var_r6_3->bpp_paletteNum >> 7;
+                gUnk_03000820->split.tileNum = var_r6_3->tileNum;
+                gUnk_03000820->split.paletteNum = var_r6_3->bpp_paletteNum & 0x7F;
+                gUnk_03000820->split.shape = (var_r6_3->shape_size & 0xC) >> 2;
+                gUnk_03000820->split.size = var_r6_3->shape_size & 3;
+
+                gUnk_03000820->split.priority = gUnk_03002920[sp0].priority;
+                gUnk_03000820->split.objMode = gUnk_03002920[sp0].objMode;
+                gUnk_03000820->split.affineMode = (gUnk_03002920[sp0].affineDouble << 1) | gUnk_03002920[sp0].affineEnable;
+                gUnk_03000820->split.matrixNum = gUnk_03002920[sp0].affineHFlip_matrixNum;
+
+                if (gUnk_03002920[sp0].affineEnable) {
+                    gUnk_03000820->split.hFlip = gUnk_03002920[sp0].affineHFlip_matrixNum >> 3;
+                } else {
+                    gUnk_03000820->split.hFlip = gUnk_03002920[sp0].unkC_2 & 1;
+                    gUnk_03000820->split.vFlip = gUnk_03002920[sp0].unkC_2 >> 1;
+                }
+
+                gUnk_03000820 += 1;
+                var_r6_3 += 1;
+            }
+        }
+    }
+
+    for (sp0 = 0xD; sp0 < gUnk_03005428; sp0++) {
+        if (gUnk_03002920[sp0].unk10 == 1) {
+            temp_r0_4 = gUnk_03002920[sp0].unkA;
+            if (gUnk_03002920[sp0].unkA < 0xD) {
+                gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[sp0].unkA];
+            } else {
+                gUnk_0300466C = (void *)&gUnk_030051DC[gUnk_03002920[sp0].unkA - 0xD];
+            }
+
+            temp_r1_22 = gUnk_0300466C->unk0;
+            var_r6_4 = gUnk_0300466C->unk4;
+            for (var_sb_4 = 0; var_sb_4 < temp_r1_22; var_sb_4++) {
+                if (gUnk_03002920[sp0].affineDouble) {
+                    if (gUnk_03002920[sp0].unk11 == 0x1C) {
+                        gUnk_03000820->split.x
+                            = (var_r6_4->unk3 * 2) + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x18);
+                        gUnk_03000820->split.y = var_r6_4->unk4 + ((s8)var_r6_4->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
+                            + (((s8)gUnk_03002920[sp0].unkB >> 4) << 4);
+                    } else {
+                        gUnk_03000820->split.x
+                            = (var_r6_4->unk3 * 2) + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x1C);
+                        gUnk_03000820->split.y = var_r6_4->unk4 + ((s8)var_r6_4->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
+                            + ((s8)(gUnk_03002920[sp0].unkB) >> 0x4);
+                    }
+                } else {
+                    gUnk_03000820->split.x
+                        = var_r6_4->unk3 + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x1C);
+                    gUnk_03000820->split.y = gUnk_03002920[sp0].yPosScreen + var_r6_4->unk4 + ((s8)(gUnk_03002920[sp0].unkB) >> 0x4);
+                }
+
+                gUnk_03000820->split.bpp = var_r6_4->bpp_paletteNum >> 7;
+                gUnk_03000820->split.tileNum = var_r6_4->tileNum;
+                gUnk_03000820->split.paletteNum = var_r6_4->bpp_paletteNum & 0x7F;
+                gUnk_03000820->split.shape = (var_r6_4->shape_size & 0xC) >> 2;
+                gUnk_03000820->split.size = var_r6_4->shape_size & 3;
+
+                gUnk_03000820->split.priority = gUnk_03002920[sp0].priority;
+                gUnk_03000820->split.objMode = gUnk_03002920[sp0].objMode;
+                gUnk_03000820->split.affineMode = (gUnk_03002920[sp0].affineDouble << 1) | gUnk_03002920[sp0].affineEnable;
+                gUnk_03000820->split.matrixNum = gUnk_03002920[sp0].affineHFlip_matrixNum;
+
+                if (gUnk_03002920[sp0].affineEnable) {
+                    gUnk_03000820->split.hFlip = gUnk_03002920[sp0].affineHFlip_matrixNum >> 3;
+                } else {
+                    gUnk_03000820->split.hFlip = gUnk_03002920[sp0].unkC_2 & 1;
+                    gUnk_03000820->split.vFlip = gUnk_03002920[sp0].unkC_2 >> 1;
+                }
+
+                gUnk_03000820 += 1;
+                var_r6_4 += 1;
+            }
+        }
+    }
+
+    for (sp0 = 1; sp0 <= 8; sp0++) {
+        if (gUnk_03002920[sp0].unk10 == 1) {
+            if (gUnk_03000830[sp0].unk0 == 1) {
+                temp_r1_25 = gUnk_03002920[sp0].unkA;
+                if (gUnk_03002920[sp0].unkA < 0xD) {
+                    gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[sp0].unkA];
+                } else {
+                    gUnk_0300466C = (void *)&gUnk_030051DC[gUnk_03002920[sp0].unkA - 0xD];
+                }
+
+                temp_r1_26 = gUnk_0300466C->unk0;
+                var_r6_5 = gUnk_0300466C->unk4;
+                for (var_sb_5 = 0; var_sb_5 < temp_r1_26; var_sb_5++) {
+                    if (gUnk_03002920[sp0].affineDouble) {
+                        if (gUnk_03002920[sp0].unk11 == 0x1C) {
+                            gUnk_03000820->split.x = (var_r6_5->unk3 * 2) + gUnk_03002920[sp0].xPosScreen
+                                + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x18);
+                            gUnk_03000820->split.y = var_r6_5->unk4 + ((s8)var_r6_5->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
+                                + (((s8)gUnk_03002920[sp0].unkB >> 4) << 4);
+                        } else {
+                            gUnk_03000820->split.x = (var_r6_5->unk3 * 2) + gUnk_03002920[sp0].xPosScreen
+                                + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x1C);
+                            gUnk_03000820->split.y = var_r6_5->unk4 + ((s8)var_r6_5->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
+                                + ((s8)(gUnk_03002920[sp0].unkB) >> 0x4);
+                        }
+                    } else {
+                        gUnk_03000820->split.x
+                            = var_r6_5->unk3 + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB << 0x1C) >> 0x1C);
+                        gUnk_03000820->split.y
+                            = gUnk_03002920[sp0].yPosScreen + var_r6_5->unk4 + ((s8)(gUnk_03002920[sp0].unkB) >> 0x4);
+                    }
+
+                    gUnk_03000820->split.bpp = var_r6_5->bpp_paletteNum >> 7;
+                    gUnk_03000820->split.tileNum = var_r6_5->tileNum;
+                    gUnk_03000820->split.paletteNum = var_r6_5->bpp_paletteNum & 0x7F;
+                    gUnk_03000820->split.shape = (var_r6_5->shape_size & 0xC) >> 2;
+                    gUnk_03000820->split.size = var_r6_5->shape_size & 3;
+
+                    gUnk_03000820->split.priority = gUnk_03002920[sp0].priority;
+                    gUnk_03000820->split.objMode = gUnk_03002920[sp0].objMode;
+                    gUnk_03000820->split.affineMode = (gUnk_03002920[sp0].affineDouble << 1) | gUnk_03002920[sp0].affineEnable;
+                    gUnk_03000820->split.matrixNum = gUnk_03002920[sp0].affineHFlip_matrixNum;
+
+                    if (gUnk_03002920[sp0].affineEnable) {
+                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].affineHFlip_matrixNum >> 3;
+                    } else {
+                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].unkC_2 & 1;
+                        gUnk_03000820->split.vFlip = gUnk_03002920[sp0].unkC_2 >> 1;
+                    }
+
+                    gUnk_03000820 += 1;
+                    var_r6_5 += 1;
+                }
+            }
+        }
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_0", RenderMenuUI); /* RenderMenuUI */
 INCLUDE_ASM("asm/nonmatchings/code_0", RenderDialogBox); /* RenderDialogBox */
 INCLUDE_ASM("asm/nonmatchings/code_0", RenderDialogSprites); /* RenderDialogSprites */

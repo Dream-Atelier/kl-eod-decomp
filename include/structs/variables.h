@@ -456,6 +456,15 @@ union Unk_03000820 {
 }; /* size = 0x8 */
 extern union Unk_03000820 gUnk_03004800[]; /* OAM shadow buffer */
 extern const union Unk_03000820 gUnk_080E2A7C; /* ROM OAM template */
+extern union Unk_03000820 *gUnk_03000820; /* current OAM-shadow write head */
+
+/* Per-entity sprite-control sidecar at 0x03000830 (mirrored from kleod). */
+struct Unk_03000830 {
+    /* 0x0 */ u8 unk0;
+    /* 0x1 */ u8 unk1;
+    /* 0x2 */ u8 pad2[0x4 - 0x2];
+}; /* size = 0x4 */
+extern struct Unk_03000830 gUnk_03000830[];
 
 /* Rotation/scale matrix source table for OAM (halfwords at 0x03004680). */
 struct Unk_03004680 {
@@ -480,6 +489,7 @@ struct Unk_0300466C {
     struct Unk_0300466C_4 *unk4;
 };
 extern struct Unk_0300466C gUnk_08078FC8[];
+extern struct Unk_0300466C *gUnk_0300466C;
 
 struct Unk_0818B8E0 {
     u8 pad0[0x4 - 0x0];
