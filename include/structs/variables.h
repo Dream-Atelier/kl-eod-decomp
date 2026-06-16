@@ -124,6 +124,37 @@ extern struct Unk_03003410 gUnk_03003410;
 
 /* Frame-callback dispatch table at 0x03003510 (mirrored from kleod). */
 typedef void (*IntrFunc)(void);
+/* GBA interrupt vector table at 0x030047C0 (mirrored from kleod). */
+struct IntrTable {
+    /* 0x00 */ IntrFunc vBlank;
+    /* 0x04 */ IntrFunc hBlank;
+    /* 0x08 */ IntrFunc vCount;
+    /* 0x0C */ IntrFunc timer0;
+    /* 0x10 */ IntrFunc timer1;
+    /* 0x14 */ IntrFunc timer2;
+    /* 0x18 */ IntrFunc timer3;
+    /* 0x1C */ IntrFunc serial;
+    /* 0x20 */ IntrFunc dma0;
+    /* 0x24 */ IntrFunc dma1;
+    /* 0x28 */ IntrFunc dma2;
+    /* 0x2C */ IntrFunc dma3;
+    /* 0x30 */ IntrFunc keypad;
+    /* 0x34 */ IntrFunc gamePak;
+}; /* size = 0x38 */
+extern struct IntrTable gIntrTable;
+/* BG0..BG3 tilemap scratch buffers (kleod-canonical, address 0x03000900). */
+extern u16 gBgTilemapBufs[4][0x400];
+/* World-load progress / save-slot byte array (kleod-canonical, address 0x03004670). */
+struct Unk_03004670 {
+    u8 pad0[0x8 - 0x0];
+    u8 unk8[2][8];
+};
+extern volatile struct Unk_03004670 *gUnk_03004670;
+/* Scratch decompression buffer pointer (kleod-canonical, address 0x03005290). */
+extern void *gUnk_03005290;
+/* Sprite/palette state byte (kleod-canonical, address 0x030052A0). */
+extern u8 gUnk_030052A0;
+
 struct Unk_03003510 {
     /* 0x00 */ void (*unk0[3])(void);
     /* 0x0C */ s32 unkC;
@@ -334,12 +365,22 @@ struct Unk_080D89A8 {
 };
 extern struct Unk_080D89A8 gUnk_080D89A8[6][5];
 
-/* Level-data scratch pointer table indexed by [world-1][level-1]. */
+/* Camera-trigger record (sentinel-terminated array). */
 struct Unk_0300542C {
-    u8 pad0[0x40];
-};
+    /* 0x0 */ u16 unk0;
+    /* 0x2 */ u16 unk2;
+    /* 0x4 */ u16 unk4;
+    /* 0x6 */ u16 unk6;
+    /* 0x8 */ s8 unk8;
+    /* 0x9 */ s8 unk9;
+    /* 0xA */ u8 padA[0xC - 0xA];
+}; /* size = 0xC */
 extern struct Unk_0300542C *gUnk_0300542C;
 extern struct Unk_0300542C *gUnk_0818B704[6][7];
+
+/* sub_08001F58 (ProcessOamSpriteLayout) extras. */
+extern u16 gUnk_030008E8;
+extern u16 gUnk_0300358C;
 
 /* Loose globals used by sub_0800CA0C. */
 extern u16 gUnk_03003508; /* halfword-stored per target asm */
@@ -366,9 +407,26 @@ struct Unk_080D2E88 {
     u16 unk6;
 };
 extern struct Unk_080D2E88 gUnk_080D2E88[6][7][0x14];
-extern u8 gUnk_08051EFE[];
+extern u16 gUnk_08051EFE[6][9][3];
 extern u8 gUnk_08052624[6][9];
 extern void gUnk_03003650;
+
+/* Globals first referenced by sub_08001158 (InitLevelBG). */
+extern u32 *gUnk_08189034[6][9][3]; /* tile-size pointer table */
+extern u32 *gUnk_081892BC[6][9][3]; /* tilemap-size pointer table */
+extern u32 *gUnk_0818955C[6]; /* cutscene-mode BG1 tile size */
+extern u32 *gUnk_08189574[6]; /* cutscene-mode BG1 tilemap size */
+extern u32 *gUnk_0818B7AC[12]; /* world-intro bg compressed blobs */
+extern void *gUnk_08188F5C[6][9]; /* per-(world,level) BG palette blob */
+extern u32 *gUnk_08189544[6]; /* cutscene-mode BG palette blob */
+extern u8 gUnk_08051BD4[6][9][3]; /* BGxCNT flag bank (bpp bit) */
+extern u16 gUnk_08051C76[6][9][3]; /* BG pixel width  per layer */
+extern u16 gUnk_08051DBA[6][9][3]; /* BG pixel height per layer */
+extern u8 gUnk_08052042[6][9][3]; /* BG tile length per layer */
+extern u16 gUnk_0805265A[6]; /* cutscene BG1 width */
+extern u16 gUnk_08052666[6]; /* cutscene BG1 height */
+extern u16 gUnk_08052672[6]; /* cutscene BG1 tilemap width */
+extern u8 gUnk_0805267E[6]; /* cutscene BG1 tilemap height */
 
 /* OAM-entry union (matches kleod's variables.h).  Used by InitOamEntries,
  * RenderHUDTop, RenderDialogSprites, and other OAM writers. */
