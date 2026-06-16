@@ -12,6 +12,20 @@ extern void m4aSoundMain(void);
 extern void VBlankIntrWait(void);
 extern s16 MultiplyQ8(s16 a, s16 b);
 extern s16 ReciprocalQ8(s16 a);
+extern void SaveGameWithVerify(s32, s32); /* SaveGameWithVerify */
+extern void ReadKeyInput(void); /* ReadKeyInput == kleod InputHandler_Normal */
+extern void ProcessInputAndTimers(void); /* ProcessInputAndTimers == kleod InputHandler_AttractMode */
+extern void InitLevelState(void); /* InitLevelState */
+extern void CameraModeSwitchHandler(void); /* CameraModeSwitchHandler */
+extern void UpdateUIState(void); /* UpdateUIState */
+extern void IntroScrollAnimation(void); /* IntroScrollAnimation */
+extern void AnimatePaletteEffects(void); /* AnimatePaletteEffects */
+extern void HandlePauseMenuInput(void); /* HandlePauseMenuInput */
+extern void UpdateCameraScroll(void); /* UpdateCameraScroll */
+extern void UpdateCameraScrollPlayer2(void); /* UpdateCameraScrollPlayer2 */
+extern void ProcessOamSpriteLayout(void); /* ProcessOamSpriteLayout */
+extern void VBlankCallback_Gameplay(void); /* VBlankCallback_Gameplay */
+extern void TransitionInitLevelMusic(void); /* sub_080242C0 (off-by-2 in our split) */
 
 INCLUDE_ASM("asm/nonmatchings/code_0", SetupOAMSprite); /* DrawSpriteTiles — core sprite/tile VRAM writer */
 INCLUDE_ASM("asm/nonmatchings/code_0", RenderHUDTop); /* RenderHUDTop */
@@ -361,7 +375,219 @@ void VBlankCallback_MinimalHW(void) {
     m4aSoundMain();
     gUnk_03003420 = 1;
 }
-INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_Cutscene); /* SetupDisplayConfig */
+/**
+ * InitLevelGameplay (InitLevelGameplay): set up the per-tick gameplay
+ * dispatch for the current world/level — resolves a ROM config entry
+ * from gUnk_080D821C, seeds the player's initial BG2 position from
+ * the per-world (level==8) or per-room (other) ROM table, populates
+ * gUnk_03005220 / gUnk_03005284, and writes gUnk_03003510.unk28/
+ * unk34/unk38/unk3C/unk40 for either the boss/cutscene flow or the
+ * normal gameplay loop.
+ */
+void InitLevelGameplay(u32 arg0) {
+    u32 var_r4;
+
+    gUnk_03003508 = 3;
+    gUnk_03004C20.unkB = 0;
+    gUnk_03004C20.unkA = 0;
+
+    for (var_r4 = 0; var_r4 < 0xD; var_r4++) {
+        if ((gUnk_03004C20.world == gUnk_080D821C[var_r4].unk8) && (gUnk_03004C20.level == gUnk_080D821C[var_r4].unk9)) {
+            gUnk_03004D80 = &gUnk_080D821C[var_r4];
+            gUnk_03004C20.unkA = 1;
+            if (gUnk_03004C20.level != 8) {
+                gUnk_03004C20.unkB = 1;
+                gUnk_03003508 = 6;
+            }
+            break;
+        }
+    }
+
+    gUnk_03000810 = 0;
+    if (gUnk_03004C20.level == 8) {
+        gUnk_03002920->xPosBg2 = gUnk_080D6458[gUnk_03004C20.world - 1].unk0;
+        gUnk_03002920->yPosBg2 = gUnk_080D6458[gUnk_03004C20.world - 1].unk2;
+        gUnk_03002920->unkC_2 = gUnk_080D6458[gUnk_03004C20.world - 1].unk4_0;
+    } else {
+        gUnk_03002920->xPosBg2
+            = gUnk_080D48C8[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_030051C8 - (gUnk_03004654[1] - 1)].unk0;
+        gUnk_03002920->yPosBg2
+            = gUnk_080D48C8[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_030051C8 - (gUnk_03004654[1] - 1)].unk2;
+        gUnk_03002920->unkC_2
+            = gUnk_080D48C8[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_030051C8 - (gUnk_03004654[1] - 1)].unk4_0;
+    }
+
+    if (arg0 == 0) {
+        gUnk_03005284->unk6 = 0;
+        gUnk_03005284->unk1 = gUnk_03004C20.world;
+        gUnk_03005284->unk2 = gUnk_03004C20.level;
+        gUnk_03005284->unk16 = 0;
+        if (gUnk_03003410.unkA == 0) {
+            SaveGameWithVerify(0, 1);
+            SaveGameWithVerify(1, 0);
+        }
+        gUnk_03005220.unk0_2 = 0;
+        gUnk_03005220.unk0_5 = 0;
+        gUnk_03005220.unk0_0 = 3;
+        gUnk_03005220.unk1_4 = 0;
+        gUnk_03005220.unk14 = 0;
+        gUnk_03005220.unk3_6 = gUnk_03005220.unk3_5 = 0;
+        if ((gUnk_03004C20.unkB != 0) || ((gUnk_03004C20.world == 6) && ((gUnk_03004C20.level == 1) || (gUnk_03004C20.level == 3)))) {
+            gUnk_03005220.unk4 = gUnk_03005284->unk18;
+        } else {
+            gUnk_03005220.unk4 = 0;
+        }
+        gUnk_03005220.unk8 = 0;
+        gUnk_03005220.unkC = 0;
+        gUnk_03005220.unk2_7 = 0;
+        gUnk_03005220.unk2E = 0;
+        gUnk_03005220.unk58 = 0;
+        gUnk_03005220.unk1_7 = 0;
+        gUnk_03005220.unk60 = 0;
+        gUnk_03005220.unk4F = 0;
+        gUnk_03005220.unk4E = 0;
+        gUnk_03005220.unk4D = 0;
+        gUnk_03004C20.unk8 = 0;
+        gUnk_03005220.unk1C = 0;
+        gUnk_03005220.unk5E = 0;
+    }
+
+    if (arg0 == 1) {
+        gUnk_03005220.unk4C = gUnk_03005284->unk0;
+        gUnk_03005220.unk0_0 = gUnk_03005284->unk8_0;
+        gUnk_03005220.unk0_2 = gUnk_03005284->unk8_2;
+        gUnk_03005220.unk0_5 = gUnk_03005284->unk8_5;
+        gUnk_03005220.unk1_4 = gUnk_03005284->unk9_4;
+        gUnk_03005220.unk4 = gUnk_03005284->unk18;
+        gUnk_03005220.unk2_7 = gUnk_03005284->unkA_7;
+        gUnk_03005220.unk3_5 = gUnk_03005284->unkB_5;
+        gUnk_03005220.unk3_6 = gUnk_03005284->unkB_6;
+        gUnk_03005220.unk8 = gUnk_03005284->unkC;
+        gUnk_03005220.unkC = gUnk_03005284->unk10;
+        gUnk_03005220.unk14 = gUnk_03005284->unk14;
+        gUnk_03005220.unk2E = gUnk_03005284->unk5;
+        gUnk_03005220.unk58 = gUnk_03005284->unk7;
+        do {
+            gUnk_03005220.unk1_7 = gUnk_03005284->unk9_7;
+            gUnk_03004C20.unk8 = gUnk_03005284->unk16;
+            gUnk_03005220.unk60 = 0;
+            gUnk_03005220.unk4F = 0;
+            gUnk_03005220.unk4E = 0;
+            gUnk_03005220.unk4D = 0;
+        } while (0);
+    } else {
+        gUnk_03005284->unk0 = gUnk_03005220.unk4C;
+        gUnk_03005284->unk1 = gUnk_03004C20.world;
+        gUnk_03005284->unk2 = gUnk_03004C20.level;
+        gUnk_03005284->unk8_0 = gUnk_03005220.unk0_0;
+        gUnk_03005284->unk16 = gUnk_03004C20.unk8;
+        gUnk_03005284->unk8_2 = gUnk_03005220.unk0_2;
+        gUnk_03005284->unk9_4 = gUnk_03005220.unk1_4;
+        gUnk_03005284->unk14 = gUnk_03005220.unk14;
+        gUnk_03005284->unkB_5 = gUnk_03005220.unk3_5;
+        gUnk_03005284->unkB_6 = gUnk_03005220.unk3_6;
+        gUnk_03005284->unk5 = gUnk_03005220.unk2E;
+        gUnk_03005284->unk7 = gUnk_03005220.unk58;
+        gUnk_03005284->unk9_7 = gUnk_03005220.unk1_7;
+        gUnk_03005284->unk18 = gUnk_03005220.unk4;
+        if (gUnk_03004C20.unkB == 0) {
+            gUnk_03005284->unk8_5 = gUnk_03005220.unk0_5;
+            gUnk_03005284->unkC = gUnk_03005220.unk8;
+            gUnk_03005284->unk10 = gUnk_03005220.unkC;
+            gUnk_03005284->unkA_7 = gUnk_03005220.unk2_7;
+        } else {
+            gUnk_03005284->unk8_5 = 0;
+            gUnk_03005284->unkC = 0;
+            gUnk_03005284->unk10 = 0;
+            gUnk_03005284->unkA_7 = 0;
+        }
+    }
+
+    if (gUnk_03003410.unkA == 0) {
+        gUnk_03003510.unk28[0] = ReadKeyInput;
+    } else {
+        gUnk_03003510.unk28[0] = ProcessInputAndTimers;
+    }
+
+    gUnk_03003410.unk5 = 0;
+    gUnk_03003410.unk0 = 0;
+    gUnk_03003410.unkB = 0;
+    gUnk_030051E0 = 0;
+    gUnk_030034C4 = 0xFE;
+    gUnk_03003430.unk46 = 0;
+    gUnk_03003430.unk44 = 0;
+
+    if (gUnk_03004C20.level == 8) {
+        gUnk_03003510.unk28[1] = InitLevelState;
+        gUnk_03003510.unk28[2] = CameraModeSwitchHandler;
+        gUnk_03003510.unk34 = UpdateUIState;
+        gUnk_03003510.unk38 = TransitionInitLevelMusic;
+        gUnk_03003510.unk3C = (u32)IntroScrollAnimation;
+        gUnk_03003510.unk40 = AnimatePaletteEffects;
+        gUnk_03003510.unk44 = 1;
+        gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
+        gUnk_03003510.unk79 = 8;
+    } else {
+        gUnk_03003510.unk28[1] = HandlePauseMenuInput;
+        if (gUnk_03004C20.unkB == 1) {
+            gUnk_03003510.unk28[2] = UpdateCameraScrollPlayer2;
+        } else if (gUnk_03004C20.level == 6) {
+            gUnk_03003510.unk28[2] = UpdateCameraScroll;
+        } else {
+            gUnk_03003510.unk28[2] = ProcessOamSpriteLayout;
+        }
+        gUnk_03003510.unk34 = TransitionInitLevelMusic;
+
+        if (arg0 < 2) {
+            if (gUnk_03003410.unkA == 0) {
+                gUnk_03003510.unk38 = IntroScrollAnimation;
+                gUnk_03003510.unk3C = (u32)VBlankCallback_Gameplay;
+                gUnk_03003510.unk40 = (IntrFunc)1;
+                gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
+                gUnk_03003510.unk79 = 7;
+            } else {
+                gUnk_03003510.unk38 = VBlankCallback_Gameplay;
+                gUnk_03003510.unk3C = 1;
+                gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
+                gUnk_03003510.unk79 = 6;
+            }
+        } else {
+            gUnk_03003410.unk5 = 1;
+            gUnk_03003510.unk38 = VBlankCallback_Gameplay;
+            gUnk_03003510.unk3C = 1;
+            gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
+            gUnk_03003510.unk79 = 6;
+        }
+    }
+    gUnk_030034E4 = 1;
+    if (gUnk_03004C20.level == 6) {
+        gUnk_030034E8.unk0 = gUnk_080D89A8[gUnk_03004C20.world - 1][gUnk_03004C20.room - 1].unk0;
+        gUnk_030034E8.unk4 = gUnk_080D89A8[gUnk_03004C20.world - 1][gUnk_03004C20.room - 1].unk4;
+        gUnk_030051B8 = 0;
+
+        if (gUnk_030034E8.unk0 > 0) {
+            gUnk_030051B8 = 0x10;
+        } else if (gUnk_030034E8.unk0 < 0) {
+            gUnk_030051B8 = 0x20;
+        }
+
+        if (gUnk_030034E8.unk4 > 0) {
+            gUnk_030051B8 |= 0x80;
+        } else if (gUnk_030034E8.unk4 < 0) {
+            gUnk_030051B8 |= 0x40;
+        }
+
+        gUnk_03005480 = 0;
+        gUnk_030007C0 = 0;
+    }
+
+    if ((gUnk_03004C20.world == 5) && (gUnk_03004C20.level == 2 || gUnk_03004C20.level == 3)) {
+        gUnk_03004C20.pad11[0] = 1;
+    } else {
+        gUnk_03004C20.pad11[0] = 0;
+    }
+    gUnk_0300542C = gUnk_0818B704[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1];
+}
 void VBlankCallback_TitleScreen(void) {
     RenderHUDTop();
     VBlankIntrWait();

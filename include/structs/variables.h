@@ -68,7 +68,7 @@ struct Unk_03004C20 {
     /* 0x13 */ u8 demoInputIndex;
     /* 0x14 */ u8 demoNextInputTimer;
 };
-#define gUnk_03004C20 (*(struct Unk_03004C20 *)0x03004C20)
+extern struct Unk_03004C20 gUnk_03004C20;
 
 /* Per-frame globals used by VBlank callbacks. */
 #define gUnk_03003420 (*(u8 *)0x03003420)
@@ -125,24 +125,24 @@ extern struct Unk_03003410 gUnk_03003410;
 /* Frame-callback dispatch table at 0x03003510 (mirrored from kleod). */
 typedef void (*IntrFunc)(void);
 struct Unk_03003510 {
-    /* 0x00 */ IntrFunc unk0[3];
+    /* 0x00 */ void (*unk0[3])(void);
     /* 0x0C */ s32 unkC;
-    /* 0x10 */ IntrFunc unk10;
+    /* 0x10 */ void (*unk10)(void);
     /* 0x14 */ u8 pad14[0x28 - 0x14];
-    /* 0x28 */ IntrFunc unk28[3];
+    /* 0x28 */ void (*unk28[3])(void);
     /* 0x34 */ void *unk34;
     /* 0x38 */ void *unk38;
     /* 0x3C */ u32 unk3C;
-    /* 0x40 */ IntrFunc unk40;
+    /* 0x40 */ void (*unk40)(void);
     /* 0x44 */ u32 unk44;
     /* 0x48 */ u8 pad48[0x50 - 0x48];
-    /* 0x50 */ IntrFunc unk50[1];
+    /* 0x50 */ void (*unk50[1])(void);
     /* 0x54 */ u8 pad54[0x78 - 0x54];
     /* 0x78 */ u8 unk78;
     /* 0x79 */ u8 unk79;
     /* 0x7A */ u8 unk7A;
     /* 0x7B */ u8 pad7B[0x7C - 0x7B];
-};
+}; /* size = 0x7C */
 extern struct Unk_03003510 gUnk_03003510;
 
 /* BG-tile/tilemap workbuffer pointers (mirrored from kleod). */
@@ -229,18 +229,126 @@ extern s32 gUnk_03005480;
 extern s32 gUnk_030007C0;
 extern u16 gUnk_03005474;
 
-/* Game-state struct at 0x03005220 (partial — fields used by current ports). */
+/* Game-state struct at 0x03005220 (mirrored from kleod, full layout). */
 struct Unk_03005220 {
-    /* 0x00 */ u8 pad0[0x2E - 0x00];
+    /* 0x00_0 */ u32 unk0_0 : 2;
+    /* 0x00_2 */ u32 unk0_2 : 3;
+    /* 0x00_5 */ u32 unk0_5 : 7;
+    /* 0x01_4 */ u32 unk1_4 : 3;
+    /* 0x01_7 */ u32 unk1_7 : 8;
+    /* 0x02_7 */ u32 unk2_7 : 6;
+    /* 0x03_5 */ u32 unk3_5 : 1;
+    /* 0x03_6 */ u32 unk3_6 : 1;
+    /* 0x04 */ u32 unk4;
+    /* 0x08 */ u32 unk8;
+    /* 0x0C */ u32 unkC;
+    /* 0x10 */ u32 unk10;
+    /* 0x14 */ u16 unk14;
+    /* 0x16 */ u8 pad16[0x1A - 0x16];
+    /* 0x1A */ u16 unk1A;
+    /* 0x1C */ u16 unk1C;
+    /* 0x1E */ u8 pad1E[0x2E - 0x1E];
     /* 0x2E */ u8 unk2E;
     /* 0x2F */ s8 unk2F;
     /* 0x30 */ u8 unk30;
     /* 0x31 */ u8 unk31;
-    /* 0x32 */ u8 pad32[0x46 - 0x32];
+    /* 0x32 */ u8 pad32[0x35 - 0x32];
+    /* 0x35 */ u8 unk35;
+    /* 0x36 */ u8 unk36;
+    /* 0x37 */ u8 unk37;
+    /* 0x38 */ u8 pad38[0x3F - 0x38];
+    /* 0x3F */ u8 unk3F;
+    /* 0x40 */ u8 pad40[0x46 - 0x40];
     /* 0x46 */ u8 unk46;
-    /* 0x47 */ u8 pad47[0x64 - 0x47];
-};
+    /* 0x47 */ u8 pad47[0x4C - 0x47];
+    /* 0x4C */ u8 unk4C;
+    /* 0x4D */ u8 unk4D;
+    /* 0x4E */ u8 unk4E;
+    /* 0x4F */ u8 unk4F;
+    /* 0x50 */ u8 pad50[0x58 - 0x50];
+    /* 0x58 */ u8 unk58;
+    /* 0x59 */ u8 pad59[0x5E - 0x59];
+    /* 0x5E */ u8 unk5E;
+    /* 0x5F */ u8 unk5F;
+    /* 0x60 */ u16 unk60;
+    /* 0x62 */ u8 pad62[0x64 - 0x62];
+}; /* size = 0x64 */
 extern struct Unk_03005220 gUnk_03005220;
+
+/* Level-config view struct at 0x03005284, accessed via pointer.
+ * Holds per-level entity/state replay values. */
+struct Unk_03005284 {
+    /* 0x00 */ u8 unk0;
+    /* 0x01 */ u8 unk1;
+    /* 0x02 */ u8 unk2;
+    /* 0x03 */ u8 pad3[0x5 - 0x3];
+    /* 0x05 */ u8 unk5;
+    /* 0x06 */ u8 unk6;
+    /* 0x07 */ u8 unk7;
+    /* 0x08_0 */ u8 unk8_0 : 2;
+    /* 0x08_2 */ u8 unk8_2 : 3;
+    /* 0x08_5 */ u8 unk8_5 : 7;
+    /* 0x09_4 */ u8 unk9_4 : 3;
+    /* 0x09_7 */ u8 unk9_7 : 8;
+    /* 0x0A_7 */ u8 unkA_7 : 6;
+    /* 0x0B_5 */ u8 unkB_5 : 1;
+    /* 0x0B_6 */ u8 unkB_6 : 1;
+    /* 0x0C */ u32 unkC;
+    /* 0x10 */ u32 unk10;
+    /* 0x14 */ u16 unk14;
+    /* 0x16 */ u16 unk16;
+    /* 0x18 */ u32 unk18;
+};
+extern struct Unk_03005284 *gUnk_03005284;
+
+/* ROM data tables (level config / room positions / boss positions). */
+struct Unk_080D821C {
+    u8 pad0[0x8 - 0x0];
+    u8 unk8;
+    u8 unk9;
+    u8 padA[0xC - 0xA];
+};
+extern struct Unk_080D821C gUnk_080D821C[0xD];
+extern struct Unk_080D821C *gUnk_03004D80;
+
+struct Unk_080D6458 {
+    u16 unk0;
+    u16 unk2;
+    u8 unk4_0 : 2;
+    u8 pad5[0x8 - 0x5];
+};
+extern struct Unk_080D6458 gUnk_080D6458[6];
+
+struct Unk_080D48C8 {
+    u16 unk0;
+    u16 unk2;
+    u8 unk4_0 : 2;
+    u8 unk4_2 : 6;
+    u8 pad5[0x8 - 0x5];
+};
+extern struct Unk_080D48C8 gUnk_080D48C8[6][7][0x15];
+
+struct Unk_080D89A8 {
+    s32 unk0;
+    s32 unk4;
+};
+extern struct Unk_080D89A8 gUnk_080D89A8[6][5];
+
+/* Level-data scratch pointer table indexed by [world-1][level-1]. */
+struct Unk_0300542C {
+    u8 pad0[0x40];
+};
+extern struct Unk_0300542C *gUnk_0300542C;
+extern struct Unk_0300542C *gUnk_0818B704[6][7];
+
+/* Loose globals used by sub_0800CA0C. */
+extern u16 gUnk_03003508; /* halfword-stored per target asm */
+extern u8 gUnk_03000810;
+extern u8 gUnk_030051C8;
+extern u16 gUnk_030051E0;
+extern u8 gUnk_030034C4;
+extern u8 gUnk_030034E4; /* same address as gPauseFlag macro; kleod-style alias */
+extern u8 *gUnk_03004654; /* small ROM/IWRAM byte pointer (indexed [1] in level lookup) */
 
 /* OAM-entry union (matches kleod's variables.h).  Used by InitOamEntries,
  * RenderHUDTop, RenderDialogSprites, and other OAM writers. */
