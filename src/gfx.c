@@ -142,14 +142,14 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB);
  */
 void AllocAndClearGfxBuffer(void) {
     u16 zero_src;
-    u32 addr = 0x030034A0;
+    u32 addr = (u32)&gGfxBufferPtr;
     register u32 *gfxBuf asm("r4");
     u32 *buf;
     asm("" : "=r"(gfxBuf) : "0"(addr));
     buf = (u32 *)thunk_HeapAlloc(0x20, 0);
     *gfxBuf = (u32)buf;
     {
-        u32 dma_addr = 0x040000D4;
+        u32 dma_addr = REG_ADDR_DMA3SAD;
         register volatile u32 *dma3 asm("r1");
         u32 sp_ptr = (u32)&zero_src;
         zero_src = 0;
@@ -183,14 +183,14 @@ INCLUDE_ASM("asm/nonmatchings/gfx", DeadCode_0804bb86);
  */
 void AllocAndClearBuffer_52A4(void) {
     u16 zero_src;
-    u32 addr = 0x030052A4;
+    u32 addr = (u32)&gBuffer_52A4;
     register u32 *bufPtr asm("r4");
     u32 *buf;
     asm("" : "=r"(bufPtr) : "0"(addr));
     buf = (u32 *)thunk_HeapAlloc(0x90 << 3, 0);
     *bufPtr = (u32)buf;
     {
-        u32 dma_addr = 0x040000D4;
+        u32 dma_addr = REG_ADDR_DMA3SAD;
         register volatile u32 *dma3 asm("r1");
         u32 sp_ptr = (u32)&zero_src;
         zero_src = 0;
@@ -275,7 +275,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB_Alt);
  * clears OBJ window enable (bit 14) in REG_DISPCNT.
  */
 void InitLevelStateDefaults(void) {
-    u32 addr = 0x030034A0;
+    u32 addr = (u32)&gLevelStatePtr;
     u32 *bufAddr;
     register u16 *buf asm("r1");
 
@@ -297,7 +297,7 @@ void InitLevelStateDefaults(void) {
     }
     UpdateAffineRegisters();
     {
-        u32 winAddr = 0x04000048;
+        u32 winAddr = (u32)REG_ADDR_WININ;
         u32 wiVal = 0x1F23;
         register u16 *winin asm("r1");
         register u32 wiConst asm("r2");
@@ -311,7 +311,7 @@ void InitLevelStateDefaults(void) {
         *winin = 0x3D;
     }
     {
-        volatile u16 *dispcnt = (volatile u16 *)(0x80 << 19);
+        volatile u16 *dispcnt = &REG_DISPCNT;
         u32 bfAddr = 0xBFFF;
         u16 val = *dispcnt;
         u16 mask;
