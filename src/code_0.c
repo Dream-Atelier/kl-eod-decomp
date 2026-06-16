@@ -22,36 +22,22 @@ INCLUDE_ASM("asm/nonmatchings/code_0", RenderDialogSprites); /* RenderDialogSpri
 /**
  * InitOamEntries: initialize 128 OAM entries from a ROM template.
  *
- * Copies a 2-word template from 0x080E2A7C to each 8-byte OAM slot
- * at 0x03004800, then overwrites bytes 6-7 of each slot with successive
- * halfwords from the rotation/scaling table at 0x03004680.
+ * Copies the 8-byte template at 0x080E2A7C into each slot of the OAM
+ * shadow buffer at 0x03004800, then overrides the affineParam halfword
+ * of each slot from the rotation/scaling table at 0x03004680.
  */
 void InitOamEntries(void) {
-    u32 addr1 = 0x03004680;
-    register u16 *rotTable asm("r5");
-    u32 addr2 = 0x080E2A7C;
-    register u32 template_lo asm("r3");
-    register u32 template_hi asm("r4");
-    u32 addr3 = 0x03004800;
-    register u8 *oam asm("r1");
-    register s32 i asm("r2");
-    asm("" : "=r"(rotTable) : "0"(addr1));
-    {
-        u32 *tmpl;
-        asm("" : "=r"(tmpl) : "0"(addr2));
-        template_lo = tmpl[0];
-        template_hi = tmpl[1];
+    s32 var_r2;
+    u16 *var_r5;
+    union Unk_03000820 var;
+
+    var_r5 = (u16 *)gUnk_03004680;
+    var = gUnk_080E2A7C;
+
+    for (var_r2 = 0; var_r2 < 0x80; var_r2++) {
+        gUnk_03004800[var_r2].all = var.all;
+        gUnk_03004800[var_r2].all.affineParam = *var_r5++;
     }
-    asm("" : "=r"(oam) : "0"(addr3));
-    i = 0x7F;
-    do {
-        *(u32 *)(oam + 0) = template_lo;
-        *(u32 *)(oam + 4) = template_hi;
-        *(u16 *)(oam + 6) = *rotTable;
-        rotTable++;
-        oam += 8;
-        i--;
-    } while (i >= 0);
 }
 void TransformEntityScreenPositions(void) {
     s32 var_r5;

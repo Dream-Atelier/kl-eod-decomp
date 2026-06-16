@@ -242,4 +242,75 @@ struct Unk_03005220 {
 };
 extern struct Unk_03005220 gUnk_03005220;
 
+/* OAM-entry union (matches kleod's variables.h).  Used by InitOamEntries,
+ * RenderHUDTop, RenderDialogSprites, and other OAM writers. */
+union Unk_03000820 {
+    struct {
+        /* 0x0_0 */ u32 y : 8;
+        /* 0x1_0 */ u32 affineMode : 2;
+        /* 0x1_2 */ u32 objMode : 2;
+        /* 0x1_4 */ u32 mosaic : 1;
+        /* 0x1_5 */ u32 bpp : 1;
+        /* 0x1_6 */ u8 shape : 2;
+        /* 0x2_0 */ u16 x : 9;
+        /* 0x3_1 */ u8 matrixNum : 3;
+        /* 0x3_4 */ u32 hFlip : 1;
+        /* 0x3_5 */ u8 vFlip : 1;
+        /* 0x3_6 */ u8 size : 2;
+        /* 0x4_0 */ u16 tileNum : 10;
+        /* 0x5_2 */ u8 priority : 2;
+        /* 0x5_4 */ u16 paletteNum : 4;
+        /* 0x6_0 */ u8 pad6[0x8 - 0x6];
+    } split;
+    struct {
+        /* 0x0 */ u32 attr01;
+        /* 0x4 */ u16 attr2;
+        /* 0x6 */ u16 affineParam;
+    } all;
+}; /* size = 0x8 */
+extern union Unk_03000820 gUnk_03004800[]; /* OAM shadow buffer */
+extern const union Unk_03000820 gUnk_080E2A7C; /* ROM OAM template */
+
+/* Rotation/scale matrix source table for OAM (halfwords at 0x03004680). */
+struct Unk_03004680 {
+    u16 unk0;
+    u16 unk2;
+    u16 unk4;
+    u16 unk6;
+}; /* size = 0x8 */
+extern struct Unk_03004680 gUnk_03004680[];
+
+/* Sprite-part metadata referenced via gUnk_0300466C / gUnk_08078FC8 / gUnk_030051DC. */
+struct Unk_0300466C_4 {
+    u16 tileNum;
+    u8 bpp_paletteNum;
+    s8 unk3;
+    u8 unk4;
+    u8 shape_size;
+};
+struct Unk_0300466C {
+    u8 unk0;
+    u8 pad1[0x4 - 0x1];
+    struct Unk_0300466C_4 *unk4;
+};
+extern struct Unk_0300466C gUnk_08078FC8[];
+
+struct Unk_0818B8E0 {
+    u8 pad0[0x4 - 0x0];
+    u16 *unk4;
+};
+extern struct Unk_0818B8E0 *gUnk_030051DC;
+
+/* Text-scroll Bresenham accumulator. */
+extern s32 gUnk_030034DC;
+
+/* sub_0800BEF0 (UpdateTextScroll) parameter struct. */
+struct Unk_0800BEF0 {
+    u16 unk0;
+    u16 unk2;
+    u16 unk4;
+    u16 unk6;
+    s8 unk8;
+};
+
 #endif /* GUARD_STRUCTS_VARIABLES_H */
