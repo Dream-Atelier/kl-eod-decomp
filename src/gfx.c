@@ -240,14 +240,14 @@ void SetupTextBGLayer(void) {
             asm("" : "=r"(ctrl) : "0"(ctrl));
             dma[2] = ctrl;
             dma[2];
-            asm("add\t%0, #-0xCA" : "+r"(dma));
+            dma = (volatile u32 *)((u8 *)dma - 0xCA);
             *(volatile u16 *)dma = 0x700;
         }
         {
             volatile u16 *scroll;
             scroll = &REG_BG1HOFS;
             *scroll = zero;
-            asm("add\t%0, #0x02" : "+r"(scroll));
+            scroll = (volatile u16 *)((u8 *)scroll + 0x02);
             *scroll = zero;
         }
     }
@@ -286,7 +286,7 @@ void InitLevelStateDefaults(void) {
         asm("" : "=r"(wiConst) : "0"(wiVal));
         val = wiConst;
         *winin = val;
-        asm("add\t%0, #0x02" : "+r"(winin));
+        winin = (u16 *)((u8 *)winin + 0x02);
         *winin = 0x3D;
     }
     REG_DISPCNT &= 0xBFFF;

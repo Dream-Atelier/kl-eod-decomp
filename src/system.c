@@ -55,8 +55,8 @@ void ReadKeyInput(void) {
     pressed = mask;
     asm("" : "+r"(pressed));
     pressed ^= raw;
-    asm("" : "=r"(newKeys) : "0"(nkAddr));
-    asm("" : "=r"(prevKeys) : "0"(pkAddr));
+    newKeys = (u16 *)nkAddr;
+    prevKeys = (u16 *)pkAddr;
     prev = *prevKeys;
     edge = pressed;
     asm("" : "+r"(edge));
