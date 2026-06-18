@@ -391,6 +391,10 @@ extern u16 gUnk_0300358C;
 /* Loose globals used by sub_0800CA0C. */
 extern u16 gUnk_03003508; /* halfword-stored per target asm */
 extern u8 gUnk_03000810;
+/* Saved scene callback: ShutdownGfxSubsystem stores gControlBlock[1] here
+ * before tearing down; m4a sub_0804EB64 / SoundContextInit also reference
+ * the same address. */
+extern u32 gUnk_03000814;
 extern u8 gUnk_030051C8;
 extern u16 gUnk_030051E0;
 extern u8 gUnk_030034C4;

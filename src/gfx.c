@@ -1,6 +1,7 @@
 #include "global.h"
 #include "gba.h"
 #include "globals.h"
+#include "structs/variables.h"
 #include "include_asm.h"
 
 INCLUDE_ASM("asm/nonmatchings/gfx", InitGfxState);
@@ -354,7 +355,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", InitWorldMapGfx);
  * dynamically allocated graphics buffers.
  */
 void ShutdownGfxSubsystem(void) {
-    vu32 *dest = (vu32 *)0x03000814;
+    vu32 *dest = (vu32 *)&gUnk_03000814;
     u32 *src = (u32 *)gControlBlock;
     *dest = src[1];
 
