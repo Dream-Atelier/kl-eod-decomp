@@ -159,7 +159,6 @@ void AllocAndClearGfxBuffer(void) {
         dma3[1] = (u32)buf;
         {
             u32 ctrl = 0x81000010;
-            asm("" : "=r"(ctrl) : "0"(ctrl));
             dma3[2] = ctrl;
             dma3[2];
         }
@@ -200,7 +199,6 @@ void AllocAndClearBuffer_52A4(void) {
         dma3[1] = (u32)buf;
         {
             u32 ctrl = 0x81000240;
-            asm("" : "=r"(ctrl) : "0"(ctrl));
             dma3[2] = ctrl;
             dma3[2];
         }
@@ -306,7 +304,6 @@ void InitLevelStateDefaults(void) {
         asm("" : "=r"(winin) : "0"(winAddr));
         asm("" : "=r"(wiConst) : "0"(wiVal));
         val = wiConst;
-        asm("" : "+r"(val));
         *winin = val;
         asm("add\t%0, #0x02" : "+r"(winin));
         *winin = 0x3D;
@@ -394,7 +391,6 @@ void InitGfxStreamState(void) {
         dma[1] = (u32)buf;
         {
             u32 ctrl = 0x81000080;
-            asm("" : "=r"(ctrl) : "0"(ctrl));
             dma[2] = ctrl;
             dma[2];
         }
@@ -402,7 +398,6 @@ void InitGfxStreamState(void) {
         {
             u32 oamSrc = (u32)gOamBuffer;
             u32 ctrl2 = 0x84000100;
-            asm("" : "=r"(oamSrc) : "0"(oamSrc));
             dma[0] = oamSrc;
             dma[1] = 0xE0 << 19;
             asm("" : "=r"(ctrl2) : "0"(ctrl2));
@@ -642,7 +637,6 @@ void UpdateCursorBlink(void) {
         } else {
             u32 entityBase = (u32)gEntityArray;
             u32 offset = 0x17C;
-            asm("" : "+r"(entityBase));
             *(u8 *)(entityBase + offset) = 0;
         }
     }

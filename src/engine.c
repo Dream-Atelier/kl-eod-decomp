@@ -76,10 +76,7 @@ void UpdateWindowCircleEffect(void) {
     sqr = BiosSquareRoot(val);
     hw = (u8)sqr >> 1;
     if (hw <= 0x78) {
-        u32 winAddr = (u32)&REG_WIN1H;
-        volatile u16 *win;
-        asm("" : "=r"(win) : "0"(winAddr));
-        *win = ((0x78 - hw) << 8) | (hw + 0x78);
+        REG_WIN1H = ((0x78 - hw) << 8) | (hw + 0x78);
     } else {
         REG_WIN1H = 0;
     }
