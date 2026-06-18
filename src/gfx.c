@@ -148,11 +148,10 @@ void AllocAndClearGfxBuffer(void) {
     buf = (u32 *)thunk_HeapAlloc(0x20, 0);
     *gfxBuf = (u32)buf;
     {
-        u32 dma_addr = REG_ADDR_DMA3SAD;
         register volatile u32 *dma3 asm("r1");
         u32 sp_ptr = (u32)&zero_src;
         zero_src = 0;
-        asm("" : "=r"(dma3) : "0"(dma_addr));
+        dma3 = (volatile u32 *)REG_ADDR_DMA3SAD;
         dma3[0] = sp_ptr;
         dma3[1] = (u32)buf;
         {
@@ -186,11 +185,10 @@ void AllocAndClearBuffer_52A4(void) {
     buf = (u32 *)thunk_HeapAlloc(0x90 << 3, 0);
     *bufPtr = (u32)buf;
     {
-        u32 dma_addr = REG_ADDR_DMA3SAD;
         register volatile u32 *dma3 asm("r1");
         u32 sp_ptr = (u32)&zero_src;
         zero_src = 0;
-        asm("" : "=r"(dma3) : "0"(dma_addr));
+        dma3 = (volatile u32 *)REG_ADDR_DMA3SAD;
         dma3[0] = sp_ptr;
         dma3[1] = (u32)buf;
         {
@@ -216,10 +214,7 @@ void SetupTextBGLayer(void) {
     register u8 *tbl asm("r4") = (u8 *)gBGLayerState;
     {
         u32 base = *(u16 *)(tbl + 0x16) + 0x20;
-        u32 srcAddr = 0x0804BB11;
-        u8 *src;
-        asm("" : "=r"(src) : "0"(srcAddr));
-        SoundDmaInit(base, (u32)src, 0x1D, 0x10);
+        SoundDmaInit(base, 0x0804BB11, 0x1D, 0x10);
     }
     *(u32 *)(tbl + 0x1C) = 0xC0 << 19;
     *(u32 *)(tbl + 0x20) = 0x06003800;
@@ -233,12 +228,11 @@ void SetupTextBGLayer(void) {
         }
         *(u16 *)(tbl + 0x30) = *(u16 *)(tbl + 0x16);
         {
-            u32 dmaAddr = REG_ADDR_DMA3SAD;
             register volatile u32 *dma asm("r1");
             u32 romPal = 0x080576B4;
             u32 palDst = 0x050001E0;
             u32 ctrl = 0x80000020;
-            asm("" : "=r"(dma) : "0"(dmaAddr));
+            dma = (volatile u32 *)REG_ADDR_DMA3SAD;
             asm("" : "=r"(romPal) : "0"(romPal));
             dma[0] = romPal;
             asm("" : "=r"(palDst) : "0"(palDst));
@@ -250,9 +244,8 @@ void SetupTextBGLayer(void) {
             *(volatile u16 *)dma = 0x700;
         }
         {
-            u32 scrollAddr = (u32)REG_ADDR_BG1HOFS;
             volatile u16 *scroll;
-            asm("" : "=r"(scroll) : "0"(scrollAddr));
+            scroll = &REG_BG1HOFS;
             *scroll = zero;
             asm("add\t%0, #0x02" : "+r"(scroll));
             *scroll = zero;
@@ -285,12 +278,11 @@ void InitLevelStateDefaults(void) {
     }
     UpdateAffineRegisters();
     {
-        u32 winAddr = (u32)REG_ADDR_WININ;
         u32 wiVal = 0x1F23;
         register u16 *winin asm("r1");
         register u32 wiConst asm("r2");
         register u32 val asm("r0");
-        asm("" : "=r"(winin) : "0"(winAddr));
+        winin = &REG_WININ;
         asm("" : "=r"(wiConst) : "0"(wiVal));
         val = wiConst;
         *winin = val;
@@ -361,11 +353,10 @@ void InitGfxStreamState(void) {
     buf = (u32 *)thunk_HeapAlloc(0x80 << 1, 0);
     *bufPtr = (u32)buf;
     {
-        u32 dmaAddr = REG_ADDR_DMA3SAD;
         register volatile u32 *dma asm("r4");
         u32 sp_ptr = (u32)&zero_src;
         zero_src = 0;
-        asm("" : "=r"(dma) : "0"(dmaAddr));
+        dma = (volatile u32 *)REG_ADDR_DMA3SAD;
         dma[0] = sp_ptr;
         dma[1] = (u32)buf;
         {
@@ -510,14 +501,13 @@ INCLUDE_ASM("asm/nonmatchings/gfx", DispatchLevelLayerSetup);
 void StreamCmd_SetBGScroll(void) {
     register u8 **sp asm("r4") = &gStreamPtr;
     register u16 scrollX asm("r3");
-    u32 tblAddr = (u32)gBGLayerState;
     register u8 *tbl asm("r5");
     u8 *p;
     u8 layer;
     u32 off;
 
     scrollX = ReadUnalignedU16(*sp + 3);
-    asm("" : "=r"(tbl) : "0"(tblAddr));
+    tbl = (u8 *)gBGLayerState;
     p = *sp;
     layer = p[2];
     off = (u32)(layer * 7) << 2;
@@ -674,7 +664,6 @@ void StreamCmd_InitHBlankWait(void) {
     s16 timerVal;
     register u8 **streamPP asm("r5") = &gStreamPtr;
     register u8 **basePP asm("r6");
-    u32 bAddr = (u32)&gBuffer_52A4;
 
     timerVal = ReadUnalignedS16(*streamPP + 3);
 
@@ -685,7 +674,7 @@ void StreamCmd_InitHBlankWait(void) {
 
         sp = *streamPP;
         idx = sp[2];
-        asm("" : "=r"(basePP) : "0"(bAddr));
+        basePP = &gBuffer_52A4;
         base = *basePP;
 
         {
