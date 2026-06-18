@@ -81,56 +81,15 @@ extern void LoadSpriteFrame(u8 frame, u8 tilesetIdx);
  *
  * Uses gEntityDeathState[0] as the slot offset between linked entity pairs.
  */
-void EntityDeathAnimation(u8 slot) {
-    u8 phase;
-    register int mask asm("r4");
-    u8 pairedSlot;
-    int val;
-    EntityDeathStruct *entities = (EntityDeathStruct *)gEntityArray;
-    EntityDeathStruct *entity;
-    register int ents asm("r3") = (int)gEntityArray;
-    EntityDeathStruct *ent;
-    int tmp;
-
-    entity = &entities[slot];
-    entity->timer = entity->timer - 1;
-    mask = 0xFF;
-    if ((u8)entity->timer == 0xFF) {
-        entity->timer = 25;
-        phase = entity->phase;
-        if (phase <= 5) {
-            SpawnEntityAtPosition(entities[slot - *gEntityDeathState].x, entities[slot - *gEntityDeathState].y, (u8)(phase + 0x0C), 0);
-        }
-        val = entity->phase - 1;
-        entity->phase = val;
-        if ((val & mask) == 0) {
-            SpawnEntityAtPosition(entities[slot - *gEntityDeathState].x, entities[slot - *gEntityDeathState].y, 2,
-                                  (u8)(slot - *gEntityDeathState));
-        } else {
-            m4aSongNumStart(0x56);
-            if (entity->phase > 9) {
-                entities[slot + *gEntityDeathState].typeId = 0;
-                pairedSlot = (u8)(slot + *gEntityDeathState);
-                LoadSpriteFrame(pairedSlot, sub_08051A0C(entity->phase, 0x0A));
-            }
-            LoadSpriteFrame(slot, sub_08051A84(entity->phase, 0x0A));
-            if (entity->phase == 9) {
-                entities[slot + *gEntityDeathState].typeId = 0x1C; /* inactive */
-                entities[slot + *gEntityDeathState].subState = 0;
-            }
-        }
-    }
-    ents = (int)gEntityArray;
-    tmp = slot * sizeof(EntityDeathStruct);
-    ent = (EntityDeathStruct *)(tmp + ents);
-    ent->x = ((EntityDeathStruct *)ents)[slot - *gEntityDeathState].x;
-    ent->y = ((EntityDeathStruct *)ents)[slot - *gEntityDeathState].y - 0x20;
-    if (ent->phase > 9) {
-        ((EntityDeathStruct *)ents)[slot + *gEntityDeathState].x = ((EntityDeathStruct *)ents)[slot - *gEntityDeathState].x - 3;
-        ((EntityDeathStruct *)ents)[slot + *gEntityDeathState].y = ((EntityDeathStruct *)ents)[slot - *gEntityDeathState].y - 0x20;
-        ent->x = ent->x + 3;
-    }
-}
+/* Hand-written assembly in the original game.  Matches the fingerprint
+ * from docs/handwritten_assembly_functions.md: specific register pins
+ * on trivial intermediates (r4 for `mask = 0xFF`, r3 for `ents =
+ * &gEntityArray` reloaded mid-function), the kind of register-discipline
+ * a human asm author maintains across the function but no compiler
+ * emits naturally.  Every C-level construct tested (unpin, fusion-form,
+ * init-at-decl, inlining 0xFF as `(u8)val`, both-pins-removed) breaks
+ * SHA1 match.  The .s file is the source of truth. */
+INCLUDE_ASM("asm/nonmatchings/code_1", EntityDeathAnimation);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityBounceOffWall);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityFloatPath);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityPickupCollect);
