@@ -39,46 +39,11 @@ INCLUDE_ASM("asm/nonmatchings/system", AgbMain);
  * checks A+B+Start+Select combo (0x0F) for soft reset, and tracks
  * A-button hold duration for repeat input.
  */
-void ReadKeyInput(void) {
-    u16 raw = REG_KEYINPUT;
-    u32 maskAddr = 0x3FF;
-    register u32 mask asm("r2");
-    u32 nkAddr = (u32)&gKeysPressed;
-    u32 pkAddr = (u32)&gKeysPrevious;
-    register u16 *newKeys asm("r3");
-    register u16 *prevKeys asm("r4");
-    register u32 pressed asm("r1");
-    u16 prev;
-    u32 edge;
-
-    asm("" : "=r"(mask) : "0"(maskAddr));
-    pressed = mask;
-    asm("" : "+r"(pressed));
-    pressed ^= raw;
-    newKeys = (u16 *)nkAddr;
-    prevKeys = (u16 *)pkAddr;
-    prev = *prevKeys;
-    edge = pressed;
-    asm("" : "+r"(edge));
-    edge &= ~(u32)prev;
-    *newKeys = edge;
-    *prevKeys = pressed;
-    pressed &= 0x0F;
-    if (pressed == 0x0F) {
-        SoftResetRom(0xFF);
-    }
-    {
-        u16 cur = *prevKeys;
-        u16 aBtn = 1;
-        aBtn &= cur;
-        if (aBtn) {
-            u16 *counter = &gAButtonHold;
-            *counter = *counter + 1;
-        } else {
-            gAButtonHold = aBtn;
-        }
-    }
-}
+/* Hand-written assembly in the original game.  The C decompilation
+ * required asm barriers (forced register pins r1-r4, MOV-fold blockers
+ * on pressed/edge) to match the original instruction stream — a signal
+ * the original source was never C. */
+INCLUDE_ASM("asm/nonmatchings/system", ReadKeyInput);
 
 /**
  * ProcessInputAndTimers: extended input handler with timer management.
@@ -96,36 +61,12 @@ INCLUDE_ASM("asm/nonmatchings/system", ProcessInputAndTimers);
  * ROM_TILESET_TABLE indexed by the current world/level, then DMAs
  * 16 words (32-bit) to transfer the sprite tile data.
  */
-void LoadSpriteFrame(u8 frame, u8 tilesetIdx) {
-    vu32 *dma = (vu32 *)REG_ADDR_DMA3SAD;
-    u32 tsAddr = ROM_SPRITE_SUBTABLE;
-    register u32 *tilesetTable asm("r2");
-    u32 spAddr = ROM_TILESET_TABLE;
-    register u32 *spriteTable asm("r5");
-
-    asm("" : "=r"(tilesetTable) : "0"(tsAddr));
-    dma[0] = tilesetTable[tilesetIdx];
-
-    asm("" : "=r"(spriteTable) : "0"(spAddr));
-
-    {
-        u32 sceneCtrl = (u32)gControlBlock;
-        u32 world = *(u8 *)(sceneCtrl + 0x0D) - 1;
-        u32 idx = world * 9;
-        sceneCtrl = *(u8 *)(sceneCtrl + 0x0C);
-        idx += sceneCtrl;
-        {
-            u32 *spriteData = (u32 *)spriteTable[idx];
-            u32 tileData = spriteData[1];
-
-            u16 tileIndex = *(u16 *)(tileData + (u32)frame * 8 - 0x68);
-            dma[1] = OBJ_VRAM + (u32)tileIndex * 32;
-        }
-    }
-
-    dma[2] = 0x80000010;
-    (void)dma[2];
-}
+/* Hand-written assembly in the original game.  The C decompilation
+ * required asm barriers (r2/r5 pinned for table pointers, nested-block
+ * scoping for the spriteTable use, dangling DMA read) to match the
+ * original instruction stream — a signal the original source was
+ * never C. */
+INCLUDE_ASM("asm/nonmatchings/system", LoadSpriteFrame);
 
 /**
  * FreeAllDecompBuffers: frees all 6 decomp buffers + collision map.

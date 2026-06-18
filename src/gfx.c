@@ -260,37 +260,11 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB_Alt);
  * calls UpdateAffineRegisters, sets REG_WININ=0x1F23, REG_WINOUT=0x003D,
  * clears OBJ window enable (bit 14) in REG_DISPCNT.
  */
-void InitLevelStateDefaults(void) {
-    register u16 *buf asm("r1") = (u16 *)gLevelStatePtr;
-    {
-        u16 val = 0;
-        u16 scroll;
-        u16 dim;
-        buf[4] = val;
-        val = 0xE80;
-        buf[8] = val;
-        scroll = 0x700;
-        buf[5] = scroll;
-        dim = 0xA00;
-        buf[9] = dim;
-        buf[6] = scroll;
-        buf[11] = dim;
-    }
-    UpdateAffineRegisters();
-    {
-        u32 wiVal = 0x1F23;
-        register u16 *winin asm("r1");
-        register u32 wiConst asm("r2");
-        register u32 val asm("r0");
-        winin = &REG_WININ;
-        asm("" : "=r"(wiConst) : "0"(wiVal));
-        val = wiConst;
-        *winin = val;
-        winin = (u16 *)((u8 *)winin + 0x02);
-        *winin = 0x3D;
-    }
-    REG_DISPCNT &= 0xBFFF;
-}
+/* Hand-written assembly in the original game.  The C decompilation
+ * required asm-barrier scaffolding (forced MOVs, register pins, inline
+ * arithmetic injection) that no semantically-equivalent C source can
+ * reproduce — a signal the original source was never C. */
+INCLUDE_ASM("asm/nonmatchings/gfx", InitLevelStateDefaults);
 void VBlankHandler_WithWindowScroll(void);
 void UpdateBGScrollWithWave(void);
 void ReadKeyInput(void);
