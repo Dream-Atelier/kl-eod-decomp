@@ -229,15 +229,15 @@ void SetupTextBGLayer(void) {
         *(u16 *)(tbl + 0x30) = *(u16 *)(tbl + 0x16);
         {
             register volatile u32 *dma asm("r1");
-            u32 romPal = 0x080576B4;
-            u32 palDst = 0x050001E0;
-            u32 ctrl = 0x80000020;
+            u32 romPal;
+            u32 palDst;
+            u32 ctrl;
             dma = (volatile u32 *)REG_ADDR_DMA3SAD;
-            asm("" : "=r"(romPal) : "0"(romPal));
+            romPal = 0x080576B4;
             dma[0] = romPal;
-            asm("" : "=r"(palDst) : "0"(palDst));
+            palDst = 0x050001E0;
             dma[1] = palDst;
-            asm("" : "=r"(ctrl) : "0"(ctrl));
+            ctrl = 0x80000020;
             dma[2] = ctrl;
             dma[2];
             dma = (volatile u32 *)((u8 *)dma - 0xCA);
@@ -367,10 +367,10 @@ void InitGfxStreamState(void) {
         ClearVideoState();
         {
             u32 oamSrc = (u32)gOamBuffer;
-            u32 ctrl2 = 0x84000100;
+            u32 ctrl2;
             dma[0] = oamSrc;
             dma[1] = 0xE0 << 19;
-            asm("" : "=r"(ctrl2) : "0"(ctrl2));
+            ctrl2 = 0x84000100;
             dma[2] = ctrl2;
             dma[2];
         }
