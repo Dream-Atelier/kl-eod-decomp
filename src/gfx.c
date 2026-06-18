@@ -143,10 +143,8 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB);
  */
 void AllocAndClearGfxBuffer(void) {
     u16 zero_src;
-    u32 addr = (u32)&gGfxBufferPtr;
-    register u32 *gfxBuf asm("r4");
+    register u32 *gfxBuf asm("r4") = &gGfxBufferPtr;
     u32 *buf;
-    asm("" : "=r"(gfxBuf) : "0"(addr));
     buf = (u32 *)thunk_HeapAlloc(0x20, 0);
     *gfxBuf = (u32)buf;
     {
@@ -183,10 +181,8 @@ INCLUDE_ASM("asm/nonmatchings/gfx", DeadCode_0804bb86);
  */
 void AllocAndClearBuffer_52A4(void) {
     u16 zero_src;
-    u32 addr = (u32)&gBuffer_52A4;
-    register u32 *bufPtr asm("r4");
+    register u32 *bufPtr asm("r4") = &gBuffer_52A4;
     u32 *buf;
-    asm("" : "=r"(bufPtr) : "0"(addr));
     buf = (u32 *)thunk_HeapAlloc(0x90 << 3, 0);
     *bufPtr = (u32)buf;
     {
@@ -217,9 +213,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", SetupWorldMapBG);
  * text palette from ROM, sets REG_BG3CNT=0x700, clears BG3 scroll.
  */
 void SetupTextBGLayer(void) {
-    u32 tblAddr = (u32)gBGLayerState;
-    register u8 *tbl asm("r4");
-    asm("" : "=r"(tbl) : "0"(tblAddr));
+    register u8 *tbl asm("r4") = (u8 *)gBGLayerState;
     {
         u32 base = *(u16 *)(tbl + 0x16) + 0x20;
         u32 srcAddr = 0x0804BB11;
@@ -274,12 +268,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB_Alt);
  * clears OBJ window enable (bit 14) in REG_DISPCNT.
  */
 void InitLevelStateDefaults(void) {
-    u32 addr = (u32)&gLevelStatePtr;
-    u32 *bufAddr;
-    register u16 *buf asm("r1");
-
-    asm("" : "=r"(bufAddr) : "0"(addr));
-    buf = *(u16 **)bufAddr;
+    register u16 *buf asm("r1") = (u16 *)gLevelStatePtr;
     {
         u16 val = 0;
         u16 scroll;
@@ -308,15 +297,7 @@ void InitLevelStateDefaults(void) {
         asm("add\t%0, #0x02" : "+r"(winin));
         *winin = 0x3D;
     }
-    {
-        volatile u16 *dispcnt = &REG_DISPCNT;
-        u32 bfAddr = 0xBFFF;
-        u16 val = *dispcnt;
-        u16 mask;
-        asm("" : "=r"(mask) : "0"(bfAddr));
-        mask &= val;
-        *dispcnt = mask;
-    }
+    REG_DISPCNT &= 0xBFFF;
 }
 void VBlankHandler_WithWindowScroll(void);
 void UpdateBGScrollWithWave(void);
@@ -375,10 +356,8 @@ void ShutdownGfxSubsystem(void) {
  */
 void InitGfxStreamState(void) {
     u16 zero_src;
-    u32 bufAddr = (u32)&gGfxStreamBuffer;
-    register u32 *bufPtr asm("r4");
+    register u32 *bufPtr asm("r4") = &gGfxStreamBuffer;
     u32 *buf;
-    asm("" : "=r"(bufPtr) : "0"(bufAddr));
     buf = (u32 *)thunk_HeapAlloc(0x80 << 1, 0);
     *bufPtr = (u32)buf;
     {
@@ -405,30 +384,9 @@ void InitGfxStreamState(void) {
             dma[2];
         }
     }
-    {
-        u32 modeAddr = (u32)&gRenderFlags;
-        u8 *mode;
-        asm("" : "=r"(mode) : "0"(modeAddr));
-        *mode = 0x0D;
-    }
-    {
-        u32 d1 = (u32)&gVramWriteCursor;
-        u32 s1 = (u32)&gVramCursorInit;
-        u32 *dst1;
-        u32 *src1;
-        asm("" : "=r"(dst1) : "0"(d1));
-        asm("" : "=r"(src1) : "0"(s1));
-        *dst1 = *src1;
-    }
-    {
-        u32 d2 = (u32)&gPaletteVramCursor;
-        u32 s2 = (u32)&gPaletteCursorInit;
-        u32 *dst2;
-        u32 *src2;
-        asm("" : "=r"(dst2) : "0"(d2));
-        asm("" : "=r"(src2) : "0"(s2));
-        *dst2 = *src2;
-    }
+    *(u8 *)&gRenderFlags = 0x0D;
+    gVramWriteCursor = gVramCursorInit;
+    gPaletteVramCursor = gPaletteCursorInit;
 }
 /**
  * ResetGfxStreamEntries: frees all active stream entries and resets state.
@@ -550,8 +508,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", DispatchLevelLayerSetup);
  * table indexed by byte[2]. Advances stream by 7.
  */
 void StreamCmd_SetBGScroll(void) {
-    u32 spAddr = (u32)&gStreamPtr;
-    register u8 **sp asm("r4");
+    register u8 **sp asm("r4") = &gStreamPtr;
     register u16 scrollX asm("r3");
     u32 tblAddr = (u32)gBGLayerState;
     register u8 *tbl asm("r5");
@@ -559,7 +516,6 @@ void StreamCmd_SetBGScroll(void) {
     u8 layer;
     u32 off;
 
-    asm("" : "=r"(sp) : "0"(spAddr));
     scrollX = ReadUnalignedU16(*sp + 3);
     asm("" : "=r"(tbl) : "0"(tblAddr));
     p = *sp;
@@ -716,12 +672,10 @@ u32 ProcessHBlankWait(u32 idx) {
  */
 void StreamCmd_InitHBlankWait(void) {
     s16 timerVal;
-    u32 spAddr = (u32)&gStreamPtr;
-    register u8 **streamPP asm("r5");
-    u32 bAddr = (u32)&gBuffer_52A4;
+    register u8 **streamPP asm("r5") = &gStreamPtr;
     register u8 **basePP asm("r6");
+    u32 bAddr = (u32)&gBuffer_52A4;
 
-    asm("" : "=r"(streamPP) : "0"(spAddr));
     timerVal = ReadUnalignedS16(*streamPP + 3);
 
     {
