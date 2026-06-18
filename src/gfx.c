@@ -570,12 +570,11 @@ void UpdateCursorBlink(void) {
     {
         u8 flag = *((u8 *)(*(u32 *)&gSoundInfo) + 0x17) & 2;
         if (flag != 0) {
-            u32 eAddr = (u32)gEntityArray;
             u32 cAddr;
             register u32 entityBase asm("r2");
             u32 val;
             u32 offset;
-            asm("" : "=r"(entityBase) : "0"(eAddr));
+            entityBase = (u32)gEntityArray;
             cAddr = (u32)gControlBlock;
             val = (*(u32 *)(cAddr + 4) >> 5) & 1;
             offset = 0x17C;
@@ -619,25 +618,18 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitFrameAnimation);
  * @return     1 if still waiting, 0 if timer expired
  */
 u32 ProcessHBlankWait(u32 idx) {
-    u32 ieAddr = (u32)REG_ADDR_IE;
     register volatile u16 *ie asm("r3");
-    u32 dsAddr = (u32)REG_ADDR_DISPSTAT;
     register volatile u16 *dispstat asm("r4");
     u8 *buf;
     u32 off;
     u8 *entry;
 
-    asm("" : "=r"(ie) : "0"(ieAddr));
+    ie = &REG_IE;
     *ie |= 2;
-    asm("" : "=r"(dispstat) : "0"(dsAddr));
+    dispstat = &REG_DISPSTAT;
     *dispstat |= 0x10;
 
-    {
-        u8 **bufPtr;
-        u32 bAddr = (u32)&gBuffer_52A4;
-        asm("" : "=r"(bufPtr) : "0"(bAddr));
-        buf = *bufPtr;
-    }
+    buf = gBuffer_52A4;
     off = idx * 9;
     off <<= 2;
     off += (u32)buf;
