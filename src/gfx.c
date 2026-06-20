@@ -142,24 +142,10 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB);
  * stack-local halfword as the fill source.
  */
 void AllocAndClearGfxBuffer(void) {
-    u16 zero_src;
-    register u32 *gfxBuf asm("r4") = &gGfxBufferPtr;
-    u32 *buf;
-    buf = (u32 *)thunk_HeapAlloc(0x20, 0);
+    u32 *gfxBuf = &gGfxBufferPtr;
+    u32 *buf = (u32 *)thunk_HeapAlloc(0x20, 0);
     *gfxBuf = (u32)buf;
-    {
-        register volatile u32 *dma3 asm("r1");
-        u32 sp_ptr = (u32)&zero_src;
-        zero_src = 0;
-        dma3 = (volatile u32 *)REG_ADDR_DMA3SAD;
-        dma3[0] = sp_ptr;
-        dma3[1] = (u32)buf;
-        {
-            u32 ctrl = 0x81000010;
-            dma3[2] = ctrl;
-            dma3[2];
-        }
-    }
+    DmaFill16(3, 0, buf, 0x20);
 }
 
 /**
