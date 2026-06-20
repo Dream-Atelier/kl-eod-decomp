@@ -7,11 +7,11 @@
 
 /* Current frame pressed keys (active-high, edge-detected).
  * Written by ReadKeyInput each frame. */
-#define gKeysPressed   (*(u16 *)0x03004DA0)
+extern u16 gKeysPressed;
 
 /* Previous frame raw key state (active-high).
  * Used for edge detection in ReadKeyInput. */
-#define gKeysPrevious  (*(u16 *)0x030051E4)
+extern u16 gKeysPrevious;
 
 /* Extended input state for ProcessInputAndTimers.
  * Separate from the simple ReadKeyInput state. */
@@ -20,6 +20,6 @@
 
 /* A-button hold counter: incremented each frame while A is held, reset
  * to 0 on release.  Used by ReadKeyInput for press-and-hold detection. */
-#define gAButtonHold   (*(u16 *)0x030034F0)
+extern u16 gAButtonHold;
 
 #endif /* GUARD_INPUT_H */
