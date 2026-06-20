@@ -550,64 +550,60 @@ u32 ProcessHBlankWait(u32 idx) {
  */
 void StreamCmd_InitHBlankWait(void) {
     s16 timerVal;
-    register u8 **streamPP asm("r5") = &gStreamPtr;
-    register u8 **basePP asm("r6");
+    u8 **streamPP = &gStreamPtr;
+    u8 **basePP;
+    u8 *sp1;
+    u8 idx1;
+    u8 *base1;
+    u32 offA;
+    u32 offB;
+    u8 *entryB;
+    s16 val;
+    u32 signBit;
+    u8 *sp2;
+    u8 idx2;
+    u8 *base2;
+    u32 offC;
+    u32 offD;
+    u8 *entryD;
+    u8 flags;
+    s32 mask;
 
     timerVal = ReadUnalignedS16(*streamPP + 3);
 
-    {
-        u8 *sp;
-        u8 idx;
-        u8 *base;
+    sp1 = *streamPP;
+    idx1 = sp1[2];
+    basePP = &gBuffer_52A4;
+    base1 = *basePP;
 
-        sp = *streamPP;
-        idx = sp[2];
-        basePP = &gBuffer_52A4;
-        base = *basePP;
+    offA = (u32)(idx1 * 9) * 4;
+    offA += (u32)base1;
+    *(s16 *)(offA + 0x14) = timerVal;
 
-        {
-            u32 off = (u32)(idx * 9) * 4;
-            off += (u32)base;
-            *(s16 *)(off + 0x14) = timerVal;
-        }
+    idx1 = sp1[2];
+    offB = (u32)(idx1 * 9) * 4;
+    offB += (u32)base1;
+    entryB = (u8 *)offB;
+    val = *(s16 *)(entryB + 0x14);
+    signBit = ((u32)val >> 31) << 7;
+    entryB[3] = (entryB[3] & 0x7F) | signBit;
 
-        idx = sp[2];
-        {
-            u32 off = (u32)(idx * 9) * 4;
-            off += (u32)base;
-            {
-                u8 *entry = (u8 *)off;
-                s16 val = *(s16 *)(entry + 0x14);
-                u32 signBit = ((u32)val >> 31) << 7;
-                entry[3] = (entry[3] & 0x7F) | signBit;
-            }
-        }
-    }
+    sp2 = *streamPP;
+    idx2 = sp2[2];
+    base2 = *basePP;
 
-    {
-        u8 *sp = *streamPP;
-        u8 idx = sp[2];
-        u8 *base = *basePP;
+    offC = (u32)(idx2 * 9) * 4;
+    offC += (u32)base2;
+    *(u32 *)(offC + 0x20) = (u32)ProcessHBlankWait;
 
-        {
-            u32 off = (u32)(idx * 9) * 4;
-            off += (u32)base;
-            *(u32 *)(off + 0x20) = (u32)ProcessHBlankWait;
-        }
-
-        idx = sp[2];
-        {
-            u32 off = (u32)(idx * 9) * 4;
-            off += (u32)base;
-            {
-                u8 *entry = (u8 *)off;
-                u8 flags = entry[0];
-                s32 mask = -8;
-                mask &= flags;
-                entry[0] = mask | 1;
-            }
-        }
-    }
+    idx2 = sp2[2];
+    offD = (u32)(idx2 * 9) * 4;
+    offD += (u32)base2;
+    entryD = (u8 *)offD;
+    flags = entryD[0];
+    mask = -8;
+    mask &= flags;
+    entryD[0] = mask | 1;
 
     *streamPP += 5;
 }
