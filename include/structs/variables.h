@@ -510,6 +510,9 @@ struct Unk_0818B8E0 {
 extern struct Unk_0818B8E0 *gUnk_030051DC;
 extern struct Unk_0818B8E0 *gUnk_0818B8E0[6][9];
 
+/* Per-tileset sprite tile-data source pointers (DMA src), indexed by tileset. */
+extern u32 gUnk_0818B8A8[];
+
 /* Text-scroll Bresenham accumulator (mirrors kleod's u16 typing). */
 extern u16 gUnk_030034DC;
 

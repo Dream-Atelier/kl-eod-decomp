@@ -1,5 +1,6 @@
 #include "global.h"
 #include "globals.h"
+#include "structs/variables.h"
 #include "include_asm.h"
 
 /** Abs: returns absolute value of a signed integer. */
@@ -58,15 +59,16 @@ INCLUDE_ASM("asm/nonmatchings/system", ProcessInputAndTimers);
  *
  * Looks up the source tile data via ROM_SPRITE_SUBTABLE[tilesetIdx],
  * computes the destination in OBJ VRAM from the frame index using
- * ROM_TILESET_TABLE indexed by the current world/level, then DMAs
- * 16 words (32-bit) to transfer the sprite tile data.
+ * gUnk_0818B8E0[world-1][level]->unk4[], then DMAs the sprite tile data.
  */
-/* Hand-written assembly in the original game.  The C decompilation
- * required asm barriers (r2/r5 pinned for table pointers, nested-block
- * scoping for the spriteTable use, dangling DMA read) to match the
- * original instruction stream — a signal the original source was
- * never C. */
-INCLUDE_ASM("asm/nonmatchings/system", LoadSpriteFrame);
+void LoadSpriteFrame(u8 frame, u8 tilesetIdx) {
+    vu32 *dma = (vu32 *)REG_ADDR_DMA3SAD;
+
+    dma[0] = gUnk_0818B8A8[tilesetIdx];
+    dma[1] = OBJ_VRAM + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[frame * 4 - 0x34] << 5);
+    dma[2] = 0x80000010;
+    dma[2];
+}
 
 /**
  * FreeAllDecompBuffers: frees all 6 decomp buffers + collision map.
