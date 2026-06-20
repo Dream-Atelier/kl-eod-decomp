@@ -546,6 +546,35 @@ DeadCode:             ; now 2 bytes later!
                 with 3+ local variables competing for scratch registers.
             </p>
             <p><strong>Status:</strong> Partial mitigation via techniques 14-17. Full solution requires compiler patch to <code>local-alloc.c</code>.</p>
+            <div class="blocker-card" style="margin-top:1em;background:#1b2a1b;">
+                <h3>Update: the "irreducible" estimate was too pessimistic <span class="tag-solved">REVISED</span></h3>
+                <p>
+                    Many functions previously filed here as irreducible have since matched with
+                    <strong>zero</strong> pins or barriers — including <code>StreamCmd_InitHBlankWait</code>
+                    (listed above as "10 bytes") and <code>ReadKeyInput</code> (once carried with 4 register
+                    pins + 3 <code>asm("")</code> barriers). The lesson: a register pin is almost always one of
+                    a few <em>removable</em> classes, each with a known lever:
+                </p>
+                <ul>
+                    <li><strong>Table / DMA / IO pointer pins</strong> → index a typed <code>extern</code>
+                        symbol so agbcc eager-loads the base into the target register.</li>
+                    <li><strong>Address held across a <code>bl</code></strong> → a named pointer local declared
+                        before the call (callee-saved naturally).</li>
+                    <li><strong>Hand-rolled DMA writes</strong> → the canonical <code>DmaCopy16</code> /
+                        <code>DmaFill16</code> macros the devs actually used.</li>
+                    <li><strong>"Weird" moves in a standard routine</strong> → copy the C shape from a
+                        reference agbcc decomp (pokeemerald / sa1 / sa2). agbcc emits the same quirks from
+                        idiomatic source.</li>
+                </ul>
+                <p>
+                    <strong>ReadKeyInput</strong> is the worked example: transcribing pokeemerald's
+                    <code>ReadKeys</code> shape (<code>pressed = REG_KEYINPUT ^ 0x3FF;
+                    newKeys = pressed &amp; ~prev;</code>) reproduced the target's "redundant"
+                    <code>mov</code>s for free and collapsed all 7 directives to none. Before pinning,
+                    find how a reference decomp wrote the routine. Genuinely irreducible cases keep at most
+                    <em>one</em> pin (e.g. a loop counter or a CSE'd mask constant), not a thicket.
+                </p>
+            </div>
         </div>
 
         <div class="blocker-card">
