@@ -208,11 +208,31 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB_Alt);
  * calls UpdateAffineRegisters, sets REG_WININ=0x1F23, REG_WINOUT=0x003D,
  * clears OBJ window enable (bit 14) in REG_DISPCNT.
  */
-/* Hand-written assembly in the original game.  The C decompilation
- * required asm-barrier scaffolding (forced MOVs, register pins, inline
- * arithmetic injection) that no semantically-equivalent C source can
- * reproduce — a signal the original source was never C. */
-INCLUDE_ASM("asm/nonmatchings/gfx", InitLevelStateDefaults);
+void InitLevelStateDefaults(void) {
+    /* buf pinned to r1: with no struct/symbol for the raw *gLevelStatePtr
+       pointer, agbcc coalesces it into the address-temp r0, but the target
+       keeps it in r1 and reuses r0 for the stored values. Register choice is
+       encoding-visible, so the pin stays. (The window-register writes need no
+       barriers — plain REG_WININ = 0x1F23 reproduces the ldr/mov/strh.) */
+    register u16 *buf asm("r1") = (u16 *)gLevelStatePtr;
+    u16 val = 0;
+    u16 scroll;
+    u16 dim;
+
+    buf[4] = val;
+    val = 0xE80;
+    buf[8] = val;
+    scroll = 0x700;
+    buf[5] = scroll;
+    dim = 0xA00;
+    buf[9] = dim;
+    buf[6] = scroll;
+    buf[11] = dim;
+    UpdateAffineRegisters();
+    REG_WININ = 0x1F23;
+    REG_WINOUT = 0x3D;
+    REG_DISPCNT &= 0xBFFF;
+}
 void VBlankHandler_WithWindowScroll(void);
 void UpdateBGScrollWithWave(void);
 void ReadKeyInput(void);
