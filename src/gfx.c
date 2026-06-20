@@ -176,53 +176,29 @@ void FreeBuffer_52A4(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", SetupWorldMapBG);
 /**
- * SetupTextBGLayer: initialize BG3 for text/UI rendering.
+ * SetupTextBGLayer: initialize the text/UI BG layer for rendering.
  *
- * Sets up the BG layer state table entry for BG3: tile base, map base,
- * scroll, map width. Calls SoundDmaInit to load font tiles, DMA-copies
- * text palette from ROM, sets REG_BG3CNT=0x700, clears BG3 scroll.
+ * Sets up the BG layer state table entry: tile base, map base, scroll, map
+ * width. Calls SoundDmaInit to load font tiles, DmaCopy16's the text palette
+ * from ROM (0x080576B4) into palette RAM, sets REG_BG1CNT=0x700, clears the
+ * BG1 scroll registers.
  */
 void SetupTextBGLayer(void) {
-    register u8 *tbl asm("r4") = (u8 *)gBGLayerState;
-    {
-        u32 base = *(u16 *)(tbl + 0x16) + 0x20;
-        SoundDmaInit(base, 0x0804BB11, 0x1D, 0x10);
-    }
+    u8 *tbl = (u8 *)gBGLayerState;
+    u32 base = *(u16 *)(tbl + 0x16) + 0x20;
+    u16 zero;
+    SoundDmaInit(base, 0x0804BB11, 0x1D, 0x10);
     *(u32 *)(tbl + 0x1C) = 0xC0 << 19;
     *(u32 *)(tbl + 0x20) = 0x06003800;
-    {
-        u16 zero = 0;
-        *(u16 *)(tbl + 0x24) = zero;
-        *(u16 *)(tbl + 0x26) = zero;
-        {
-            u8 *mapW = tbl + 0x34;
-            *mapW = 0x20;
-        }
-        *(u16 *)(tbl + 0x30) = *(u16 *)(tbl + 0x16);
-        {
-            register volatile u32 *dma asm("r1");
-            u32 romPal;
-            u32 palDst;
-            u32 ctrl;
-            dma = (volatile u32 *)REG_ADDR_DMA3SAD;
-            romPal = 0x080576B4;
-            dma[0] = romPal;
-            palDst = 0x050001E0;
-            dma[1] = palDst;
-            ctrl = 0x80000020;
-            dma[2] = ctrl;
-            dma[2];
-            dma = (volatile u32 *)((u8 *)dma - 0xCA);
-            *(volatile u16 *)dma = 0x700;
-        }
-        {
-            volatile u16 *scroll;
-            scroll = &REG_BG1HOFS;
-            *scroll = zero;
-            scroll = (volatile u16 *)((u8 *)scroll + 0x02);
-            *scroll = zero;
-        }
-    }
+    zero = 0;
+    *(u16 *)(tbl + 0x24) = zero;
+    *(u16 *)(tbl + 0x26) = zero;
+    *(u8 *)(tbl + 0x34) = 0x20;
+    *(u16 *)(tbl + 0x30) = *(u16 *)(tbl + 0x16);
+    DmaCopy16(3, (void *)0x080576B4, (void *)0x050001E0, 0x40);
+    REG_BG1CNT = 0x700;
+    REG_BG1HOFS = zero;
+    REG_BG1VOFS = zero;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB_Alt);
 /**
