@@ -3,6 +3,7 @@
 #include "globals.h"
 #include "include_asm.h"
 #include "m4a_internal.h"
+#include "structs/variables.h"
 
 /* ══════════════════════════════════════════════════════════════════════
  * m4a — Nintendo MusicPlayer2000 ("Sappy") sound engine
@@ -41,22 +42,14 @@ void FreeSoundStruct(void) {
     thunk_HeapFree(*(u32 *)(*p) - 4);
     thunk_HeapFree(*p);
 }
-/*
- * SoundReset: writes a tile value with palette bank 15 to screen buffer B.
+/**
+ * SoundReset: writes a tile entry into BG tilemap buffer B (gBgTilemapBufs[1]).
  *
- * Computes the destination address as gScreenBufferA + 0x800 + (col + row*32)*2,
- * ORs the tile value with 0xF000 (palette bank 15), and stores the halfword.
+ * Indexes the buffer at (col + row*32) and ORs the tile value with 0xF000
+ * (palette bank 15) before storing the halfword.
  */
 void SoundReset(s16 col, s16 row, u16 tile) {
-    u32 bufAddr = 0x03000900;
-    register u8 *buf asm("r3");
-    u32 off;
-
-    asm("" : "=r"(buf) : "0"(bufAddr));
-    off = (u32)((col + row * 32) * 2);
-    buf += 0x800;
-    off += (u32)buf;
-    *(u16 *)off = tile | 0xF000;
+    gBgTilemapBufs[1][col + row * 32] = tile | 0xF000;
 }
 /*
  * DmaControllerInit: full DMA initialization with channel config.
