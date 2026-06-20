@@ -40,11 +40,54 @@ INCLUDE_ASM("asm/nonmatchings/system", AgbMain);
  * checks A+B+Start+Select combo (0x0F) for soft reset, and tracks
  * A-button hold duration for repeat input.
  */
-/* Hand-written assembly in the original game.  The C decompilation
- * required asm barriers (forced register pins r1-r4, MOV-fold blockers
- * on pressed/edge) to match the original instruction stream — a signal
- * the original source was never C. */
-INCLUDE_ASM("asm/nonmatchings/system", ReadKeyInput);
+void ReadKeyInput(void) {
+    u16 raw = REG_KEYINPUT;
+    /* This function carries hand-assembly idioms agbcc won't emit from plain C:
+       redundant register-to-register moves whose source stays idle. Minimal
+       scaffolding to reproduce them (down from the original 4 pins + 3 barriers):
+         - mask(r2)/pressed(r1) + 2 barriers: the target loads 0x3FF, keeps it
+           idle in r2, and copies it to r1 (mov) before the raw xor. The first
+           barrier keeps 0x3FF opaque (no constant-fold); the second materializes
+           pressed before the xor (else pressed = mask ^ raw fuses to one eors);
+           the distinct hard registers stop mask/pressed coalescing.
+         - newKeys(r3) pin: otherwise it reuses mask's freed r2.
+         - edge barrier: forces 'edge = pressed' to a real move and lands edge in
+           r0 / prev in r2 to match.
+       prevKeys (r4), the SoftReset path, and the A-button block need no pins. */
+    register u32 mask asm("r2");
+    register u32 pressed asm("r1");
+    register u16 *newKeys asm("r3");
+    u16 *prevKeys;
+    u16 prev;
+    u32 edge;
+    u16 cur;
+    u16 aBtn;
+
+    asm("" : "=r"(mask) : "0"(0x3FF));
+    pressed = mask;
+    asm("" : "+r"(pressed));
+    pressed ^= raw;
+    newKeys = &gKeysPressed;
+    prevKeys = &gKeysPrevious;
+    prev = *prevKeys;
+    edge = pressed;
+    asm("" : "+r"(edge));
+    edge &= ~(u32)prev;
+    *newKeys = edge;
+    *prevKeys = pressed;
+    pressed &= 0x0F;
+    if (pressed == 0x0F) {
+        SoftResetRom(0xFF);
+    }
+    cur = *prevKeys;
+    aBtn = 1;
+    aBtn &= cur;
+    if (aBtn) {
+        gAButtonHold = gAButtonHold + 1;
+    } else {
+        gAButtonHold = aBtn;
+    }
+}
 
 /**
  * ProcessInputAndTimers: extended input handler with timer management.
