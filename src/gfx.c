@@ -294,33 +294,22 @@ void ShutdownGfxSubsystem(void) {
  */
 void InitGfxStreamState(void) {
     u16 zero_src;
-    register u32 *bufPtr asm("r4") = &gGfxStreamBuffer;
-    u32 *buf;
-    buf = (u32 *)thunk_HeapAlloc(0x80 << 1, 0);
+    u32 *bufPtr = &gGfxStreamBuffer;
+    u32 *buf = (u32 *)thunk_HeapAlloc(0x80 << 1, 0);
+    volatile u32 *dma;
+    u32 sp_ptr = (u32)&zero_src;
     *bufPtr = (u32)buf;
-    {
-        register volatile u32 *dma asm("r4");
-        u32 sp_ptr = (u32)&zero_src;
-        zero_src = 0;
-        dma = (volatile u32 *)REG_ADDR_DMA3SAD;
-        dma[0] = sp_ptr;
-        dma[1] = (u32)buf;
-        {
-            u32 ctrl = 0x81000080;
-            dma[2] = ctrl;
-            dma[2];
-        }
-        ClearVideoState();
-        {
-            u32 oamSrc = (u32)gOamBuffer;
-            u32 ctrl2;
-            dma[0] = oamSrc;
-            dma[1] = 0xE0 << 19;
-            ctrl2 = 0x84000100;
-            dma[2] = ctrl2;
-            dma[2];
-        }
-    }
+    zero_src = 0;
+    dma = (volatile u32 *)REG_ADDR_DMA3SAD;
+    dma[0] = sp_ptr;
+    dma[1] = (u32)buf;
+    dma[2] = 0x81000080;
+    dma[2];
+    ClearVideoState();
+    dma[0] = (u32)gOamBuffer;
+    dma[1] = 0xE0 << 19;
+    dma[2] = 0x84000100;
+    dma[2];
     *(u8 *)&gRenderFlags = 0x0D;
     gVramWriteCursor = gVramCursorInit;
     gPaletteVramCursor = gPaletteCursorInit;
