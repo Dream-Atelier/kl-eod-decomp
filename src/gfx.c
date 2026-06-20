@@ -396,43 +396,28 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetSpriteAttrs);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetRenderMode);
 INCLUDE_ASM("asm/nonmatchings/gfx", DispatchLevelLayerSetup);
 /**
- * StreamCmd_SetBGScroll: sets scroll position for a BG layer from stream data.
- *
- * Stream format: byte[2]=layer index, bytes[3-4]=scrollX, bytes[5-6]=scrollY.
- * Values are shifted left 4 for subpixel precision before storing to
- * gBGLayerState[layer].scrollX/Y. Advances stream by 7.
- */
-/**
  * StreamCmd_SetBGScroll: set BG layer scroll from stream data.
  *
- * Reads scrollX (bytes[3-4]) and scrollY (bytes[5-6]) via ReadUnalignedU16,
- * shifts each left 4 for subpixel precision, stores to the BG layer state
- * table indexed by byte[2]. Advances stream by 7.
+ * Stream format: byte[2]=layer index, bytes[3-4]=scrollX, bytes[5-6]=scrollY.
+ * Reads each value via ReadUnalignedU16, shifts left 4 for subpixel precision,
+ * and stores to gBGLayerState[layer].scrollX/Y. Advances the stream by 7.
+ *
+ * gStreamPtr is re-read after each ReadUnalignedU16 call (the call clobbers the
+ * cached pointer); reusing the second read's `p` for both the scrollX index and
+ * the scrollY argument, plus declaring `tbl` before `p`, reproduces the original
+ * register schedule with no pins.
  */
 void StreamCmd_SetBGScroll(void) {
-    register u8 **sp asm("r4") = &gStreamPtr;
-    register u16 scrollX asm("r3");
-    register u8 *tbl asm("r5");
-    u8 *p;
-    u8 layer;
-    u32 off;
-
-    scrollX = ReadUnalignedU16(*sp + 3);
-    tbl = (u8 *)gBGLayerState;
-    p = *sp;
-    layer = p[2];
-    off = (u32)(layer * 7) << 2;
-    off += (u32)tbl;
-    *(u16 *)(off + 8) = scrollX << 4;
-    {
-        u16 scrollY = ReadUnalignedU16(p + 5);
-        u8 *p2 = *sp;
-        u8 layer2 = p2[2];
-        u32 off2 = (u32)(layer2 * 7) << 2;
-        off2 += (u32)tbl;
-        *(u16 *)(off2 + 10) = scrollY << 4;
-        *sp = p2 + 7;
-    }
+    u16 scrollX = ReadUnalignedU16(gStreamPtr + 3);
+    struct BGLayerState *tbl = gBGLayerState;
+    u8 *p = gStreamPtr;
+    u16 scrollY;
+    u8 *p2;
+    tbl[p[2]].scrollX = scrollX << 4;
+    scrollY = ReadUnalignedU16(p + 5);
+    p2 = gStreamPtr;
+    tbl[p2[2]].scrollY = scrollY << 4;
+    gStreamPtr = p2 + 7;
 }
 /*
  * Reads a palette color entry from a data stream and writes it to BG palette RAM.
