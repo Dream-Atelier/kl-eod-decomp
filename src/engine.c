@@ -1091,9 +1091,18 @@ INCLUDE_ASM("asm/nonmatchings/engine", ResetVideoRegisters); /* RenderFrame — 
  * ClearOamBuffer: zero `count` OAM shadow entries (0x1C bytes each), one word at a
  * time starting just past `oamEntry`. Shared by the three OAM-clear routines below.
  *
- * The pins force the inner byte counter into r3 and the outer counter into r1.
- * Without them agbcc allocates the heavily-used byte counter to a low register and
- * the instructions stop matching the target.
+ * Both pins are irreducible (confirmed against the kleod reference decomp, which
+ * writes all three callers longhand with the same two pins). They fix two
+ * INDEPENDENT things — verified by removing each in isolation:
+ *   - bytesLeft(r3): removes the innermost, highest-priority counter from the
+ *     allocation pass. Without it that counter naturally grabs r0 and displaces
+ *     `oamEntry` (ptr->r2, zero->r3), rotating every register.
+ *   - entryCount(r1): anchors the decrement's SCHEDULE. As a plain pseudo, agbcc
+ *     hoists `subs r1,#1` above the inner loop; the pin keeps it at the bottom
+ *     next to its compare, matching the target.
+ * Neither pin substitutes for the other; this is allocation/scheduling info that
+ * tight register-counter loops can't express in plain C. (Our shared inline helper
+ * is cleaner than kleod's three hand-copied bodies.)
  */
 static inline void ClearOamBuffer(u32 *oamEntry, s32 count) {
     register s32 entryCount asm("r1") = count;
