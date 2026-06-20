@@ -79,21 +79,12 @@ INCLUDE_ASM("asm/nonmatchings/code_3", SetupEntitySpawnTable);
 void RollRandomLevelVariant(void) {
     u8 *state = gGameFlags;
     u8 difficulty = state[0x0C];
-    register u32 d asm("r4") = (u8)(difficulty - 1);
-    u32 rng;
-    register u8 *levelState asm("r6");
-    register u32 parity asm("r5");
-    u8 randByte;
-    u32 variant;
-    rng = thunk_sub_080002A0();
-    levelState = gControlBlock;
-    parity = 1;
-    parity &= d;
-    randByte = (u8)rng;
-    rng = (u8)d;
-    variant = sub_0805193C(randByte, 5 - rng);
-    parity = parity + variant + 1;
-    levelState[0x0E] = parity;
+    u32 difficultyIndex = (u8)(difficulty - 1);
+    u32 rng = thunk_sub_080002A0();
+    u8 *levelState = gControlBlock;
+    u32 parity = difficultyIndex & 1;
+    u32 variant = sub_0805193C((u8)rng, 5 - difficultyIndex);
+    levelState[0x0E] = parity + variant + 1;
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerBoss);
 INCLUDE_ASM("asm/nonmatchings/code_3", ConfigureEntityBehavior);
