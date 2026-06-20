@@ -463,23 +463,24 @@ void UpdateCursorBlink(void) {
     u8 buf[16];
     MemCopy(buf, (void *)ROM_SOUND_INIT_DATA, 0x10);
 
-    {
-        u8 flag = *((u8 *)(*(u32 *)&gSoundInfo) + 0x17) & 2;
-        if (flag != 0) {
-            u32 cAddr;
-            register u32 entityBase asm("r2");
-            u32 val;
-            u32 offset;
-            entityBase = (u32)gEntityArray;
-            cAddr = (u32)gControlBlock;
-            val = (*(u32 *)(cAddr + 4) >> 5) & 1;
-            offset = 0x17C;
-            *(u8 *)(entityBase + offset) = val;
-        } else {
-            u32 entityBase = (u32)gEntityArray;
-            u32 offset = 0x17C;
-            *(u8 *)(entityBase + offset) = 0;
-        }
+    if (*((u8 *)(*(u32 *)&gSoundInfo) + 0x17) & 2) {
+        /* cAddr/entityBase/offset intermediates are load-bearing: they stop
+           agbcc from constant-folding the macro addresses, preserving the
+           base + [r0, #4] load and the movs/lsls/adds for the 0x17C offset.
+           Folding them inline (e.g. gControlBlock + 4) breaks the match. */
+        u32 cAddr;
+        u32 entityBase;
+        u32 val;
+        u32 offset;
+        entityBase = (u32)gEntityArray;
+        cAddr = (u32)gControlBlock;
+        val = (*(u32 *)(cAddr + 4) >> 5) & 1;
+        offset = 0x17C;
+        *(u8 *)(entityBase + offset) = val;
+    } else {
+        u32 entityBase = (u32)gEntityArray;
+        u32 offset = 0x17C;
+        *(u8 *)(entityBase + offset) = 0;
     }
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessAnimationSteps);
