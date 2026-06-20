@@ -14,10 +14,11 @@ s32 ReturnOne(void) {
 }
 /** StrCpy: copies a null-terminated string from src to dst. */
 void StrCpy(u8 *dst, u8 *src) {
-    register u32 c asm("r2");
+    u32 c;
     do {
         c = *src;
         *dst = c;
+        c = *src;
         dst++;
         src++;
     } while (c != 0);
