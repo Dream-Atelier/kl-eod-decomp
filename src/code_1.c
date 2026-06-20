@@ -83,59 +83,46 @@ extern void LoadSpriteFrame(u8 frame, u8 tilesetIdx);
  */
 void EntityDeathAnimation(u8 slot) {
     u8 phase;
-    /*
-     * `mask` (= 0xFF) is pinned to r4 to match the target's separate `movs r4,
-     * #0xFF` before the timer-underflow branch. The underflow test is
-     * `(u8)(timer - 1) == 0xFF`, and agbcc's CSE (cse.c: record_jump_cond)
-     * notes that inside the branch the narrowed timer value equals 0xFF — the
-     * same constant as `mask`. Pin-free, it coalesces the two: the single
-     * `val & mask` reuses the timer-compare register and the standalone 0xFF
-     * load is deleted. The pin forces an independent 0xFF in r4 (hard-register
-     * operands aren't value-substituted). No plain C avoids this — the mask is
-     * `and`-ed exactly once, so it can't out-vote the branch's known value; the
-     * agbcc Sonic Advance decomps pin this same 0xFF-mask pattern.
-     */
-    register int mask asm("r4");
-    int val;
+    s16 byteMask;
+    int newPhase;
     EntityDeathStruct *entities = (EntityDeathStruct *)gEntityArray;
     EntityDeathStruct *entity = &entities[slot];
     EntityDeathStruct *arr;
     EntityDeathStruct *self;
 
     entity->timer = entity->timer - 1;
-    mask = 0xFF;
-    if ((u8)entity->timer == 0xFF) {
+    byteMask = 0xFF;
+    if (entity->timer == 0xFF) {
         entity->timer = 25;
         phase = entity->phase;
         if (phase <= 5) {
             SpawnEntityAtPosition(entities[slot - *gEntityDeathState].x, entities[slot - *gEntityDeathState].y, (u8)(phase + 0x0C), 0);
         }
-        val = entity->phase - 1;
-        entity->phase = val;
-        if ((val & mask) == 0) {
-            SpawnEntityAtPosition(entities[slot - *gEntityDeathState].x, entities[slot - *gEntityDeathState].y, 2,
-                                  (u8)(slot - *gEntityDeathState));
-        } else {
-            m4aSongNumStart(0x56);
-            if (entity->phase > 9) {
-                entities[slot + *gEntityDeathState].typeId = 0;
-                LoadSpriteFrame((u8)(slot + *gEntityDeathState), sub_08051A0C(entity->phase, 0x0A));
+        newPhase = entity->phase - 1;
+        entity->phase = newPhase;
+        do {
+            if ((newPhase & byteMask) == 0) {
+                do {
+                    SpawnEntityAtPosition(entities[slot - *gEntityDeathState].x, entities[slot - *gEntityDeathState].y, 2,
+                                          (u8)(slot - *gEntityDeathState));
+                } while (0);
+            } else {
+                m4aSongNumStart(0x56);
+                if (entity->phase > 9) {
+                    entities[slot + *gEntityDeathState].typeId = 0;
+                    LoadSpriteFrame((u8)(slot + *gEntityDeathState), sub_08051A0C(entity->phase, 0x0A));
+                }
+                LoadSpriteFrame(slot, sub_08051A84(entity->phase, 0x0A));
+                if (entity->phase == 9) {
+                    entities[slot + *gEntityDeathState].typeId = 0x1C; /* inactive */
+                    entities[slot + *gEntityDeathState].subState = 0;
+                }
             }
-            LoadSpriteFrame(slot, sub_08051A84(entity->phase, 0x0A));
-            if (entity->phase == 9) {
-                entities[slot + *gEntityDeathState].typeId = 0x1C; /* inactive */
-                entities[slot + *gEntityDeathState].subState = 0;
-            }
-        }
+        } while (0);
     }
-    /*
-     * Position-sync pass. Re-fetch the entity array into a fresh local: after
-     * the branch above, agbcc's CSE no longer tracks gEntityArray in a register,
-     * so a distinct pointer reloads the base into its own register here. This
-     * reproduces the target's reload and replaces the old `ents asm("r3")` pin.
-     */
     arr = (EntityDeathStruct *)gEntityArray;
     self = &arr[slot];
+    byteMask |= 0;
     self->x = arr[slot - *gEntityDeathState].x;
     self->y = arr[slot - *gEntityDeathState].y - 0x20;
     if (self->phase > 9) {
