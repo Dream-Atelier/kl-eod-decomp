@@ -515,11 +515,12 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitFrameAnimation);
  * @return     1 if still waiting, 0 if timer expired
  */
 u32 ProcessHBlankWait(u32 idx) {
-    register volatile u16 *ie asm("r3");
-    register volatile u16 *dispstat asm("r4");
+    volatile u16 *ie;
+    volatile u16 *dispstat;
     u8 *buf;
     u32 off;
     u8 *entry;
+    u32 timer;
 
     ie = &REG_IE;
     *ie |= 2;
@@ -535,14 +536,12 @@ u32 ProcessHBlankWait(u32 idx) {
     if (entry[3] >> 7) {
         return 1;
     }
-    {
-        u32 timer = *(u16 *)(entry + 0x14) - 1;
-        *(u16 *)(entry + 0x14) = timer;
-        if ((s32)(timer << 16) < 0) {
-            *ie &= 0xFFFD;
-            *dispstat &= 0xFFEF;
-            return 0;
-        }
+    timer = *(u16 *)(entry + 0x14) - 1;
+    *(u16 *)(entry + 0x14) = timer;
+    if ((s32)(timer << 16) < 0) {
+        *ie &= 0xFFFD;
+        *dispstat &= 0xFFEF;
+        return 0;
     }
     return 1;
 }
