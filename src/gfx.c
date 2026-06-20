@@ -202,32 +202,23 @@ void SetupTextBGLayer(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB_Alt);
 /**
- * InitLevelStateDefaults: set default level dimensions, scroll, and window regs.
+ * InitLevelStateDefaults: set the level's default window clip bounds and regs.
  *
- * Initializes map dimensions (0xE80 x 0xA00), scroll (0x700 x 0xA00),
- * calls UpdateAffineRegisters, sets REG_WININ=0x1F23, REG_WINOUT=0x003D,
- * clears OBJ window enable (bit 14) in REG_DISPCNT.
+ * Fills gLevelStatePtr's window-bounds fields (consumed by the HBlank handler
+ * that drives REG_WIN0H/V and REG_WIN1H/V): window 0 spans (0,0x700)-(0xE80,
+ * 0xA00), window 1 left/bottom = 0x700/0xA00. Then calls UpdateAffineRegisters,
+ * sets REG_WININ=0x1F23 and REG_WINOUT=0x003D, and clears the OBJ-window enable
+ * (bit 14) of REG_DISPCNT.
  */
 void InitLevelStateDefaults(void) {
-    /* buf pinned to r1: with no struct/symbol for the raw *gLevelStatePtr
-       pointer, agbcc coalesces it into the address-temp r0, but the target
-       keeps it in r1 and reuses r0 for the stored values. Register choice is
-       encoding-visible, so the pin stays. (The window-register writes need no
-       barriers — plain REG_WININ = 0x1F23 reproduces the ldr/mov/strh.) */
-    register u16 *buf asm("r1") = (u16 *)gLevelStatePtr;
-    u16 val = 0;
-    u16 scroll;
-    u16 dim;
+    struct LevelWindowBounds *win = gLevelStatePtr;
 
-    buf[4] = val;
-    val = 0xE80;
-    buf[8] = val;
-    scroll = 0x700;
-    buf[5] = scroll;
-    dim = 0xA00;
-    buf[9] = dim;
-    buf[6] = scroll;
-    buf[11] = dim;
+    win->win0Left = 0;
+    win->win0Right = 0xE80;
+    win->win0Top = 0x700;
+    win->win0Bottom = 0xA00;
+    win->win1Left = 0x700;
+    win->win1Bottom = 0xA00;
     UpdateAffineRegisters();
     REG_WININ = 0x1F23;
     REG_WINOUT = 0x3D;

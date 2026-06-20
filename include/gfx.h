@@ -244,8 +244,22 @@ extern u8 gBg2Alpha;
  * +0x04=width, +0x06=height. Set by InitLevelBG. */
 #define gLevelBounds       ((u16 *)0x03005468)
 
-/* Pointer to per-level runtime state. Used by tilemap streaming. */
-#define gLevelStatePtr     (*(u32 *)0x030034A0)
+/* Per-level window clip bounds, consumed by the HBlank handler that writes
+ * REG_WIN0H/V and REG_WIN1H/V: each WINxH packs (left << 4) | (right >> 4),
+ * each WINxV packs (top << 4) | (bottom >> 4). The pointer itself lives at
+ * 0x030034A0 (the same heap buffer aliased by gGfxBufferPtr). */
+struct LevelWindowBounds {
+    u8 pad_0[0x8];
+    s16 win0Left; /* 0x08 */
+    s16 win0Top; /* 0x0A */
+    s16 win1Left; /* 0x0C */
+    s16 win1Top; /* 0x0E */
+    s16 win0Right; /* 0x10 */
+    s16 win0Bottom; /* 0x12 */
+    s16 win1Right; /* 0x14 */
+    s16 win1Bottom; /* 0x16 */
+};
+extern struct LevelWindowBounds *gLevelStatePtr;
 
 /* Tilemap work buffer (0x400 bytes): temporary staging for tilemap
  * row/column streaming during BG scrolling. */
