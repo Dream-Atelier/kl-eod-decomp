@@ -10,6 +10,7 @@ extern void TransitionGameplayInit(void);
 extern void ComputeScrollLimits(void);
 extern s32 Abs(s32 n);
 extern void InitScrollState(void);
+extern void InitOamEntries(void);
 extern void InitLevelGameplay(u32 arg0); /* InitLevelGameplay */
 extern void ReadKeyInput(void); /* ReadKeyInput == kleod InputHandler_Normal */
 extern void InitGameplayFromWorldMap(void);
@@ -1087,54 +1088,42 @@ void ComputeRotationMatrix(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/engine", ResetVideoRegisters); /* RenderFrame — per-frame rendering dispatch */
 /**
- * ClearVideoState: zeroes all 99 OAM shadow entries then calls InitOamEntries.
+ * ClearOamBuffer: zero `count` OAM shadow entries (0x1C bytes each), one word at a
+ * time starting just past `oamEntry`. Shared by the three OAM-clear routines below.
+ *
+ * The pins force the inner byte counter into r3 and the outer counter into r1.
+ * Without them agbcc allocates the heavily-used byte counter to a low register and
+ * the instructions stop matching the target.
  */
-void ClearVideoState(void) {
-    register u32 *oamEntry asm("r0") = (u32 *)gOamBuffer0;
-    register s32 entryCount asm("r1") = 0x63;
-    register s32 zeroFill asm("r2") = 0;
+static inline void ClearOamBuffer(u32 *oamEntry, s32 count) {
+    register s32 entryCount asm("r1") = count;
+    register s32 bytesLeft asm("r3");
     do {
-        s32 bytesLeft = 0x1C;
+        bytesLeft = 0x1C;
         do {
             oamEntry++;
             bytesLeft -= 4;
-            *oamEntry = zeroFill;
+            *oamEntry = 0;
         } while (bytesLeft != 0);
         entryCount--;
     } while (entryCount != 0);
+}
+/**
+ * ClearVideoState: zero all 99 OAM shadow entries, then re-init the OAM table.
+ */
+void ClearVideoState(void) {
+    ClearOamBuffer(gOamBuffer0, 0x63);
     InitOamEntries();
 }
 /**
  * ClearOamBufferExtended: zero OAM shadow buffer entries 1-98.
  */
 void ClearOamBufferExtended(void) {
-    register u32 *oamEntry asm("r0") = (u32 *)gOamBuffer1;
-    register s32 entryCount asm("r1") = 0x62;
-    register s32 zeroFill asm("r2") = 0;
-    do {
-        s32 bytesLeft = 0x1C;
-        do {
-            oamEntry++;
-            bytesLeft -= 4;
-            *oamEntry = zeroFill;
-        } while (bytesLeft != 0);
-        entryCount--;
-    } while (entryCount != 0);
+    ClearOamBuffer(gOamBuffer1, 0x62);
 }
 /**
  * ClearOamEntries6Plus: zero OAM shadow buffer entries 6-91.
  */
 void ClearOamEntries6Plus(void) {
-    register u32 *oamEntry asm("r0") = (u32 *)gOamBuffer6;
-    register s32 entryCount asm("r1") = 0x56;
-    register s32 zeroFill asm("r2") = 0;
-    do {
-        s32 bytesLeft = 0x1C;
-        do {
-            oamEntry++;
-            bytesLeft -= 4;
-            *oamEntry = zeroFill;
-        } while (bytesLeft != 0);
-        entryCount--;
-    } while (entryCount != 0);
+    ClearOamBuffer(gOamBuffer6, 0x56);
 }
