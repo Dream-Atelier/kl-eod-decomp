@@ -104,7 +104,62 @@ struct Unk_08014184 *CheckTileCollisionSloped(struct Unk_08014184 *arg0, u16 arg
     return arg0;
 }
 INCLUDE_ASM("asm/nonmatchings/code_1", ApplyEntityTileMovement);
-INCLUDE_ASM("asm/nonmatchings/code_1", InitScrollState);
+/**
+ * InitScrollState: reset the entire player/scroll state block at level start.
+ *
+ * Clears the scroll link, the ~40 player-state fields (carry, jump, push,
+ * camera-follow, etc.), seeds the few non-zero defaults (unk5C/unk3D/unk16),
+ * disables the player's affine flag, and re-seeds the palette animation.
+ */
+void InitScrollState(void) {
+    ResetEntityScrollState(1);
+
+    gUnk_03005220.unk5D = gUnk_03002920[0x9].unk10 = gUnk_03002920[0xA].unk10 = 0;
+    gUnk_03005220.unk47 = 0;
+    gUnk_03005220.unk46 = 0;
+    gUnk_03005220.unk38 = 0;
+    gUnk_03005220.unk43 = 0;
+    gUnk_03005220.unk42 = 0;
+    gUnk_03005220.unk48 = 0;
+    gUnk_03005220.unk49 = 0;
+    gUnk_03005220.unk4A = 0;
+    gUnk_03005220.unk4B = 0;
+    gUnk_03005220.unk59 = 0;
+    gUnk_03005220.unk39 = 0;
+    gUnk_03005220.unk5A = 0;
+    gUnk_03005220.unk53 = 0;
+    gUnk_03005220.unk3B = 0;
+    gUnk_03005220.unk3A = 0;
+    gUnk_03005220.unk45 = 0;
+    gUnk_03005220.unk37 = 0;
+    gUnk_03005220.unk36 = 0;
+    gUnk_03005220.unk35 = 0;
+    gUnk_03005220.unk34 = 0;
+    gUnk_03005220.unk31 = 0;
+    gUnk_03005220.unk30 = 0;
+    gUnk_03005220.unk33 = 0;
+    gUnk_03005220.unk41 = 0;
+    gUnk_03005220.unk40 = 0;
+    gUnk_03005220.unk3F = 0;
+    gUnk_03005220.unk3E = 0;
+    gUnk_03005220.unk3C = 0;
+    gUnk_03005220.unk55 = 0;
+    gUnk_03005220.unk54 = 0;
+    gUnk_03005220.unk57 = 0;
+    gUnk_03005220.unk56 = 0;
+    gUnk_03005220.unk2C = 0;
+    gUnk_03005220.unk2A = 0;
+    gUnk_03005220.unk28 = 0;
+    gUnk_03005220.unk26 = 0;
+    gUnk_03005220.unk5C = 1;
+    gUnk_03005220.unk3D = 1;
+    gUnk_03002920[0].unk10 = 1;
+    gUnk_03005220.unk16 = 0x230;
+    gUnk_03005220.unk18 = 0;
+    gUnk_03002920[0].affineEnable = 0;
+
+    SetPaletteAnimEntry(0, 0);
+}
 /**
  * ResetEntityScrollState: clear the player's "carried entity" scroll link.
  *
