@@ -11,6 +11,13 @@ void TransitionWorldMapFadeOut(void);
 void VBlankCallback_Gameplay(void);
 void SoftResetRom(u32);
 
+void ResetEntityScrollState(s32 arg0);
+void SpawnEntityAtPosition(u16, u16, u8, u8);
+void EntityHitReaction(u8);
+void SetPaletteAnimEntry(u32, u8);
+void CopyBGScrollTiles(void);
+void m4aSongNumStart(u16);
+
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityUpdateDispatch);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerMainUpdate);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerMovementPhysics);
@@ -98,8 +105,91 @@ struct Unk_08014184 *CheckTileCollisionSloped(struct Unk_08014184 *arg0, u16 arg
 }
 INCLUDE_ASM("asm/nonmatchings/code_1", ApplyEntityTileMovement);
 INCLUDE_ASM("asm/nonmatchings/code_1", InitScrollState);
-INCLUDE_ASM("asm/nonmatchings/code_1", ResetEntityScrollState);
-INCLUDE_ASM("asm/nonmatchings/code_1", PlayerRespawnOrDeath);
+/**
+ * ResetEntityScrollState: clear the player's "carried entity" scroll link.
+ *
+ * Disables the affine flag on the currently-linked entity (outside level 8),
+ * clears the carry-link fields, and — when arg0 == 1 — flushes any queued
+ * palette-animation entries past the base count.
+ */
+void ResetEntityScrollState(s32 arg0) {
+    if (gUnk_03003410.unkB == 0) {
+        if (gUnk_03004C20.level != 8) {
+            if (gUnk_03002920[gUnk_03005220.unk42].affineEnable != 0) {
+                gUnk_03002920[gUnk_03005220.unk42].affineEnable = 0;
+            }
+        }
+
+        gUnk_03005220.unk38 = 0;
+        gUnk_03005220.unk43 = 0;
+        gUnk_03005220.unk42 = 0;
+
+        if ((arg0 == 1) && (gUnk_03000830->unk0 >= 0x16)) {
+            SetPaletteAnimEntry(0, gUnk_03000830->unk0 - 0x16);
+        }
+    }
+}
+
+/**
+ * PlayerRespawnOrDeath: tick the death/respawn timer and trigger the outcome.
+ *
+ * While the death timer (unk0_0) is running, decrements it; on expiry plays the
+ * respawn jingle and resets the scroll/carry state, otherwise plays the death
+ * sound and queues the fade. Sets up the post-death camera/blend state.
+ */
+void PlayerRespawnOrDeath(s32 arg0) {
+    if ((gUnk_03005220.unk46 | gUnk_03003410.unkB | gUnk_030034E4) != 0) {
+        return;
+    }
+
+    gUnk_03005220.unk5B = 0;
+    if (arg0 == 1) {
+        gUnk_03005220.unk0_0 -= 1;
+        CopyBGScrollTiles();
+        gUnk_03005220.unk5B = 1;
+    }
+
+    if (gUnk_03005220.unk0_0 == 0) {
+        m4aSongNumStart(0x27);
+
+        gUnk_03005220.unk46 = 0x46;
+        gUnk_03002920[0x9].unk10 = 0;
+        gUnk_03002920[0xA].unk10 = 0;
+        gUnk_03005220.unk57 = 0;
+        gUnk_03005220.unk56 = 0;
+        gUnk_03005220.unk3F = 0;
+        gUnk_03005220.unk3B = 0;
+        gUnk_03005220.unk3A = 0;
+        gUnk_03005220.unk39 = 0;
+        gUnk_03005220.unk34 = 0;
+
+        if (gUnk_03005220.unk42 != 0) {
+            if ((gUnk_03002920[gUnk_03005220.unk42].unk11 != 0x6F) && (gUnk_03002920[gUnk_03005220.unk42].unk11 != 0x25)) {
+                SpawnEntityAtPosition(gUnk_03002920[gUnk_03005220.unk42].xPosBg2, gUnk_03002920[gUnk_03005220.unk42].yPosBg2, 2, gUnk_03005220.unk42);
+            }
+        }
+
+        gUnk_03005220.unk38 = 0;
+        gUnk_03005220.unk43 = 0;
+        gUnk_03005220.unk42 = 0;
+    } else {
+        m4aSongNumStart(0x25);
+        gUnk_03005220.unk3C = 0;
+        SetPaletteAnimEntry(0, 0xC);
+    }
+
+    gUnk_03005220.unk1C = 0;
+    gUnk_03005220.unk3E = 0x87;
+    if (gUnk_03005220.unk3D > 1) {
+        gUnk_03005220.unk3D = 1;
+        m4aSongNumStart(0x8E);
+    }
+
+    gUnk_03005220.unk44 = gUnk_03002920[0].unkC_2;
+    gUnk_03005220.unk3C = 0;
+    gUnk_03005220.unk26 = 0;
+    gUnk_03005220.unk28 = 0;
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityBehaviorMasterUpdate);
 INCLUDE_ASM("asm/nonmatchings/code_1", sub_080158AC);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntitySpawnFromLevelData);
