@@ -73,7 +73,9 @@ extern struct Unk_03004C20 gUnk_03004C20;
 /* Per-frame globals used by VBlank callbacks. */
 #define gUnk_03003420 (*(u8 *)0x03003420)
 #define gUnk_03005498 (*(u8 *)0x03005498)
-#define gUnk_030007D8 (*(u8 *)0x030007D8)
+
+/* MOSAIC size (BG/OBJ), written into REG_MOSAIC via MOSAIC_SET. Address 0x030007D8. */
+extern u8 gMosaicSize;
 
 /* Entity/OAM struct (~36 bytes per element).
  * Address: 0x03002920.  Mirrored from kleod's variables.h. */

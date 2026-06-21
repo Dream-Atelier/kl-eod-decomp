@@ -2382,7 +2382,7 @@ void VBlankCallback_Gameplay(void) {
     REG_BG2PD = gBg2PD;
     REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
     REG_BLDY = gUnk_03005498;
-    REG_MOSAIC = (gUnk_030007D8 << 0xC) | (gUnk_030007D8 << 8) | (gUnk_030007D8 << 4) | gUnk_030007D8;
+    REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
     thunk_UpdateRng();
     gUnk_03004C20.unk4 += 1;
     gUnk_03004C20.unk0 += 1;
@@ -2397,7 +2397,7 @@ void VBlankCallback_Dialog(void) {
     VBlankIntrWait();
     REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
     REG_BLDY = gUnk_03005498;
-    REG_MOSAIC = (gUnk_030007D8 << 4) | gUnk_030007D8;
+    REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, 0, 0);
     REG_BG0HOFS = (gUnk_03003430.bg0HOfs >> 2) & 0x1FF;
     REG_BG0VOFS = (gUnk_03003430.bg0VOfs >> 5) & 0x1FF;
     REG_BG1HOFS = gUnk_03003430.bg1HOfs & 0x1FF;
@@ -2433,7 +2433,7 @@ void VBlankCallback_MapScreen(void) {
     REG_BG2PD = gBg2PD;
     REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
     REG_BLDY = gUnk_03005498;
-    REG_MOSAIC = (gUnk_030007D8 << 0xC) | (gUnk_030007D8 << 8) | (gUnk_030007D8 << 4) | gUnk_030007D8;
+    REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
     gUnk_030034F8 = MultiplyQ8(SIN((gUnk_03004C20.unk0 * 0x10) & 0xFF), MultiplyQ8(0x200, SIN((gUnk_03004C20.unk0 * 4) & 0x7F)));
     gBg2PA = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2XMag));
     gBg2PB = MultiplyQ8(SIN(gBg2Alpha), ReciprocalQ8(gBg2XMag));
@@ -2465,7 +2465,7 @@ void VBlankCallback_GameplayWithHUD(void) {
     REG_BG2PD = gBg2PD;
     REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
     REG_BLDY = gUnk_03005498;
-    REG_MOSAIC = (gUnk_030007D8 << 0xC) | (gUnk_030007D8 << 8) | (gUnk_030007D8 << 4) | gUnk_030007D8;
+    REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
     thunk_UpdateRng();
     gUnk_03004C20.unk4 += 1;
     gUnk_03004C20.unk0 += 1;
@@ -2488,7 +2488,7 @@ void VBlankCallback_MinimalHW(void) {
     REG_BG2PD = gBg2PD;
     REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
     REG_BLDY = gUnk_03005498;
-    REG_MOSAIC = (gUnk_030007D8 << 0xC) | (gUnk_030007D8 << 8) | (gUnk_030007D8 << 4) | gUnk_030007D8;
+    REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
     thunk_UpdateRng();
     gUnk_03004C20.unk4 += 1;
     gUnk_03004C20.unk0 += 1;
@@ -2719,7 +2719,7 @@ void VBlankCallback_TitleScreen(void) {
     REG_BG2VOFS = gUnk_03003430.bg2VOfs & 0x1FF;
     REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
     REG_BLDY = gUnk_03005498;
-    REG_MOSAIC = (gUnk_030007D8 << 0xC) | (gUnk_030007D8 << 8) | (gUnk_030007D8 << 4) | gUnk_030007D8;
+    REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
     thunk_UpdateRng();
     gUnk_03004C20.unk4 += 1;
     gUnk_03004C20.unk0 += 1;

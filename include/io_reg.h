@@ -584,6 +584,13 @@
 #define WIN_RANGE(a, b)                   (((a) << 8) | (b))
 #define WIN_RANGE2(a, b)                  ((b) | ((a) << 8))
 
+// MOSAIC
+#define MOSAIC_SET_BGH(bgH)               ((bgH) << 0)
+#define MOSAIC_SET_BGV(bgV)               ((bgV) << 4)
+#define MOSAIC_SET_OBJH(objH)             ((objH) << 8)
+#define MOSAIC_SET_OBJV(objV)             ((objV) << 12)
+#define MOSAIC_SET(bgH, bgV, objH, objV)  (MOSAIC_SET_OBJV(objV) | MOSAIC_SET_OBJH(objH) | MOSAIC_SET_BGV(bgV) | MOSAIC_SET_BGH(bgH))
+
 // BLDCNT
 // Bits 0-5 select layers for the 1st target
 #define BLDCNT_TGT1_BG0                   (1 << 0)

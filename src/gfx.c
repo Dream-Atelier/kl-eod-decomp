@@ -391,7 +391,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_FillBGTilemap);
  * StreamCmd_EnableMosaic: enables mosaic on BG2/BG3 and sets mosaic level.
  *
  * Sets bit 6 (mosaic) on REG_BG2CNT and REG_BG3CNT, reads a 4-bit
- * mosaic value from stream byte[2], stores to global at 0x030007D8.
+ * mosaic value from stream byte[2], stores to gMosaicSize (0x030007D8).
  * Advances stream pointer by 3.
  */
 void StreamCmd_EnableMosaic(void) {

@@ -1079,7 +1079,7 @@ void ComputeRotationMatrix(void) {
         gBg2YMag -= 0x10;
         gUnk_03004C20.unk0 = 0;
     } else if ((gUnk_03004C20.unk0 == 0x258) || (gNewKeys & (START_BUTTON | B_BUTTON | A_BUTTON))) {
-        gUnk_030007D8 = 0;
+        gMosaicSize = 0;
         gUnk_03003410.unk7 = 1;
         gUnk_03004C20.world = 6;
         gUnk_03004C20.level = 3;
