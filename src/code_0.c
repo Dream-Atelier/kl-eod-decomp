@@ -2389,7 +2389,128 @@ void VBlankCallback_Gameplay(void) {
     m4aSoundMain();
     gUnk_03003420 = 1;
 }
-INCLUDE_ASM("asm/nonmatchings/code_0", AnimatePaletteEffects);
+extern void RenderMenuUI(void);
+extern void InitGameplayState(void);
+extern void ProcessInputAndUpdateEntities(void);
+extern void UpdateWorldMapInput(void);
+extern void sub_0803A8B8(void);
+
+/**
+ * AnimatePaletteEffects: per-frame screen-shake, affine wobble, and register flush.
+ *
+ * Advances the two sine-driven screen-shake oscillators, applies the resulting
+ * offset to all entities and the BG2 affine origin, builds the per-scanline BG2
+ * scroll tables for worlds 5/6, then waits for VBlank and flushes the BG scroll,
+ * affine, blend, and mosaic registers before pumping the RNG and sound.
+ */
+void AnimatePaletteEffects(void) {
+    s8 sp0;
+    s8 sp4;
+    s32 temp_r0_2;
+    s32 var_r3_2;
+    s32 var_r8;
+    s32 var_sb;
+    u16 var_r2_2;
+    u32 var_r5_2;
+    u32 var_r6;
+    u8 temp_r4;
+
+    if (gUnk_03005400.unkE_1) {
+        gUnk_03000001 = gUnk_03005400.unkD * 2;
+        gUnk_03000003 = 0x20;
+        gUnk_03005400.unkE_1 = 0;
+    }
+
+    if (gUnk_03005400.unkE_0) {
+        gUnk_03000000 = gUnk_03005400.unkD * 2;
+        gUnk_03000002 = 0x20;
+        gUnk_03005400.unkE_0 = 0;
+    }
+
+    if (gUnk_03000000 != 0) {
+        gUnk_03000002 += 0x20;
+        gUnk_03000002 %= 0x100;
+        if ((gUnk_03000002 % 0x80) == 0) {
+            gUnk_03000000 -= 1;
+        }
+    }
+    if (gUnk_03000001 != 0) {
+        gUnk_03000003 += 0x20;
+        gUnk_03000003 %= 0x100;
+        if ((gUnk_03000003 % 0x80) == 0) {
+            gUnk_03000001 -= 1;
+        }
+    }
+
+    sp0 = ((s16)(gUnk_03000000 * gSineTable[gUnk_03000002]) >> 0x8) * 2;
+    sp4 = ((s16)(-gUnk_03000001 * gSineTable[gUnk_03000003]) >> 0x8) * 2;
+    TransformAllEntitiesToScreen(sp0, sp4);
+    RenderMenuUI();
+
+    if (gUnk_03004C20.world == 0x5 || gUnk_03004C20.world == 0x6) {
+        if ((gCallbackQueue.current[1] == ProcessInputAndUpdateEntities) || (gCallbackQueue.current[0] == InitGameplayState) || (gCallbackQueue.current[1] == InitGameplayState) || (gCallbackQueue.current[1] == UpdateWorldMapInput) || (gCallbackQueue.current[1] == sub_0803A8B8)) {
+            if (gUnk_030034BC == 0) {
+                var_sb = 0;
+                var_r8 = 1;
+            } else {
+                var_sb = 1;
+                var_r8 = 0;
+            }
+            temp_r4 = (8 - Abs(8 - gUnk_030051F0.unkE)) * 8;
+            var_r5_2 = gUnk_030051F0.unk0;
+        } else {
+            var_sb = 1;
+            var_r8 = 1;
+            temp_r4 = (8 - Abs(8 - gUnk_03005498)) * 8;
+            var_r5_2 = gUnk_03004C20.unk0;
+        }
+
+        for (var_r6 = 0; var_r6 < 0xA0; var_r6++) {
+            if (var_r6 < 0x90) {
+                temp_r0_2 = (temp_r4 * gSineTable[(u8)(var_r5_2 * 4 + var_r6 * 4) + 0x40]) >> 8;
+                gUnk_03004C40[var_r6] = temp_r0_2 * var_sb;
+                gUnk_030052C0[var_r6] = -temp_r0_2 * var_r8;
+            } else {
+                gUnk_03004C40[var_r6] = 0;
+                gUnk_030052C0[var_r6] = 0;
+            }
+        }
+    }
+
+    var_r3_2 = gUnk_03003430.bg2HOfs;
+    var_r2_2 = gUnk_03003430.bg2VOfs;
+    if (gUnk_03004C20.world == 0x4 && gUnk_03004C20.level == 0x8) {
+        var_r2_2 += 0x20;
+    }
+    gBg2X = (((var_r3_2 << 8) - (var_r3_2 * gBg2PA)) - (var_r2_2 * gBg2PB)) + ((gUnk_03003430.bg2HOfs + sp0) << 8);
+    gBg2Y = (((var_r2_2 << 8) - (var_r3_2 * gBg2PC)) - (var_r2_2 * gBg2PD)) + ((gUnk_03003430.bg2VOfs + sp4) << 8);
+
+    VBlankIntrWait();
+
+    REG_BG0HOFS = (gUnk_03003430.bg0HOfs >> 4) & 0x1FF;
+    REG_BG0VOFS = (gUnk_03003430.bg0VOfs >> 7) & 0x1FF;
+    REG_BG1HOFS = gUnk_03003430.bg1HOfs & 0x1FF;
+    REG_BG1VOFS = gUnk_03003430.bg1VOfs & 0x1FF;
+    REG_BG2X_L = gBg2X;
+    REG_BG2X_H = (gBg2X & 0x0FFF0000) >> 0x10;
+    REG_BG2Y_L = gBg2Y;
+    REG_BG2Y_H = (gBg2Y & 0x0FFF0000) >> 0x10;
+
+    REG_BG2PA = gBg2PA;
+    REG_BG2PB = gBg2PB;
+    REG_BG2PC = gBg2PC;
+    REG_BG2PD = gBg2PD;
+
+    REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
+    REG_BLDY = gUnk_03005498;
+    REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
+
+    thunk_UpdateRng();
+    gUnk_03004C20.unk4 += 1;
+    gUnk_03004C20.unk0 += 1;
+    m4aSoundMain();
+    gUnk_03003420 = 1;
+}
 void VBlankCallback_Dialog(void) {
     RenderDialogSprites();
     gUnk_03004678 = SIN(gBg2Alpha);

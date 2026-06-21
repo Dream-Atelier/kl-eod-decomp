@@ -77,6 +77,16 @@ extern struct Unk_03004C20 gUnk_03004C20;
 /* MOSAIC size (BG/OBJ), written into REG_MOSAIC via MOSAIC_SET. Address 0x030007D8. */
 extern u8 gMosaicSize;
 
+/* Screen-shake / wobble animation state (AnimatePaletteEffects). */
+extern u8 gUnk_03000000;
+extern u8 gUnk_03000001;
+extern u8 gUnk_03000002;
+extern u8 gUnk_03000003;
+
+/* Per-scanline BG2 affine scroll tables (0xA0 scanlines). */
+extern u16 gUnk_03004C40[];
+extern u16 gUnk_030052C0[];
+
 /* Entity/OAM struct (~36 bytes per element).
  * Address: 0x03002920.  Mirrored from kleod's variables.h. */
 struct Unk_03002920 {

@@ -1,4 +1,10 @@
 /* Data symbols: extern declarations in globals.h resolve to these addresses. */
+gUnk_03000000 = 0x03000000;
+gUnk_03000001 = 0x03000001;
+gUnk_03000002 = 0x03000002;
+gUnk_03000003 = 0x03000003;
+gUnk_03004C40 = 0x03004C40;
+gUnk_030052C0 = 0x030052C0;
 gSpriteRenderPtr = 0x030051DC;
 gSpriteDataTable = 0x08189E84;
 gMPlayTable = 0x08118AB4;

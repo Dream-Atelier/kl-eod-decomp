@@ -24,6 +24,7 @@ INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_BossArena);
 INCLUDE_ASM("asm/nonmatchings/code_3", InitGameplayState);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateOamSortOrder);
 INCLUDE_ASM("asm/nonmatchings/code_3", ProcessInputAndUpdateEntities);
+INCLUDE_ASM("asm/nonmatchings/code_3", sub_0803A8B8);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapInput);
 INCLUDE_ASM("asm/nonmatchings/code_3", CheckWorldCompletion); /* IsEntityActive */
 INCLUDE_ASM("asm/nonmatchings/code_3", CopyWorldMapTiles); /* UpdateEntityState */
