@@ -2139,13 +2139,13 @@ void RenderCharacterTiles(void) {
                     DmaCopy16(
                         3, &gUnk_08063FE8,
                         OBJ_VRAM0
-                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum << 5),
                         0x80);
                 } else {
                     DmaCopy16(
                         3, &gUnk_080B9268,
                         OBJ_VRAM0
-                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum << 5),
                         0x80);
                 }
                 break;
@@ -2157,38 +2157,38 @@ void RenderCharacterTiles(void) {
                             DmaCopy16(
                                 3, &gUnk_080635E8,
                                 OBJ_VRAM0
-                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)]
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum
                                        << 5),
                                 0x80);
                             DmaCopy16(
                                 3, &gUnk_080635E8,
                                 OBJ_VRAM0
-                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x70 / 2)]
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xE].tileNum
                                        << 5),
                                 0x80);
                             DmaCopy16(
                                 3, &gUnk_080635E8,
                                 OBJ_VRAM0
-                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x78 / 2)]
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xF].tileNum
                                        << 5),
                                 0x80);
                         } else {
                             DmaCopy16(
                                 3, &gUnk_080B9068,
                                 OBJ_VRAM0
-                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)]
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum
                                        << 5),
                                 0x80);
                             DmaCopy16(
                                 3, &gUnk_080B9068,
                                 OBJ_VRAM0
-                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x70 / 2)]
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xE].tileNum
                                        << 5),
                                 0x80);
                             DmaCopy16(
                                 3, &gUnk_080B9068,
                                 OBJ_VRAM0
-                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x78 / 2)]
+                                    + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xF].tileNum
                                        << 5),
                                 0x80);
                         }
@@ -2198,13 +2198,13 @@ void RenderCharacterTiles(void) {
                         DmaCopy16(
                             3, &gUnk_08061FC8,
                             OBJ_VRAM0
-                                + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                                + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum << 5),
                             0x80);
                     } else {
                         DmaCopy16(
                             3, &gUnk_080B8F68,
                             OBJ_VRAM0
-                                + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                                + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum << 5),
                             0x80);
                     }
                     break;
@@ -2217,13 +2217,13 @@ void RenderCharacterTiles(void) {
                     DmaCopy16(
                         3, &gUnk_08063368,
                         OBJ_VRAM0
-                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum << 5),
                         0x80);
                 } else {
                     DmaCopy16(
                         3, &gUnk_080B92E8,
                         OBJ_VRAM0
-                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum << 5),
                         0x80);
                 }
                 break;
@@ -2232,7 +2232,7 @@ void RenderCharacterTiles(void) {
                 temp_r3_3 = ((s32)gUnk_03004C20.unk8 >> ((gUnk_03004C20.room - 1) * 2)) & 3;
                 if (gUnk_03004C10 == NULL) {
                     gUnk_03004C10 = OBJ_VRAM0
-                        + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5);
+                        + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum << 5);
                 }
 
                 if (temp_r3_3 == 0) {
@@ -2251,13 +2251,13 @@ void RenderCharacterTiles(void) {
                     DmaCopy16(
                         3, &gUnk_08064868,
                         OBJ_VRAM0
-                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum << 5),
                         0x200);
                 } else {
                     DmaCopy16(
                         3, &gUnk_080B9468,
                         OBJ_VRAM0
-                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum << 5),
                         0x200);
                 }
                 break;
@@ -2267,13 +2267,13 @@ void RenderCharacterTiles(void) {
                     DmaCopy16(
                         3, &gUnk_08064A68,
                         OBJ_VRAM0
-                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum << 5),
                         0x200);
                 } else {
                     DmaCopy16(
                         3, &gUnk_080B9668,
                         OBJ_VRAM0
-                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[(var_sb * 4) - (0x68 / 2)] << 5),
+                            + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb - 0xD].tileNum << 5),
                         0x200);
                 }
                 break;

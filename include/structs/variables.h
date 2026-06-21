@@ -493,12 +493,8 @@ struct Unk_0300466C {
 extern struct Unk_0300466C gUnk_08078FC8[];
 extern struct Unk_0300466C *gUnk_0300466C;
 
-struct Unk_0818B8E0 {
-    u8 pad0[0x4 - 0x0];
-    u16 *unk4;
-};
-extern struct Unk_0818B8E0 *gUnk_030051DC;
-extern struct Unk_0818B8E0 *gUnk_0818B8E0[6][9];
+extern struct Unk_0300466C *gUnk_030051DC;
+extern struct Unk_0300466C *gUnk_0818B8E0[6][9];
 
 /* Per-tileset sprite tile-data source pointers (DMA src), indexed by tileset. */
 extern u32 gUnk_0818B8A8[];

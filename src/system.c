@@ -75,7 +75,7 @@ void LoadSpriteFrame(u8 frame, u8 tilesetIdx) {
     vu32 *dma = (vu32 *)REG_ADDR_DMA3SAD;
 
     dma[0] = gUnk_0818B8A8[tilesetIdx];
-    dma[1] = OBJ_VRAM + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[frame * 4 - 0x34] << 5);
+    dma[1] = OBJ_VRAM + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[frame - 0xD].tileNum << 5);
     dma[2] = 0x80000010;
     dma[2];
 }
