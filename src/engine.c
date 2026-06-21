@@ -989,15 +989,15 @@ void InitLevelFromROMTable(void) {
         InitLevelGameplay(var_r6);
     } else {
         gUnk_030034E4 = 1;
-        gUnk_03003510.unk28[0] = ReadKeyInput;
-        gUnk_03003510.unk28[1] = InitGameplayFromWorldMap;
-        gUnk_03003510.unk28[2] = VBlankCallback_Dialog;
+        gCallbackQueue.next[0] = ReadKeyInput;
+        gCallbackQueue.next[1] = InitGameplayFromWorldMap;
+        gCallbackQueue.next[2] = VBlankCallback_Dialog;
         gUnk_03003410.unk5 = 0;
-        gUnk_03003510.unk34 = &UpdateWorldMapLogic;
-        gUnk_03003510.unk38 = &TransitionInitLevelMusic;
-        gUnk_03003510.unk3C = 1;
-        gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = 0;
-        gUnk_03003510.unk79 = 6;
+        gCallbackQueue.next[3] = &UpdateWorldMapLogic;
+        gCallbackQueue.next[4] = &TransitionInitLevelMusic;
+        gCallbackQueue.next[5] = 1;
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = 0;
+        gCallbackQueue.nextCount = 6;
     }
     if (gUnk_03002920[0].xPosBg2 < (gUnk_03005468.unk0 + 0x78)) {
         gUnk_03003430.bg2HOfs = gUnk_03005468.unk0;
@@ -1083,7 +1083,7 @@ void ComputeRotationMatrix(void) {
         gUnk_03003410.unk7 = 1;
         gUnk_03004C20.world = 6;
         gUnk_03004C20.level = 3;
-        gUnk_03003510.unk0[1] = TransitionGameplayInit;
+        gCallbackQueue.current[1] = TransitionGameplayInit;
     }
 }
 INCLUDE_ASM("asm/nonmatchings/engine", ResetVideoRegisters); /* RenderFrame — per-frame rendering dispatch */

@@ -161,26 +161,16 @@ extern u8 gUnk_0300528C;
 extern u8 gUnk_03005470;
 extern u8 gUnk_030034BC;
 
-struct Unk_03003510 {
-    /* 0x00 */ void (*unk0[3])(void);
-    /* 0x0C */ s32 unkC;
-    /* 0x10 */ void (*unk10)(void);
-    /* 0x14 */ u8 pad14[0x28 - 0x14];
-    /* 0x28 */ void (*unk28[3])(void);
-    /* 0x34 */ void *unk34;
-    /* 0x38 */ void *unk38;
-    /* 0x3C */ u32 unk3C;
-    /* 0x40 */ void (*unk40)(void);
-    /* 0x44 */ u32 unk44;
-    /* 0x48 */ u8 pad48[0x50 - 0x48];
-    /* 0x50 */ void (*unk50[1])(void);
-    /* 0x54 */ u8 pad54[0x78 - 0x54];
-    /* 0x78 */ u8 unk78;
-    /* 0x79 */ u8 unk79;
-    /* 0x7A */ u8 unk7A;
+struct CallbackQueue {
+    /* 0x00 */ void (*current[10])(void);  // current callbacks
+    /* 0x28 */ void (*next[10])(void);     // next callbacks
+    /* 0x50 */ void (*previous[10])(void); // previous callbacks
+    /* 0x78 */ u8 currentCount;            // current callback count
+    /* 0x79 */ u8 nextCount;               // next callback count
+    /* 0x7A */ u8 previousCount;           // previous callback count
     /* 0x7B */ u8 pad7B[0x7C - 0x7B];
 }; /* size = 0x7C */
-extern struct Unk_03003510 gUnk_03003510;
+extern struct CallbackQueue gCallbackQueue;
 
 /* BG-tile/tilemap workbuffer pointers (mirrored from kleod). */
 struct Unk_03004790 {

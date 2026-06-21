@@ -1545,24 +1545,24 @@ void HandlePauseMenuInput(void) {
 
     if ((gNewKeys & START_BUTTON) && (gUnk_030034E4 == 0) && (gUnk_03005220.unk46 == 0)) {
         for (var_r2 = 0; var_r2 < 10; var_r2++) {
-            gUnk_03003510.unk50[var_r2] = gUnk_03003510.unk0[var_r2];
+            gCallbackQueue.previous[var_r2] = gCallbackQueue.current[var_r2];
         }
 
-        gUnk_03003510.unk7A = gUnk_03003510.unk78;
+        gCallbackQueue.previousCount = gCallbackQueue.currentCount;
         gUnk_030034BC = 0;
         gUnk_03003410.unk4 = 1;
-        gUnk_03003510.unk28[0] = InitGameplayState;
-        gUnk_03003510.unk28[1] = VBlankCallback_Gameplay;
-        gUnk_03003510.unk28[2] = (void (*)())1;
-        gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
-        gUnk_03003510.unk79 = 3;
-        gUnk_03003510.unk78 = 1;
-        gUnk_03003510.unk0[0] = NULL;
+        gCallbackQueue.next[0] = InitGameplayState;
+        gCallbackQueue.next[1] = VBlankCallback_Gameplay;
+        gCallbackQueue.next[2] = (void (*)())1;
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        gCallbackQueue.nextCount = 3;
+        gCallbackQueue.currentCount = 1;
+        gCallbackQueue.current[0] = NULL;
         return;
     }
 
     if (gUnk_030052A0 == 0xFE) {
-        if ((gUnk_03003510.unk10 != TransitionGameOver) && (gUnk_03003510.unk10 != TransitionFadeOutWithMusic)) {
+        if ((gCallbackQueue.current[4] != TransitionGameOver) && (gCallbackQueue.current[4] != TransitionFadeOutWithMusic)) {
             VBlankCallback_Credits();
         }
 
@@ -1746,10 +1746,10 @@ void UpdateUIState(void) {
 
     if ((gNewKeys & START_BUTTON) && (gUnk_030034E4 == 0) && (gUnk_03005220.unk46 == 0) && (gUnk_03005400.unkC != 0)) {
         for (var_r2 = 0; var_r2 < 10; var_r2++) {
-            gUnk_03003510.unk50[var_r2] = gUnk_03003510.unk0[var_r2];
+            gCallbackQueue.previous[var_r2] = gCallbackQueue.current[var_r2];
         }
 
-        gUnk_03003510.unk7A = gUnk_03003510.unk78;
+        gCallbackQueue.previousCount = gCallbackQueue.currentCount;
         if ((gUnk_03004C20.world == 5) && ((gUnk_03005400.unkA == 5) || (gUnk_03005400.unkA == 7) || (gUnk_03005400.unkA == 9))) {
             gUnk_030034BC = 1;
         } else {
@@ -1757,13 +1757,13 @@ void UpdateUIState(void) {
         }
 
         gUnk_03003410.unk4 = 1;
-        gUnk_03003510.unk28[0] = InitGameplayState;
-        gUnk_03003510.unk28[1] = AnimatePaletteEffects;
-        gUnk_03003510.unk28[2] = (void (*)())1;
-        gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
-        gUnk_03003510.unk79 = 3;
-        gUnk_03003510.unk78 = 1;
-        gUnk_03003510.unk0[0] = NULL;
+        gCallbackQueue.next[0] = InitGameplayState;
+        gCallbackQueue.next[1] = AnimatePaletteEffects;
+        gCallbackQueue.next[2] = (void (*)())1;
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        gCallbackQueue.nextCount = 3;
+        gCallbackQueue.currentCount = 1;
+        gCallbackQueue.current[0] = NULL;
         return;
     }
 
@@ -1982,7 +1982,7 @@ void UpdateUIState(void) {
         }
     }
 
-    if (gUnk_03005400.unkE_7 && (gUnk_03003510.unk10 != TransitionGameOver) && (gUnk_03003510.unk10 != TransitionFadeOutWithMusic)) {
+    if (gUnk_03005400.unkE_7 && (gCallbackQueue.current[4] != TransitionGameOver) && (gCallbackQueue.current[4] != TransitionFadeOutWithMusic)) {
         VBlankCallback_Credits();
     }
 
@@ -2500,7 +2500,7 @@ void VBlankCallback_MinimalHW(void) {
  * dispatch for the current world/level — resolves a ROM config entry
  * from gUnk_080D821C, seeds the player's initial BG2 position from
  * the per-world (level==8) or per-room (other) ROM table, populates
- * gUnk_03005220 / gUnk_03005284, and writes gUnk_03003510.unk28/
+ * gUnk_03005220 / gUnk_03005284, and writes gCallbackQueue.next/
  * unk34/unk38/unk3C/unk40 for either the boss/cutscene flow or the
  * normal gameplay loop.
  */
@@ -2624,9 +2624,9 @@ void InitLevelGameplay(u32 arg0) {
     }
 
     if (gUnk_03003410.unkA == 0) {
-        gUnk_03003510.unk28[0] = ReadKeyInput;
+        gCallbackQueue.next[0] = ReadKeyInput;
     } else {
-        gUnk_03003510.unk28[0] = ProcessInputAndTimers;
+        gCallbackQueue.next[0] = ProcessInputAndTimers;
     }
 
     gUnk_03003410.unk5 = 0;
@@ -2638,45 +2638,45 @@ void InitLevelGameplay(u32 arg0) {
     gUnk_03003430.unk44 = 0;
 
     if (gUnk_03004C20.level == 8) {
-        gUnk_03003510.unk28[1] = InitLevelState;
-        gUnk_03003510.unk28[2] = CameraModeSwitchHandler;
-        gUnk_03003510.unk34 = UpdateUIState;
-        gUnk_03003510.unk38 = TransitionInitLevelMusic;
-        gUnk_03003510.unk3C = (u32)IntroScrollAnimation;
-        gUnk_03003510.unk40 = AnimatePaletteEffects;
-        gUnk_03003510.unk44 = 1;
-        gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
-        gUnk_03003510.unk79 = 8;
+        gCallbackQueue.next[1] = InitLevelState;
+        gCallbackQueue.next[2] = CameraModeSwitchHandler;
+        gCallbackQueue.next[3] = UpdateUIState;
+        gCallbackQueue.next[4] = TransitionInitLevelMusic;
+        gCallbackQueue.next[5] = IntroScrollAnimation;
+        gCallbackQueue.next[6] = AnimatePaletteEffects;
+        gCallbackQueue.next[7] = 1;
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        gCallbackQueue.nextCount = 8;
     } else {
-        gUnk_03003510.unk28[1] = HandlePauseMenuInput;
+        gCallbackQueue.next[1] = HandlePauseMenuInput;
         if (gUnk_03004C20.unkB == 1) {
-            gUnk_03003510.unk28[2] = UpdateCameraScrollPlayer2;
+            gCallbackQueue.next[2] = UpdateCameraScrollPlayer2;
         } else if (gUnk_03004C20.level == 6) {
-            gUnk_03003510.unk28[2] = UpdateCameraScroll;
+            gCallbackQueue.next[2] = UpdateCameraScroll;
         } else {
-            gUnk_03003510.unk28[2] = ProcessOamSpriteLayout;
+            gCallbackQueue.next[2] = ProcessOamSpriteLayout;
         }
-        gUnk_03003510.unk34 = TransitionInitLevelMusic;
+        gCallbackQueue.next[3] = TransitionInitLevelMusic;
 
         if (arg0 < 2) {
             if (gUnk_03003410.unkA == 0) {
-                gUnk_03003510.unk38 = IntroScrollAnimation;
-                gUnk_03003510.unk3C = (u32)VBlankCallback_Gameplay;
-                gUnk_03003510.unk40 = (IntrFunc)1;
-                gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
-                gUnk_03003510.unk79 = 7;
+                gCallbackQueue.next[4] = IntroScrollAnimation;
+                gCallbackQueue.next[5] = VBlankCallback_Gameplay;
+                gCallbackQueue.next[6] = (IntrFunc)1;
+                gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+                gCallbackQueue.nextCount = 7;
             } else {
-                gUnk_03003510.unk38 = VBlankCallback_Gameplay;
-                gUnk_03003510.unk3C = 1;
-                gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
-                gUnk_03003510.unk79 = 6;
+                gCallbackQueue.next[4] = VBlankCallback_Gameplay;
+                gCallbackQueue.next[5] = 1;
+                gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+                gCallbackQueue.nextCount = 6;
             }
         } else {
             gUnk_03003410.unk5 = 1;
-            gUnk_03003510.unk38 = VBlankCallback_Gameplay;
-            gUnk_03003510.unk3C = 1;
-            gUnk_03003510.unk0[gUnk_03003510.unk78 - 1] = NULL;
-            gUnk_03003510.unk79 = 6;
+            gCallbackQueue.next[4] = VBlankCallback_Gameplay;
+            gCallbackQueue.next[5] = 1;
+            gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+            gCallbackQueue.nextCount = 6;
         }
     }
     gUnk_030034E4 = 1;
