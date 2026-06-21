@@ -2,6 +2,7 @@
 #include "gba.h"
 #include "globals.h"
 #include "include_asm.h"
+#include "structs/variables.h"
 
 void ReadKeyInput(void);
 void InitOamEntries(void);
@@ -13,8 +14,88 @@ void SoftResetRom(u32);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityUpdateDispatch);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerMainUpdate);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerMovementPhysics);
-INCLUDE_ASM("asm/nonmatchings/code_1", CheckTileCollisionVertical);
-INCLUDE_ASM("asm/nonmatchings/code_1", CheckTileCollisionSloped);
+/* Result of a tile-collision probe: unk0 = collision coordinate (-1 = none),
+ * unk2 = tile attribute byte. */
+struct Unk_08014184 {
+    u16 unk0;
+    u8 unk2;
+    u8 pad3[0x4 - 0x3];
+};
+
+/**
+ * CheckTileCollisionVertical: find the floor segment under a vertical probe.
+ *
+ * Scans the active room's collision segment list for a horizontal segment whose
+ * span brackets arg1 (X) and whose top edge lies within [arg2-arg3, arg2] (Y),
+ * returning its left edge (minus 3) and tile attribute through arg0.
+ */
+struct Unk_08014184 *CheckTileCollisionVertical(struct Unk_08014184 *arg0, u16 arg1, u16 arg2, u8 arg3) {
+    u32 var_r3;
+    struct Unk_08014184 var_r4;
+
+    for (var_r3 = gUnk_03004D80->unk2; var_r3 < gUnk_03004D80->unk0; var_r3++) {
+        if ((arg2 >= gUnk_03004D80->unk4[var_r3].unk2) && (gUnk_03004D80->unk4[var_r3].unk6 >= (arg2 - arg3)) && (arg1 < (gUnk_03004D80->unk4[var_r3].unk0 + 3)) && ((gUnk_03004D80->unk4[var_r3].unk0 - 3) < arg1)) {
+            var_r4.unk0 = gUnk_03004D80->unk4[var_r3].unk0 - 3;
+            var_r4.unk2 = gUnk_03004D80->unk4[var_r3].unk8;
+            *arg0 = var_r4;
+            goto exit; // FAKE
+            return arg0;
+        }
+    }
+
+    var_r4.unk0 = -1;
+    *arg0 = var_r4;
+exit:
+    return arg0;
+}
+
+/**
+ * CheckTileCollisionSloped: find the wall/slope segment for a horizontal probe.
+ *
+ * Scans the collision segment list for a vertical or sloped segment crossing arg1
+ * (X); for sloped segments it interpolates the contact Y from the segment's
+ * endpoints, returning the contact coordinate and tile attribute through arg0.
+ */
+struct Unk_08014184 *CheckTileCollisionSloped(struct Unk_08014184 *arg0, u16 arg1, u16 arg2, u8 arg3) {
+    s32 temp_r1_2;
+    struct Unk_08014184 var_r5;
+    u32 var_r3;
+
+    var_r5.unk0 = -1;
+
+    for (var_r3 = 0; var_r3 < gUnk_03004D80->unk2; var_r3++) {
+        if (gUnk_03004D80->unk4[var_r3].unk4 >= arg1) {
+            if (arg1 >= gUnk_03004D80->unk4[var_r3].unk0) {
+                if (gUnk_03004D80->unk4[var_r3].unk2 == gUnk_03004D80->unk4[var_r3].unk6) {
+                    if (((arg2 - arg3) <= gUnk_03004D80->unk4[var_r3].unk2) && (gUnk_03004D80->unk4[var_r3].unk2 <= arg2)) {
+                        var_r5.unk0 = gUnk_03004D80->unk4[var_r3].unk2;
+                        var_r5.unk2 = gUnk_03004D80->unk4[var_r3].unk8;
+                        *arg0 = var_r5;
+                        goto exit;
+                        return arg0;
+                    } else {
+                        continue;
+                    }
+                } else {
+                    temp_r1_2 = (((gUnk_03004D80->unk4[var_r3].unk6 - gUnk_03004D80->unk4[var_r3].unk2) * (arg1 - gUnk_03004D80->unk4[var_r3].unk0)) / (gUnk_03004D80->unk4[var_r3].unk4 - gUnk_03004D80->unk4[var_r3].unk0)) + gUnk_03004D80->unk4[var_r3].unk2;
+                    if ((temp_r1_2 >= (arg2 - arg3)) && (temp_r1_2 <= (arg2 + 3))) {
+                        var_r5.unk0 = temp_r1_2;
+                        var_r5.unk2 = gUnk_03004D80->unk4[var_r3].unk8;
+                    } else {
+                        continue;
+                    }
+                }
+            }
+
+            *arg0 = var_r5;
+        exit:
+            return arg0;
+        }
+    }
+
+    *arg0 = var_r5;
+    return arg0;
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", ApplyEntityTileMovement);
 INCLUDE_ASM("asm/nonmatchings/code_1", InitScrollState);
 INCLUDE_ASM("asm/nonmatchings/code_1", ResetEntityScrollState);

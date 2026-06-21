@@ -341,8 +341,17 @@ struct Unk_03005284 {
 extern struct Unk_03005284 *gUnk_03005284;
 
 /* ROM data tables (level config / room positions / boss positions). */
+struct Unk_080D821C_4 {
+    u16 unk0;
+    u16 unk2;
+    u16 unk4;
+    u16 unk6;
+    u8 unk8;
+};
 struct Unk_080D821C {
-    u8 pad0[0x8 - 0x0];
+    u16 unk0;
+    u16 unk2;
+    struct Unk_080D821C_4 *unk4;
     u8 unk8;
     u8 unk9;
     u8 padA[0xC - 0xA];
