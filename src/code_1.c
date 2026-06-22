@@ -4,6 +4,10 @@
 #include "include_asm.h"
 #include "structs/variables.h"
 
+#ifndef MAX
+#define MAX(a, b) (((a) >= (b)) ? (a) : (b))
+#endif
+
 void ReadKeyInput(void);
 void InitOamEntries(void);
 void UpdateWorldMapScene(void);
@@ -107,7 +111,100 @@ struct Unk_08014184 *CheckTileCollisionSloped(struct Unk_08014184 *arg0, u16 arg
     *arg0 = var_r5;
     return arg0;
 }
-INCLUDE_ASM("asm/nonmatchings/code_1", ApplyEntityTileMovement);
+/**
+ * ApplyEntityTileMovement: move the player by the pending scroll delta if clear.
+ *
+ * Samples the BG2 collision map at the destination (per horizontal/vertical scroll
+ * direction); if the highest tile attribute is below the solid threshold, commits
+ * the move and copies the carried-entity sub-position nibbles, otherwise cancels
+ * the scroll and resets the carry/scroll state.
+ */
+void ApplyEntityTileMovement(void) {
+    u8 var_r3;
+
+    var_r3 = 0;
+    if (gUnk_03005220.unk56 > 0) {
+        var_r3 = gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2 + 0xC) >> 3)
+                                              + ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 4) >> 3) * gUnk_03003430.unk48)];
+
+        // var_r3 = (var_r3 < gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2 + 0xC) >> 3) +
+        // ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 0xC) >> 3) * gUnk_03003430.unk48)]) ?
+        // (gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2 + 0xC) >> 3) + ((((gUnk_03005220.unk57 +
+        // gUnk_03002920[0].yPosBg2) - 0xC) >> 3) * gUnk_03003430.unk48)]) : var_r3; var_r3 = (var_r3 <
+        // gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2 + 0xC) >> 3) + ((((gUnk_03005220.unk57 +
+        // gUnk_03002920[0].yPosBg2) - 0x14) >> 3) * gUnk_03003430.unk48)]) ? (gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 +
+        // gUnk_03002920[0].xPosBg2 + 0xC) >> 3) + ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 0x14) >> 3) *
+        // gUnk_03003430.unk48)]) : var_r3;
+
+        var_r3 = MAX(
+            var_r3,
+            gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2 + 0xC) >> 3)
+                                         + ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 0xC) >> 3) * gUnk_03003430.unk48)]);
+        var_r3 = MAX(
+            var_r3,
+            gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2 + 0xC) >> 3)
+                                         + ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 0x14) >> 3) * gUnk_03003430.unk48)]);
+    } else if (gUnk_03005220.unk56 < 0) {
+        var_r3 = gUnk_03004790.pBufBg2Tilemap[(((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2) - 0xD) >> 3)
+                                              + ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 4) >> 3) * gUnk_03003430.unk48)];
+
+        // var_r3 = (var_r3 < gUnk_03004790.pBufBg2Tilemap[(((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2) - 0xD) >> 3) +
+        // ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 0xC) >> 3) * gUnk_03003430.unk48)]) ?
+        // (gUnk_03004790.pBufBg2Tilemap[(((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2) - 0xD) >> 3) + ((((gUnk_03005220.unk57 +
+        // gUnk_03002920[0].yPosBg2) - 0xC) >> 3) * gUnk_03003430.unk48)]) : var_r3; var_r3 = (var_r3 <
+        // gUnk_03004790.pBufBg2Tilemap[(((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2) - 0xD) >> 3) + ((((gUnk_03005220.unk57 +
+        // gUnk_03002920[0].yPosBg2) - 0x14) >> 3) * gUnk_03003430.unk48)]) ? (gUnk_03004790.pBufBg2Tilemap[(((gUnk_03005220.unk56 +
+        // gUnk_03002920[0].xPosBg2) - 0xD) >> 3) + ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 0x14) >> 3) *
+        // gUnk_03003430.unk48)]) : var_r3;
+
+        var_r3 = MAX(
+            var_r3,
+            gUnk_03004790.pBufBg2Tilemap[(((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2) - 0xD) >> 3)
+                                         + ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 0xC) >> 3) * gUnk_03003430.unk48)]);
+        var_r3 = MAX(
+            var_r3,
+            gUnk_03004790.pBufBg2Tilemap[(((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2) - 0xD) >> 3)
+                                         + ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 0x14) >> 3) * gUnk_03003430.unk48)]);
+    }
+
+    if (gUnk_03005220.unk57 != 0) {
+        // var_r3 = (var_r3 < gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2) >> 3) +
+        // ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 0x1A) >> 3) * gUnk_03003430.unk48)]) ?
+        // (gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2) >> 3) + ((((gUnk_03005220.unk57 +
+        // gUnk_03002920[0].yPosBg2) - 0x1A) >> 3) * gUnk_03003430.unk48)]) : var_r3; var_r3 = (var_r3 <
+        // gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2) >> 3) + ((((gUnk_03005220.unk57 +
+        // gUnk_03002920[0].yPosBg2) - 4) >> 3) * gUnk_03003430.unk48)]) ? (gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 +
+        // gUnk_03002920[0].xPosBg2) >> 3) + ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 4) >> 3) * gUnk_03003430.unk48)]) :
+        // var_r3;
+
+        var_r3 = MAX(
+            var_r3,
+            gUnk_03004790.pBufBg2Tilemap[((gUnk_03002920[0].xPosBg2 + gUnk_03005220.unk56) >> 3)
+                                         + ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 0x1A) >> 3) * gUnk_03003430.unk48)]);
+        var_r3 = MAX(
+            var_r3,
+            gUnk_03004790.pBufBg2Tilemap[((gUnk_03005220.unk56 + gUnk_03002920[0].xPosBg2) >> 3)
+                                         + ((((gUnk_03005220.unk57 + gUnk_03002920[0].yPosBg2) - 4) >> 3) * gUnk_03003430.unk48)]);
+    }
+
+    if (var_r3 < gUnk_03004654[0x1A]) {
+        gUnk_03002920[0].xPosBg2 += gUnk_03005220.unk56;
+        gUnk_03002920[0].yPosBg2 += gUnk_03005220.unk57;
+        gUnk_03002920[0].unkB_0 = gUnk_03002920[gUnk_03005220.unk3F].unkB_0;
+        gUnk_03002920[0].unkB_4 = gUnk_03002920[gUnk_03005220.unk3F].unkB_4;
+        return;
+    }
+
+    gUnk_03005220.unk57 = 0;
+    gUnk_03005220.unk56 = 0;
+    gUnk_03005220.unk3F = 0;
+    ResetEntityScrollState(1);
+    if ((gUnk_03005220.unk34 | gUnk_03005220.unk39) != 0) {
+        SetPaletteAnimEntry(0, 0);
+        gUnk_03005220.unk39 = 0;
+        gUnk_03005220.unk34 = 0;
+    }
+}
 /**
  * InitScrollState: reset the entire player/scroll state block at level start.
  *
