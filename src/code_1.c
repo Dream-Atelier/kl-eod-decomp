@@ -41,7 +41,8 @@ struct Unk_08014184 *CheckTileCollisionVertical(struct Unk_08014184 *arg0, u16 a
     struct Unk_08014184 var_r4;
 
     for (var_r3 = gUnk_03004D80->unk2; var_r3 < gUnk_03004D80->unk0; var_r3++) {
-        if ((arg2 >= gUnk_03004D80->unk4[var_r3].unk2) && (gUnk_03004D80->unk4[var_r3].unk6 >= (arg2 - arg3)) && (arg1 < (gUnk_03004D80->unk4[var_r3].unk0 + 3)) && ((gUnk_03004D80->unk4[var_r3].unk0 - 3) < arg1)) {
+        if ((arg2 >= gUnk_03004D80->unk4[var_r3].unk2) && (gUnk_03004D80->unk4[var_r3].unk6 >= (arg2 - arg3))
+            && (arg1 < (gUnk_03004D80->unk4[var_r3].unk0 + 3)) && ((gUnk_03004D80->unk4[var_r3].unk0 - 3) < arg1)) {
             var_r4.unk0 = gUnk_03004D80->unk4[var_r3].unk0 - 3;
             var_r4.unk2 = gUnk_03004D80->unk4[var_r3].unk8;
             *arg0 = var_r4;
@@ -84,7 +85,10 @@ struct Unk_08014184 *CheckTileCollisionSloped(struct Unk_08014184 *arg0, u16 arg
                         continue;
                     }
                 } else {
-                    temp_r1_2 = (((gUnk_03004D80->unk4[var_r3].unk6 - gUnk_03004D80->unk4[var_r3].unk2) * (arg1 - gUnk_03004D80->unk4[var_r3].unk0)) / (gUnk_03004D80->unk4[var_r3].unk4 - gUnk_03004D80->unk4[var_r3].unk0)) + gUnk_03004D80->unk4[var_r3].unk2;
+                    temp_r1_2 = (((gUnk_03004D80->unk4[var_r3].unk6 - gUnk_03004D80->unk4[var_r3].unk2)
+                                  * (arg1 - gUnk_03004D80->unk4[var_r3].unk0))
+                                 / (gUnk_03004D80->unk4[var_r3].unk4 - gUnk_03004D80->unk4[var_r3].unk0))
+                        + gUnk_03004D80->unk4[var_r3].unk2;
                     if ((temp_r1_2 >= (arg2 - arg3)) && (temp_r1_2 <= (arg2 + 3))) {
                         var_r5.unk0 = temp_r1_2;
                         var_r5.unk2 = gUnk_03004D80->unk4[var_r3].unk8;
@@ -220,7 +224,8 @@ void PlayerRespawnOrDeath(s32 arg0) {
 
         if (gUnk_03005220.unk42 != 0) {
             if ((gUnk_03002920[gUnk_03005220.unk42].unk11 != 0x6F) && (gUnk_03002920[gUnk_03005220.unk42].unk11 != 0x25)) {
-                SpawnEntityAtPosition(gUnk_03002920[gUnk_03005220.unk42].xPosBg2, gUnk_03002920[gUnk_03005220.unk42].yPosBg2, 2, gUnk_03005220.unk42);
+                SpawnEntityAtPosition(gUnk_03002920[gUnk_03005220.unk42].xPosBg2, gUnk_03002920[gUnk_03005220.unk42].yPosBg2, 2,
+                                      gUnk_03005220.unk42);
             }
         }
 

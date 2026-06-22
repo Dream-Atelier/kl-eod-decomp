@@ -174,12 +174,12 @@ extern u8 gUnk_03005470;
 extern u8 gUnk_030034BC;
 
 struct CallbackQueue {
-    /* 0x00 */ void (*current[10])(void);  // current callbacks
-    /* 0x28 */ void (*next[10])(void);     // next callbacks
+    /* 0x00 */ void (*current[10])(void); // current callbacks
+    /* 0x28 */ void (*next[10])(void); // next callbacks
     /* 0x50 */ void (*previous[10])(void); // previous callbacks
-    /* 0x78 */ u8 currentCount;            // current callback count
-    /* 0x79 */ u8 nextCount;               // next callback count
-    /* 0x7A */ u8 previousCount;           // previous callback count
+    /* 0x78 */ u8 currentCount; // current callback count
+    /* 0x79 */ u8 nextCount; // next callback count
+    /* 0x7A */ u8 previousCount; // previous callback count
     /* 0x7B */ u8 pad7B[0x7C - 0x7B];
 }; /* size = 0x7C */
 extern struct CallbackQueue gCallbackQueue;
