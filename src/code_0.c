@@ -2366,8 +2366,8 @@ void VBlankCallback_Gameplay(void) {
     REG_BLDY = gUnk_03005498;
     REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
     thunk_UpdateRng();
-    gUnk_03004C20.unk4 += 1;
-    gUnk_03004C20.unk0 += 1;
+    gUnk_03004C20.globalFrameCounter += 1;
+    gUnk_03004C20.sceneFrameCounter += 1;
     m4aSoundMain();
     gUnk_03003420 = 1;
 }
@@ -2446,7 +2446,7 @@ void AnimatePaletteEffects(void) {
             var_sb = 1;
             var_r8 = 1;
             temp_r4 = (8 - Abs(8 - gUnk_03005498)) * 8;
-            var_r5_2 = gUnk_03004C20.unk0;
+            var_r5_2 = gUnk_03004C20.sceneFrameCounter;
         }
 
         for (var_r6 = 0; var_r6 < 0xA0; var_r6++) {
@@ -2490,8 +2490,8 @@ void AnimatePaletteEffects(void) {
     REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
 
     thunk_UpdateRng();
-    gUnk_03004C20.unk4 += 1;
-    gUnk_03004C20.unk0 += 1;
+    gUnk_03004C20.globalFrameCounter += 1;
+    gUnk_03004C20.sceneFrameCounter += 1;
     m4aSoundMain();
     gUnk_03003420 = 1;
 }
@@ -2512,8 +2512,8 @@ void VBlankCallback_Dialog(void) {
     REG_BG2PB = gBg2PB;
     REG_BG2PC = gBg2PC;
     REG_BG2PD = gBg2PD;
-    gUnk_03004C20.unk4 += 1;
-    gUnk_03004C20.unk0 += 1;
+    gUnk_03004C20.globalFrameCounter += 1;
+    gUnk_03004C20.sceneFrameCounter += 1;
     m4aSoundMain();
     gUnk_03003420 = 1;
 }
@@ -2539,7 +2539,8 @@ void VBlankCallback_MapScreen(void) {
     REG_BLDALPHA = gUnk_03005498 | ((0x10 - gUnk_03005498) << 8);
     REG_BLDY = gUnk_03005498;
     REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
-    gUnk_030034F8 = MultiplyQ8(SIN((gUnk_03004C20.unk0 * 0x10) & 0xFF), MultiplyQ8(0x200, SIN((gUnk_03004C20.unk0 * 4) & 0x7F)));
+    gUnk_030034F8 = MultiplyQ8(SIN((gUnk_03004C20.sceneFrameCounter * 0x10) & 0xFF),
+                               MultiplyQ8(0x200, SIN((gUnk_03004C20.sceneFrameCounter * 4) & 0x7F)));
     gBg2PA = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2XMag));
     gBg2PB = MultiplyQ8(SIN(gBg2Alpha), ReciprocalQ8(gBg2XMag));
     gBg2PC = MultiplyQ8(-SIN(gBg2Alpha), ReciprocalQ8(gBg2YMag));
@@ -2547,8 +2548,8 @@ void VBlankCallback_MapScreen(void) {
     gBg2X = ((gUnk_03003430.bg2HOfs * 0x10) - (gBg2PA * DISPLAY_WIDTH_CENTER)) - (gBg2PB * 0x78);
     gBg2Y = ((gUnk_03003430.bg2VOfs * 0x10) - (gBg2PC * 0x28)) - (gBg2PD * 0x28);
     thunk_UpdateRng();
-    gUnk_03004C20.unk4 += 1;
-    gUnk_03004C20.unk0 += 1;
+    gUnk_03004C20.globalFrameCounter += 1;
+    gUnk_03004C20.sceneFrameCounter += 1;
     m4aSoundMain();
     gUnk_03003420 = 1;
 }
@@ -2572,8 +2573,8 @@ void VBlankCallback_GameplayWithHUD(void) {
     REG_BLDY = gUnk_03005498;
     REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
     thunk_UpdateRng();
-    gUnk_03004C20.unk4 += 1;
-    gUnk_03004C20.unk0 += 1;
+    gUnk_03004C20.globalFrameCounter += 1;
+    gUnk_03004C20.sceneFrameCounter += 1;
     m4aSoundMain();
     gUnk_03003420 = 1;
 }
@@ -2595,8 +2596,8 @@ void VBlankCallback_MinimalHW(void) {
     REG_BLDY = gUnk_03005498;
     REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
     thunk_UpdateRng();
-    gUnk_03004C20.unk4 += 1;
-    gUnk_03004C20.unk0 += 1;
+    gUnk_03004C20.globalFrameCounter += 1;
+    gUnk_03004C20.sceneFrameCounter += 1;
     m4aSoundMain();
     gUnk_03003420 = 1;
 }
@@ -2826,8 +2827,8 @@ void VBlankCallback_TitleScreen(void) {
     REG_BLDY = gUnk_03005498;
     REG_MOSAIC = MOSAIC_SET(gMosaicSize, gMosaicSize, gMosaicSize, gMosaicSize);
     thunk_UpdateRng();
-    gUnk_03004C20.unk4 += 1;
-    gUnk_03004C20.unk0 += 1;
+    gUnk_03004C20.globalFrameCounter += 1;
+    gUnk_03004C20.sceneFrameCounter += 1;
     m4aSoundMain();
     gUnk_03003420 = 1;
 }

@@ -638,7 +638,7 @@ void UpdateCameraScroll(void) {
     }
 
     gUnk_03003430.bg1HOfs = (gUnk_03003430.bg2HOfs >> 1);
-    if (!(gUnk_03004C20.unk4 & 3) && (gUnk_03004660 == 0)) {
+    if (!(gUnk_03004C20.globalFrameCounter & 3) && (gUnk_03004660 == 0)) {
         if (gUnk_03003430.bg2VOfs >= gUnk_03005474) {
             gUnk_03003430.bg1VOfs += ((gUnk_03003430.bg2VOfs - gUnk_03005474) & 1);
         } else {
@@ -716,7 +716,7 @@ void UpdateCameraScrollPlayer2(void) {
     }
 
     gUnk_03003430.bg1HOfs = (gUnk_03003430.bg2HOfs >> 1);
-    if (!(gUnk_03004C20.unk4 & 3)) {
+    if (!(gUnk_03004C20.globalFrameCounter & 3)) {
         if (gUnk_03003430.bg2VOfs >= gUnk_03005474) {
             gUnk_03003430.bg1VOfs += ((gUnk_03003430.bg2VOfs - gUnk_03005474) & 1);
         } else {
@@ -871,10 +871,10 @@ void CameraModeSwitchHandler(void) {
         if (gUnk_03005400.unkE_2 == 0) {
             gUnk_03005400.unk16 = gBg2Alpha;
             gUnk_03005400.unk14 = 0;
-        } else if (gUnk_03004C20.unk0 & 2) {
+        } else if (gUnk_03004C20.sceneFrameCounter & 2) {
             if (Abs(gUnk_03005400.unk16) <= 4) {
                 gBg2Alpha = ((gUnk_03005400.unk16 * COS(gUnk_03005400.unk14)) >> 8);
-                if (gUnk_03004C20.unk0 & 4) {
+                if (gUnk_03004C20.sceneFrameCounter & 4) {
                     gUnk_03005400.unk14 += 4;
                 }
             } else {
@@ -895,7 +895,7 @@ void CameraModeSwitchHandler(void) {
         gUnk_03005440.unk2 = -((SIN(gBg2Alpha) * 0xF) >> 5);
         gUnk_03005440.unk6 = ((SIN(gBg2Alpha) * 0xF) >> 5);
 
-        if ((((u32)gUnk_03004C20.unk0 % (u32)(0xA - Abs((s8)gBg2Alpha / 2))) == 0) && (gUnk_03005400.unkC != 0)
+        if ((((u32)gUnk_03004C20.sceneFrameCounter % (u32)(0xA - Abs((s8)gBg2Alpha / 2))) == 0) && (gUnk_03005400.unkC != 0)
             && (gUnk_03005220.unk31 != 0) && (((s8)gBg2Alpha < -2) || ((s8)gBg2Alpha > 2))) {
             if ((s8)gBg2Alpha > 0) {
                 gUnk_03002920[0].xPosBg2 += 3;
@@ -983,7 +983,7 @@ void InitLevelFromROMTable(void) {
     }
     gUnk_03004C20.unkA = 0;
     gUnk_03004C20.unkB = 0;
-    gUnk_03004C20.unk0 = 0;
+    gUnk_03004C20.sceneFrameCounter = 0;
     InitScrollState();
     if (gUnk_03004C20.level != 0) {
         InitLevelGameplay(var_r6);
@@ -1077,8 +1077,8 @@ void ComputeRotationMatrix(void) {
         gBg2Alpha += 8;
         gBg2XMag -= 0x10;
         gBg2YMag -= 0x10;
-        gUnk_03004C20.unk0 = 0;
-    } else if ((gUnk_03004C20.unk0 == 0x258) || (gNewKeys & (START_BUTTON | B_BUTTON | A_BUTTON))) {
+        gUnk_03004C20.sceneFrameCounter = 0;
+    } else if ((gUnk_03004C20.sceneFrameCounter == 0x258) || (gNewKeys & (START_BUTTON | B_BUTTON | A_BUTTON))) {
         gMosaicSize = 0;
         gUnk_03003410.unk7 = 1;
         gUnk_03004C20.world = 6;

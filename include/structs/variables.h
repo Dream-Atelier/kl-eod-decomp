@@ -53,8 +53,8 @@ extern struct Unk_03003430 gUnk_03003430;
 
 /* Scene/level state (counters, world/level/room). Address: 0x03004C20. */
 struct Unk_03004C20 {
-    /* 0x00 */ s32 unk0; /* per-scene frame counter */
-    /* 0x04 */ s32 unk4; /* global frame counter */
+    /* 0x00 */ s32 sceneFrameCounter; /* per-scene; reset to 0 on scene entry */
+    /* 0x04 */ s32 globalFrameCounter; /* free-running since boot; never resets */
     /* 0x08 */ u16 unk8;
     /* 0x0A */ u8 unkA;
     /* 0x0B */ u8 unkB;
