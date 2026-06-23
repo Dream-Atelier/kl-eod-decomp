@@ -289,9 +289,10 @@ void ResetEntityScrollState(s32 arg0) {
 /**
  * PlayerRespawnOrDeath: tick the death/respawn timer and trigger the outcome.
  *
- * While the death timer (unk0_0) is running, decrements it; on expiry plays the
- * respawn jingle and resets the scroll/carry state, otherwise plays the death
- * sound and queues the fade. Sets up the post-death camera/blend state.
+ * When arg0 == 1 the player lost a life: decrements the heart count
+ * (gUnk_03005220.hearts). If hearts remain, resets the scroll/carry state for the
+ * respawn; once hearts reach 0 it plays the game-over sound and queues the fade.
+ * Sets up the post-death camera/blend state.
  */
 void PlayerRespawnOrDeath(s32 arg0) {
     if ((gUnk_03005220.unk46 | gUnk_03003410.unkB | gUnk_030034E4) != 0) {
@@ -300,12 +301,12 @@ void PlayerRespawnOrDeath(s32 arg0) {
 
     gUnk_03005220.unk5B = 0;
     if (arg0 == 1) {
-        gUnk_03005220.unk0_0 -= 1;
+        gUnk_03005220.hearts -= 1;
         CopyBGScrollTiles();
         gUnk_03005220.unk5B = 1;
     }
 
-    if (gUnk_03005220.unk0_0 == 0) {
+    if (gUnk_03005220.hearts == 0) {
         m4aSongNumStart(0x27);
 
         gUnk_03005220.unk46 = 0x46;

@@ -271,7 +271,7 @@ extern u16 gUnk_03005474;
 
 /* Game-state struct at 0x03005220 (mirrored from kleod, full layout). */
 struct Unk_03005220 {
-    /* 0x00_0 */ u32 unk0_0 : 2;
+    /* 0x00_0 */ u32 hearts : 2; /* player health 0..3 */
     /* 0x00_2 */ u32 unk0_2 : 3;
     /* 0x00_5 */ u32 unk0_5 : 7;
     /* 0x01_4 */ u32 unk1_4 : 3;

@@ -1737,7 +1737,7 @@ void UpdateUIState(void) {
     struct Unk_03002920 *temp_r1_5;
     u32 var_r2;
 
-    if (gUnk_03005220.unk0_0 == 0) {
+    if (gUnk_03005220.hearts == 0) {
         gUnk_03002920->priority = 0;
     }
 
@@ -2654,7 +2654,7 @@ void InitLevelGameplay(u32 arg0) {
         }
         gUnk_03005220.unk0_2 = 0;
         gUnk_03005220.unk0_5 = 0;
-        gUnk_03005220.unk0_0 = 3;
+        gUnk_03005220.hearts = 3;
         gUnk_03005220.unk1_4 = 0;
         gUnk_03005220.unk14 = 0;
         gUnk_03005220.unk3_6 = gUnk_03005220.unk3_5 = 0;
@@ -2680,7 +2680,7 @@ void InitLevelGameplay(u32 arg0) {
 
     if (arg0 == 1) {
         gUnk_03005220.unk4C = gUnk_03005284->unk0;
-        gUnk_03005220.unk0_0 = gUnk_03005284->unk8_0;
+        gUnk_03005220.hearts = gUnk_03005284->unk8_0;
         gUnk_03005220.unk0_2 = gUnk_03005284->unk8_2;
         gUnk_03005220.unk0_5 = gUnk_03005284->unk8_5;
         gUnk_03005220.unk1_4 = gUnk_03005284->unk9_4;
@@ -2705,7 +2705,7 @@ void InitLevelGameplay(u32 arg0) {
         gUnk_03005284->unk0 = gUnk_03005220.unk4C;
         gUnk_03005284->unk1 = gUnk_03004C20.world;
         gUnk_03005284->unk2 = gUnk_03004C20.level;
-        gUnk_03005284->unk8_0 = gUnk_03005220.unk0_0;
+        gUnk_03005284->unk8_0 = gUnk_03005220.hearts;
         gUnk_03005284->unk16 = gUnk_03004C20.unk8;
         gUnk_03005284->unk8_2 = gUnk_03005220.unk0_2;
         gUnk_03005284->unk9_4 = gUnk_03005220.unk1_4;
