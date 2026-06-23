@@ -30,9 +30,9 @@ extern void TransitionInitLevelMusic(void); /* sub_080242C0 (off-by-2 in our spl
 /**
  * SetupOAMSprite — initialize a sprite slot (gUnk_03002920[arg0]) with
  * position, palette, sprite-type-specific OAM/affine setup, and bookkeeping
- * across many per-sprite-type tracker globals.  arg8 selects the sprite
- * sub-type and drives a series of switch cascades that record this slot
- * in whichever singleton tracker(s) match.
+ * across many per-sprite-type tracker globals.  arg8 selects the OAM entity kind
+ * and drives a series of switch cascades that record this slot in whichever
+ * singleton tracker(s) match.
  */
 void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 arg6, u8 arg7, u8 arg8) {
     u32 var_r3_3;
@@ -384,7 +384,7 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
             break;
     }
 
-    gUnk_03002920[arg0].unk11 = arg8;
+    gUnk_03002920[arg0].kind = arg8;
 
     switch (arg8 - 0x25) {
         case 0x0:
@@ -719,7 +719,7 @@ void RenderHUDTop(void) {
         var_r5 = gUnk_0300466C->unk4;
         for (var_sl = 0; var_sl < temp_r1; var_sl++) {
             if (gUnk_03002920[0xB].affineDouble) {
-                if (gUnk_03002920[0xB].unk11 == 0x1C) {
+                if (gUnk_03002920[0xB].kind == 0x1C) {
                     gUnk_03000820->split.x
                         = (var_r5->unk3 * 2) + gUnk_03002920[0xB].xPosScreen + ((s32)(gUnk_03002920[0xB].unkB_0) << 4);
                     gUnk_03000820->split.y = var_r5->unk4 + ((s8)var_r5->unk4 >> 1) + gUnk_03002920[0xB].yPosScreen
@@ -771,7 +771,7 @@ void RenderHUDTop(void) {
         var_r5_2 = gUnk_0300466C->unk4;
         for (sp4 = 0; sp4 < temp_r1_4; sp4++) {
             if (gUnk_03002920[0xC].affineDouble) {
-                if (gUnk_03002920[0xC].unk11 == 0x1C) {
+                if (gUnk_03002920[0xC].kind == 0x1C) {
                     gUnk_03000820->split.x
                         = (var_r5_2->unk3 * 2) + gUnk_03002920[0xC].xPosScreen + ((s32)(gUnk_03002920[0xC].unkB_0) << 4);
                     gUnk_03000820->split.y = var_r5_2->unk4 + ((s8)var_r5_2->unk4 >> 1) + gUnk_03002920[0xC].yPosScreen
@@ -825,7 +825,7 @@ void RenderHUDTop(void) {
                 var_r6 = gUnk_0300466C->unk4;
                 for (var_sb = 0; var_sb < temp_r1_9; var_sb++) {
                     if (gUnk_03002920[sp0].affineDouble) {
-                        if (gUnk_03002920[sp0].unk11 == 0x1C) {
+                        if (gUnk_03002920[sp0].kind == 0x1C) {
                             gUnk_03000820->split.x
                                 = (var_r6->unk3 * 2) + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB_0) << 4);
                             gUnk_03000820->split.y = var_r6->unk4 + ((s8)var_r6->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
@@ -877,7 +877,7 @@ void RenderHUDTop(void) {
                 var_r6_2 = gUnk_0300466C->unk4;
                 for (var_sb_2 = 0; var_sb_2 < temp_r1_13; var_sb_2++) {
                     if (gUnk_03002920[sp0].affineDouble) {
-                        if (gUnk_03002920[sp0].unk11 == 0x1C) {
+                        if (gUnk_03002920[sp0].kind == 0x1C) {
                             gUnk_03000820->split.x
                                 = (var_r6_2->unk3 * 2) + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB_0) << 4);
                             gUnk_03000820->split.y = var_r6_2->unk4 + ((s8)var_r6_2->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
@@ -920,7 +920,7 @@ void RenderHUDTop(void) {
     }
 
     for (sp0 = 0; sp0 <= 0xC; sp0++) {
-        if (gUnk_03002920[sp0].unk11 == 0x34)
+        if (gUnk_03002920[sp0].kind == 0x34)
             continue;
 
         if (sp0 == 0xB || sp0 == 0xC)
@@ -938,7 +938,7 @@ void RenderHUDTop(void) {
             var_r6_3 = gUnk_0300466C->unk4;
             for (var_sb_3 = 0; var_sb_3 < temp_r1_18; var_sb_3++) {
                 if (gUnk_03002920[sp0].affineDouble) {
-                    if (gUnk_03002920[sp0].unk11 == 0x1C) {
+                    if (gUnk_03002920[sp0].kind == 0x1C) {
                         gUnk_03000820->split.x
                             = (var_r6_3->unk3 * 2) + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB_0) << 4);
                         gUnk_03000820->split.y = var_r6_3->unk4 + ((s8)var_r6_3->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
@@ -992,7 +992,7 @@ void RenderHUDTop(void) {
             var_r6_4 = gUnk_0300466C->unk4;
             for (var_sb_4 = 0; var_sb_4 < temp_r1_22; var_sb_4++) {
                 if (gUnk_03002920[sp0].affineDouble) {
-                    if (gUnk_03002920[sp0].unk11 == 0x1C) {
+                    if (gUnk_03002920[sp0].kind == 0x1C) {
                         gUnk_03000820->split.x
                             = (var_r6_4->unk3 * 2) + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB_0) << 4);
                         gUnk_03000820->split.y = var_r6_4->unk4 + ((s8)var_r6_4->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
@@ -1047,7 +1047,7 @@ void RenderHUDTop(void) {
                 var_r6_5 = gUnk_0300466C->unk4;
                 for (var_sb_5 = 0; var_sb_5 < temp_r1_26; var_sb_5++) {
                     if (gUnk_03002920[sp0].affineDouble) {
-                        if (gUnk_03002920[sp0].unk11 == 0x1C) {
+                        if (gUnk_03002920[sp0].kind == 0x1C) {
                             gUnk_03000820->split.x
                                 = (var_r6_5->unk3 * 2) + gUnk_03002920[sp0].xPosScreen + ((s32)(gUnk_03002920[sp0].unkB_0) << 4);
                             gUnk_03000820->split.y = var_r6_5->unk4 + ((s8)var_r6_5->unk4 >> 1) + gUnk_03002920[sp0].yPosScreen
@@ -1120,7 +1120,7 @@ void RenderDialogSprites(void) {
 
     for (var_sb = 0xD; var_sb < gUnk_03005428; var_sb++) {
         if (gUnk_03002920[var_sb].unk10 == 1) {
-            if ((gUnk_03002920[var_sb].unk11 == 0x52) && (gUnk_03002920[var_sb].xPosScreen > (sp4 - 0x10))
+            if ((gUnk_03002920[var_sb].kind == 0x52) && (gUnk_03002920[var_sb].xPosScreen > (sp4 - 0x10))
                 && (gUnk_03002920[var_sb].xPosScreen < (sp4 + 0x10)) && (gUnk_03002920[var_sb].yPosScreen <= (sp0 + 0xA))
                 && (gUnk_03002920[var_sb].yPosScreen >= (u32)sp0)) {
             } else if ((gUnk_03002920[var_sb].yPosScreen + gUnk_03002920[var_sb].unk8) <= sp0) {
@@ -1136,7 +1136,7 @@ void RenderDialogSprites(void) {
                 var_r7 = gUnk_0300466C->unk4;
                 for (var_sl = 0; var_sl < temp_r1_3; var_sl++) {
                     if (gUnk_03002920[var_sb].affineDouble) {
-                        if (gUnk_03002920[var_sb].unk11 == 0x1C) {
+                        if (gUnk_03002920[var_sb].kind == 0x1C) {
                             gUnk_03000820->split.x
                                 = (var_r7->unk3 * 2) + gUnk_03002920[var_sb].xPosScreen + ((s32)(gUnk_03002920[var_sb].unkB_0) << 4);
                             gUnk_03000820->split.y = var_r7->unk4 + ((s8)var_r7->unk4 >> 1) + gUnk_03002920[var_sb].yPosScreen
@@ -1192,7 +1192,7 @@ void RenderDialogSprites(void) {
             var_r7_2 = gUnk_0300466C->unk4;
             for (var_sb_3 = 0; var_sb_3 < temp_r1_7; var_sb_3++) {
                 if (gUnk_03002920[var_sb].affineDouble) {
-                    if (gUnk_03002920[var_sb].unk11 == 0x1C) {
+                    if (gUnk_03002920[var_sb].kind == 0x1C) {
                         gUnk_03000820->split.x
                             = (var_r7_2->unk3 * 2) + gUnk_03002920[var_sb].xPosScreen + ((s32)(gUnk_03002920[var_sb].unkB_0) << 4);
                         gUnk_03000820->split.y = var_r7_2->unk4 + ((s8)var_r7_2->unk4 >> 1) + gUnk_03002920[var_sb].yPosScreen
@@ -1235,7 +1235,7 @@ void RenderDialogSprites(void) {
 
     for (var_sb = 0xD; var_sb < gUnk_03005428; var_sb++) {
         if (gUnk_03002920[var_sb].unk10 == 1) {
-            if (gUnk_03002920[var_sb].unk11 == 0x52) {
+            if (gUnk_03002920[var_sb].kind == 0x52) {
                 if ((gUnk_03002920[var_sb].xPosScreen > (sp4 - 0x10) && gUnk_03002920[var_sb].xPosScreen < (sp4 + 0x10))
                     && (gUnk_03002920[var_sb].yPosScreen <= (sp0 + 0xA) && gUnk_03002920[var_sb].yPosScreen >= (u32)sp0)) {
                     temp_r0_8 = gUnk_03002920[var_sb].unkA;
@@ -1249,7 +1249,7 @@ void RenderDialogSprites(void) {
                     var_r7_3 = gUnk_0300466C->unk4;
                     for (var_sl_2 = 0; var_sl_2 < temp_r1_15; var_sl_2++) {
                         if (gUnk_03002920[var_sb].affineDouble) {
-                            if (gUnk_03002920[var_sb].unk11 == 0x1C) {
+                            if (gUnk_03002920[var_sb].kind == 0x1C) {
                                 gUnk_03000820->split.x = (var_r7_3->unk3 * 2) + gUnk_03002920[var_sb].xPosScreen
                                     + ((s32)(gUnk_03002920[var_sb].unkB_0) << 4);
                                 gUnk_03000820->split.y = var_r7_3->unk4 + ((s8)var_r7_3->unk4 >> 1) + gUnk_03002920[var_sb].yPosScreen
@@ -1304,7 +1304,7 @@ void RenderDialogSprites(void) {
                 var_r7_4 = gUnk_0300466C->unk4;
                 for (var_sb_5 = 0; var_sb_5 < temp_r1_12; var_sb_5++) {
                     if (gUnk_03002920[var_sb].affineDouble) {
-                        if (gUnk_03002920[var_sb].unk11 == 0x1C) {
+                        if (gUnk_03002920[var_sb].kind == 0x1C) {
                             gUnk_03000820->split.x
                                 = (var_r7_4->unk3 * 2) + gUnk_03002920[var_sb].xPosScreen + ((s32)(gUnk_03002920[var_sb].unkB_0) << 4);
                             gUnk_03000820->split.y = var_r7_4->unk4 + ((s8)var_r7_4->unk4 >> 1) + gUnk_03002920[var_sb].yPosScreen
@@ -1482,7 +1482,7 @@ void TransformAllEntitiesToScreen(s8 arg0, s8 arg1) {
         if (gUnk_03002920[var_r5].affineEnable == 1) {
             if (gUnk_03002920[var_r5].unkF < 0x19) {
                 TransformSingleEntityToScreen(var_r5, arg0, arg1);
-                if (gUnk_03002920[var_r5].unk11 != 0) {
+                if (gUnk_03002920[var_r5].kind != 0) {
                     if ((gUnk_03002920[var_r5].xPosScreen >= (DISPLAY_WIDTH + 67) && gUnk_03002920[var_r5].xPosScreen <= (u16)(-68))
                         || (gUnk_03002920[var_r5].yPosScreen >= (DISPLAY_HEIGHT + 96)
                             && gUnk_03002920[var_r5].yPosScreen <= (u16)(-68))) {
@@ -1565,7 +1565,7 @@ void HandlePauseMenuInput(void) {
 
         for (var_r4 = 0xD; var_r4 < gUnk_03005428; var_r4++) {
             if (gUnk_03002920[var_r4].unkF != 0x1C) {
-                switch (gUnk_03002920[var_r4].unk11 - 1) {
+                switch (gUnk_03002920[var_r4].kind - 1) {
                     case 0x24:
                     case 0x6E:
                         if (gUnk_03002920[var_r4].unk8 != 1) {
@@ -1767,7 +1767,7 @@ void UpdateUIState(void) {
     UpdatePaletteAnimations();
 
     for (var_r6 = 0; var_r6 < gUnk_03005428; var_r6++) {
-        if (gUnk_03002920[var_r6].unk11 == 7) {
+        if (gUnk_03002920[var_r6].kind == ENTITY_KIND_HEART) {
             if (gUnk_03002920[var_r6].unkF == 0x1C) {
                 if (gUnk_03002920[var_r6].unk8 == 0) {
                     if (gUnk_03005400.unk2 < 0xE10) {
@@ -1782,11 +1782,11 @@ void UpdateUIState(void) {
         }
 
         if (gUnk_03002920[var_r6].unkF != 0x1C) {
-            if (gUnk_03002920[var_r6].unk11 != 0) {
+            if (gUnk_03002920[var_r6].kind != 0) {
                 gUnk_03002920[var_r6].affineHFlip_matrixNum = gUnk_03002920[var_r6].unkC_2;
                 gUnk_03002920[var_r6].affineDouble = 0;
 
-                switch (gUnk_03002920[var_r6].unk11 - 7) {
+                switch (gUnk_03002920[var_r6].kind - 7) {
                     case 0x4:
                     case 0x6F:
                     case 0x70:
@@ -1932,7 +1932,7 @@ void UpdateUIState(void) {
                     case 0x3E:
                         temp_r1_2 = &gUnk_03002920[gUnk_080E2A84[gUnk_03004C20.world - 1]
                                                                 [var_r6 - gUnk_080E2A84[gUnk_03004C20.world - 1][0]]];
-                        if (((temp_r1_2->unk11 != 0x22) && (temp_r1_2->unkF == 0x1C)) || (temp_r1_2->unkF == 0x19)) {
+                        if (((temp_r1_2->kind != 0x22) && (temp_r1_2->unkF == 0x1C)) || (temp_r1_2->unkF == 0x19)) {
                             gUnk_03002920[var_r6].xPosBg2 = 0x200;
                             break;
                         }
@@ -1945,7 +1945,7 @@ void UpdateUIState(void) {
 
                         temp_r1_5 = &gUnk_03002920[gUnk_080E2A84[gUnk_03004C20.world - 1]
                                                                 [var_r6 - gUnk_080E2A84[gUnk_03004C20.world - 1][0]]];
-                        if (temp_r1_5->unk11 == 0x22) {
+                        if (temp_r1_5->kind == 0x22) {
                             if (temp_r1_5->unkC_2 == 0) {
                                 gUnk_03002920[var_r6].xPosBg2 -= 6;
                             } else {
@@ -2064,8 +2064,8 @@ void RenderCharacterTiles(void) {
                        gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb].unk0[gUnk_03004C20.room - 1].unk6,
                        gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb].unk29);
 
-        if ((gUnk_03002920[gUnk_03005428 - 1].unk11 <= 0x37 || gUnk_03002920[gUnk_03005428 - 1].unk11 >= 0x42)) {
-            if (gUnk_03002920[gUnk_03005428 - 1].unk11 <= 8 || gUnk_03002920[gUnk_03005428 - 1].unk11 >= 11) {
+        if ((gUnk_03002920[gUnk_03005428 - 1].kind <= 0x37 || gUnk_03002920[gUnk_03005428 - 1].kind >= 0x42)) {
+            if (gUnk_03002920[gUnk_03005428 - 1].kind <= 8 || gUnk_03002920[gUnk_03005428 - 1].kind >= 11) {
                 DecompressAndLoadLevel(gUnk_03005428 - 1);
             }
         }
@@ -2079,7 +2079,7 @@ void RenderCharacterTiles(void) {
     gUnk_03004C10 = NULL;
 
     for (var_sb = 0xD; var_sb < gUnk_03005428; var_sb++) {
-        switch (gUnk_03002920[var_sb].unk11 - 6) {
+        switch (gUnk_03002920[var_sb].kind - 6) {
             case 0x5:
                 if (gUnk_03004C20.level != 8) {
                     SetPaletteAnimEntry(var_sb, 3);

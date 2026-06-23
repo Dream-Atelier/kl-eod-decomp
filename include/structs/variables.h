@@ -87,6 +87,24 @@ extern u8 gUnk_03000003;
 extern u16 gUnk_03004C40[];
 extern u16 gUnk_030052C0[];
 
+/* OAM entity / object "kind" id, stored in gUnk_03002920[i].kind (offset 0x11). */
+#define ENTITY_KIND_RED_KEY           0x01
+#define ENTITY_KIND_BLUE_KEY          0x02
+#define ENTITY_KIND_STAR              0x03
+#define ENTITY_KIND_DOOR              0x05
+#define ENTITY_KIND_HEART             0x07
+#define ENTITY_KIND_DREAM_STONE       0x2C
+#define ENTITY_KIND_LARGE_DREAM_STONE 0x2D
+#define ENTITY_KIND_ONE_UP            0x2E
+#define ENTITY_KIND_GOOMI             0x2F
+#define ENTITY_KIND_MOBILE_GOOMI_V    0x31 /* "Mobile Goomi (vertical)" */
+#define ENTITY_KIND_MOBILE_GOOMI_D    0x32 /* "Mobile Goomi (diagonal)" */
+#define ENTITY_KIND_KLONOA            0x6E /* the player */
+#define ENTITY_KIND_BOX               0x6F
+#define ENTITY_KIND_MOO               0x76
+#define ENTITY_KIND_FLYING_MOO_H      0x77 /* "Flying Moo (horizontal)" */
+#define ENTITY_KIND_FLYING_MOO_V      0x78 /* "Flying Moo (vertical)" */
+
 /* Entity/OAM struct (~36 bytes per element).
  * Address: 0x03002920.  Mirrored from kleod's variables.h. */
 struct Unk_03002920 {
@@ -109,7 +127,7 @@ struct Unk_03002920 {
     /* 0x0E_1 */ u32 affineDouble : 1;
     /* 0x0F */ u8 unkF;
     /* 0x10 */ u8 unk10;
-    /* 0x11 */ u8 unk11;
+    /* 0x11 */ u8 kind; /* entity/object type id; see ENTITY_KIND_* */
     /* 0x12 */ u8 pad12[0x1C - 0x12];
 }; /* size = 0x1C */
 extern struct Unk_03002920 gUnk_03002920[];

@@ -321,7 +321,7 @@ void PlayerRespawnOrDeath(s32 arg0) {
         gUnk_03005220.unk34 = 0;
 
         if (gUnk_03005220.unk42 != 0) {
-            if ((gUnk_03002920[gUnk_03005220.unk42].unk11 != 0x6F) && (gUnk_03002920[gUnk_03005220.unk42].unk11 != 0x25)) {
+            if ((gUnk_03002920[gUnk_03005220.unk42].kind != ENTITY_KIND_BOX) && (gUnk_03002920[gUnk_03005220.unk42].kind != 0x25)) {
                 SpawnEntityAtPosition(gUnk_03002920[gUnk_03005220.unk42].xPosBg2, gUnk_03002920[gUnk_03005220.unk42].yPosBg2, 2,
                                       gUnk_03005220.unk42);
             }
