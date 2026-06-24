@@ -373,7 +373,7 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
             if (gUnk_030008EC == 0) {
                 gUnk_030008EC = arg0;
             }
-            if ((gUnk_03005220.unk0_2 >> arg4) & 1) {
+            if ((gUnk_03005220.stars >> arg4) & 1) {
                 gUnk_03002920[arg0].unkF = 0x1C;
             }
             gUnk_03002920[arg0].unkC_2 = arg6;
@@ -2652,7 +2652,7 @@ void InitLevelGameplay(u32 arg0) {
             SaveGameWithVerify(0, 1);
             SaveGameWithVerify(1, 0);
         }
-        gUnk_03005220.unk0_2 = 0;
+        gUnk_03005220.stars = 0;
         gUnk_03005220.dreamStones = 0;
         gUnk_03005220.hearts = 3;
         gUnk_03005220.unk1_4 = 0;
@@ -2681,7 +2681,7 @@ void InitLevelGameplay(u32 arg0) {
     if (arg0 == 1) {
         gUnk_03005220.unk4C = gUnk_03005284->unk0;
         gUnk_03005220.hearts = gUnk_03005284->unk8_0;
-        gUnk_03005220.unk0_2 = gUnk_03005284->unk8_2;
+        gUnk_03005220.stars = gUnk_03005284->unk8_2;
         gUnk_03005220.dreamStones = gUnk_03005284->unk8_5;
         gUnk_03005220.unk1_4 = gUnk_03005284->unk9_4;
         gUnk_03005220.unk4 = gUnk_03005284->unk18;
@@ -2707,7 +2707,7 @@ void InitLevelGameplay(u32 arg0) {
         gUnk_03005284->unk2 = gUnk_03004C20.level;
         gUnk_03005284->unk8_0 = gUnk_03005220.hearts;
         gUnk_03005284->unk16 = gUnk_03004C20.unk8;
-        gUnk_03005284->unk8_2 = gUnk_03005220.unk0_2;
+        gUnk_03005284->unk8_2 = gUnk_03005220.stars;
         gUnk_03005284->unk9_4 = gUnk_03005220.unk1_4;
         gUnk_03005284->unk14 = gUnk_03005220.unk14;
         gUnk_03005284->unkB_5 = gUnk_03005220.unk3_5;
