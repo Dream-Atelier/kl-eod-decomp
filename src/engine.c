@@ -358,8 +358,8 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
             gUnk_03003430.bg2VOfs = gUnk_03005468.unk2;
         }
         temp_r2 = gUnk_03003430.bg2VOfs >> 3;
-        if (temp_r2 != gUnk_03003430.unk46) {
-            gUnk_03003430.unk46 = temp_r2;
+        if (temp_r2 != gUnk_03003430.bg2StreamRow) {
+            gUnk_03003430.bg2StreamRow = temp_r2;
             var_r6 = gUnk_03003430.bg2HOfs >> 3;
             var_r7 = (temp_r2 & 0x1F) << 5;
             var_r5 = (((temp_r2 + gUnk_03003430.unk4A) % gUnk_03003430.unk4A) * gUnk_03003430.bg2MapWidth) + var_r6;
@@ -369,15 +369,15 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
         }
     } else if (arg0 & 0x80) {
         if (gUnk_03003430.bg2VOfs == 0) {
-            gUnk_03003430.unk46 = 0xF000;
+            gUnk_03003430.bg2StreamRow = 0xF000;
         }
         gUnk_03003430.bg2VOfs += arg1.unk2;
         if (gUnk_03003430.bg2VOfs >= (gUnk_03005468.unk6 - 0xA0)) {
             gUnk_03003430.bg2VOfs = gUnk_03005468.unk6 - 0xA0;
         }
         temp_r2 = gUnk_03003430.bg2VOfs >> 3;
-        if (temp_r2 != gUnk_03003430.unk46) {
-            gUnk_03003430.unk46 = temp_r2;
+        if (temp_r2 != gUnk_03003430.bg2StreamRow) {
+            gUnk_03003430.bg2StreamRow = temp_r2;
             var_r6 = gUnk_03003430.bg2HOfs >> 3;
             temp_r0_7 = temp_r2 + 0x14;
             var_r7 = (temp_r0_7 & 0x1F) << 5;
