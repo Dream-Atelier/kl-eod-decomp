@@ -217,7 +217,7 @@ void InitScrollState(void) {
 
     gUnk_03005220.unk5D = gUnk_03002920[0x9].unk10 = gUnk_03002920[0xA].unk10 = 0;
     gUnk_03005220.unk47 = 0;
-    gUnk_03005220.unk46 = 0;
+    gUnk_03005220.deathSequenceTimer = 0;
     gUnk_03005220.unk38 = 0;
     gUnk_03005220.unk43 = 0;
     gUnk_03005220.unk42 = 0;
@@ -295,7 +295,7 @@ void ResetEntityScrollState(s32 arg0) {
  * Sets up the post-death camera/blend state.
  */
 void PlayerRespawnOrDeath(s32 arg0) {
-    if ((gUnk_03005220.unk46 | gUnk_03003410.unkB | gUnk_030034E4) != 0) {
+    if ((gUnk_03005220.deathSequenceTimer | gUnk_03003410.unkB | gUnk_030034E4) != 0) {
         return;
     }
 
@@ -309,7 +309,7 @@ void PlayerRespawnOrDeath(s32 arg0) {
     if (gUnk_03005220.hearts == 0) {
         m4aSongNumStart(0x27);
 
-        gUnk_03005220.unk46 = 0x46;
+        gUnk_03005220.deathSequenceTimer = 0x46;
         gUnk_03002920[0x9].unk10 = 0;
         gUnk_03002920[0xA].unk10 = 0;
         gUnk_03005220.unk57 = 0;

@@ -628,7 +628,7 @@ void UpdateCameraScroll(void) {
     gUnk_03005480 = temp_r3_2 & 0xFFFF;
     gUnk_030007C0 = temp_r2 & 0xFFFF;
 
-    if (gUnk_03005220.unk46 != 0) {
+    if (gUnk_03005220.deathSequenceTimer != 0) {
         var_r7 &= 0x30;
         var_r6.unk2 = var_r6.unk0 = 0;
     }
@@ -667,7 +667,7 @@ void UpdateCameraScrollPlayer2(void) {
     u8 var_r4;
 
     var_r4 = 0;
-    if (gUnk_03005220.unk46 == 0) {
+    if (gUnk_03005220.deathSequenceTimer == 0) {
         var_r4 = 0x10;
         if ((gUnk_03002920[0].xPosBg2 - (gUnk_03003430.bg2HOfs + 0x28)) > 0) {
             var_r2.unk0 = gUnk_03002920[0].xPosBg2 - (gUnk_03003430.bg2HOfs + 0x28);

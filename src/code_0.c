@@ -1540,7 +1540,7 @@ void HandlePauseMenuInput(void) {
     u32 var_r2;
     u32 var_r4;
 
-    if ((gNewKeys & START_BUTTON) && (gUnk_030034E4 == 0) && (gUnk_03005220.unk46 == 0)) {
+    if ((gNewKeys & START_BUTTON) && (gUnk_030034E4 == 0) && (gUnk_03005220.deathSequenceTimer == 0)) {
         for (var_r2 = 0; var_r2 < 10; var_r2++) {
             gCallbackQueue.previous[var_r2] = gCallbackQueue.current[var_r2];
         }
@@ -1741,7 +1741,7 @@ void UpdateUIState(void) {
         gUnk_03002920->priority = 0;
     }
 
-    if ((gNewKeys & START_BUTTON) && (gUnk_030034E4 == 0) && (gUnk_03005220.unk46 == 0) && (gUnk_03005400.unkC != 0)) {
+    if ((gNewKeys & START_BUTTON) && (gUnk_030034E4 == 0) && (gUnk_03005220.deathSequenceTimer == 0) && (gUnk_03005400.unkC != 0)) {
         for (var_r2 = 0; var_r2 < 10; var_r2++) {
             gCallbackQueue.previous[var_r2] = gCallbackQueue.current[var_r2];
         }

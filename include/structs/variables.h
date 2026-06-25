@@ -339,7 +339,10 @@ struct Unk_03005220 {
     /* 0x43 */ u8 unk43;
     /* 0x44 */ u8 unk44;
     /* 0x45 */ u8 unk45;
-    /* 0x46 */ u8 unk46;
+    /* 0x46 */ u8 deathSequenceTimer; /* death->respawn latch/phase-clock: nonzero = sequence active (freezes camera, blocks
+                                         pause & re-death). Armed to 0x46 on death (hearts==0), counted down to sequence the fade,
+                                         cleared to 0 at respawn; the value is a fade-countdown ordinal (fade-out runs 0x41->0x01,
+                                         = the 16-step screen blend) */
     /* 0x47 */ u8 unk47;
     /* 0x48 */ u8 unk48;
     /* 0x49 */ u8 unk49;
