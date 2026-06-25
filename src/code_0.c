@@ -2679,7 +2679,7 @@ void InitLevelGameplay(u32 arg0) {
     }
 
     if (arg0 == 1) {
-        gUnk_03005220.unk4C = gUnk_03005284->unk0;
+        gUnk_03005220.lives = gUnk_03005284->unk0;
         gUnk_03005220.hearts = gUnk_03005284->unk8_0;
         gUnk_03005220.stars = gUnk_03005284->unk8_2;
         gUnk_03005220.dreamStones = gUnk_03005284->unk8_5;
@@ -2702,7 +2702,7 @@ void InitLevelGameplay(u32 arg0) {
             gUnk_03005220.unk4D = 0;
         } while (0);
     } else {
-        gUnk_03005284->unk0 = gUnk_03005220.unk4C;
+        gUnk_03005284->unk0 = gUnk_03005220.lives;
         gUnk_03005284->unk1 = gUnk_03004C20.world;
         gUnk_03005284->unk2 = gUnk_03004C20.level;
         gUnk_03005284->unk8_0 = gUnk_03005220.hearts;

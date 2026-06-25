@@ -345,7 +345,7 @@ struct Unk_03005220 {
     /* 0x49 */ u8 unk49;
     /* 0x4A */ u8 unk4A;
     /* 0x4B */ u8 unk4B;
-    /* 0x4C */ u8 unk4C; // u8 in our tree (kleod: s8); kept u8 to preserve existing match
+    /* 0x4C */ u8 lives; /* lives count (HUD "x N") */
     /* 0x4D */ u8 unk4D;
     /* 0x4E */ u8 unk4E;
     /* 0x4F */ u8 unk4F;
