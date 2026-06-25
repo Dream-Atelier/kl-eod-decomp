@@ -38,7 +38,7 @@ struct Unk_03003430 {
     /* 0x44 */ u16 bg2StreamColumn; /* BG2 horizontal stream bookkeeping */
     /* 0x46 */ u16 bg2StreamRow; /* BG2 vertical stream bookkeeping */
     /* 0x48 */ u16 bg2MapWidth; /* Per-level BG2 collision/tile map width in tiles */
-    /* 0x4A */ u16 unk4A;
+    /* 0x4A */ u16 bg2MapHeight; /* Per-level BG2 collision/tile map height in rows */
     /* 0x4C */ u16 unk4C;
     /* 0x4E */ u16 unk4E;
     /* 0x50 */ u8 unk50;

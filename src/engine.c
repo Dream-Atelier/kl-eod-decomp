@@ -187,7 +187,7 @@ void InitLevelBG(void) {
     gUnk_03003430.pVramBg2Tiles = (void *)(VRAM + 0x8000);
     gUnk_03003430.pVramBg2Tilemap = (void *)(VRAM + 0xF000);
     gUnk_03003430.bg2MapWidth = gUnk_08051C76[gUnk_03004C20.world - 1][gUnk_03004C20.level][2];
-    gUnk_03003430.unk4A = gUnk_08051DBA[gUnk_03004C20.world - 1][gUnk_03004C20.level][2];
+    gUnk_03003430.bg2MapHeight = gUnk_08051DBA[gUnk_03004C20.world - 1][gUnk_03004C20.level][2];
     gUnk_03003430.unk4E = gUnk_08051EFE[gUnk_03004C20.world - 1][gUnk_03004C20.level][2];
     gUnk_03003430.unk50 = gUnk_08052042[gUnk_03004C20.world - 1][gUnk_03004C20.level][2];
     gUnk_030052A0 = 0xFE;
@@ -362,7 +362,7 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
             gUnk_03003430.bg2StreamRow = temp_r2;
             var_r6 = gUnk_03003430.bg2HOfs >> 3;
             var_r7 = (temp_r2 & 0x1F) << 5;
-            var_r5 = (((temp_r2 + gUnk_03003430.unk4A) % gUnk_03003430.unk4A) * gUnk_03003430.bg2MapWidth) + var_r6;
+            var_r5 = (((temp_r2 + gUnk_03003430.bg2MapHeight) % gUnk_03003430.bg2MapHeight) * gUnk_03003430.bg2MapWidth) + var_r6;
             for (var_r3 = 0; var_r3 < 0x1F; var_r3++) {
                 gUnk_03004DB0[(var_r7) + (((var_r3 + var_r6) & 0x1F))] = gUnk_03004790.pBufBg2Tilemap[var_r5 + var_r3];
             }
@@ -381,7 +381,7 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
             var_r6 = gUnk_03003430.bg2HOfs >> 3;
             temp_r0_7 = temp_r2 + 0x14;
             var_r7 = (temp_r0_7 & 0x1F) << 5;
-            var_r5 = ((temp_r0_7 % gUnk_03003430.unk4A) * gUnk_03003430.bg2MapWidth) + var_r6;
+            var_r5 = ((temp_r0_7 % gUnk_03003430.bg2MapHeight) * gUnk_03003430.bg2MapWidth) + var_r6;
             for (var_r3 = 0; var_r3 < 0x1F; var_r3++) {
                 gUnk_03004DB0[(var_r7) + ((var_r3 + var_r6) & 0x1F)] = gUnk_03004790.pBufBg2Tilemap[var_r5 + var_r3];
             }
