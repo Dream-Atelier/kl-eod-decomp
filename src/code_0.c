@@ -2743,7 +2743,7 @@ void InitLevelGameplay(u32 arg0) {
     gUnk_030051E0 = 0;
     gUnk_030034C4 = 0xFE;
     gUnk_03003430.unk46 = 0;
-    gUnk_03003430.unk44 = 0;
+    gUnk_03003430.bg2StreamColumn = 0;
 
     if (gUnk_03004C20.level == 8) {
         gCallbackQueue.next[1] = InitLevelState;

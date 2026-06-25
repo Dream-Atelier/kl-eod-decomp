@@ -321,8 +321,8 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
             gUnk_03003430.bg2HOfs = gUnk_03005468.unk4 - 0xF0;
         }
         temp_r2 = gUnk_03003430.bg2HOfs >> 3;
-        if (temp_r2 != gUnk_03003430.unk44) {
-            gUnk_03003430.unk44 = temp_r2;
+        if (temp_r2 != gUnk_03003430.bg2StreamColumn) {
+            gUnk_03003430.bg2StreamColumn = temp_r2;
             temp_r0_3 = temp_r2 + 0x1E;
             var_r7 = temp_r0_3 & 0x1F;
             var_r5 = temp_r0_3 % gUnk_03003430.bg2MapWidth;
@@ -339,8 +339,8 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
             gUnk_03003430.bg2HOfs = gUnk_03005468.unk0;
         }
         temp_r2 = gUnk_03003430.bg2HOfs >> 3;
-        if (temp_r2 != gUnk_03003430.unk44) {
-            gUnk_03003430.unk44 = temp_r2;
+        if (temp_r2 != gUnk_03003430.bg2StreamColumn) {
+            gUnk_03003430.bg2StreamColumn = temp_r2;
             var_r7 = temp_r2 & 0x1F;
             var_r5 = (temp_r2 + gUnk_03003430.bg2MapWidth) % gUnk_03003430.bg2MapWidth;
             var_r6 = gUnk_03003430.bg2VOfs >> 3;

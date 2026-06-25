@@ -35,7 +35,7 @@ struct Unk_03003430 {
     /* 0x3C */ void *pVramBg2Tilemap;
     /* 0x40 */ u16 bg2HOfs;
     /* 0x42 */ u16 bg2VOfs;
-    /* 0x44 */ u16 unk44;
+    /* 0x44 */ u16 bg2StreamColumn; /* BG2 horizontal stream bookkeeping */
     /* 0x46 */ u16 unk46;
     /* 0x48 */ u16 bg2MapWidth; /* Per-level BG2 collision/tile map width in tiles */
     /* 0x4A */ u16 unk4A;
