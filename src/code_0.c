@@ -47,7 +47,7 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
         gUnk_03002920[arg0].yPosScreen = arg3 - gUnk_03003430.bg2VOfs;
     }
     gUnk_03002920[arg0].unkA = arg1;
-    gUnk_03002920[arg0].unk10 = 0;
+    gUnk_03002920[arg0].onScreen = 0;
     gUnk_03002920[arg0].unk8 = arg4;
     gUnk_03002920[arg0].unkF = arg7;
     gUnk_03002920[arg0].unkC_2 = 0;
@@ -707,7 +707,7 @@ void RenderHUDTop(void) {
     InitOamEntries();
     gUnk_03000820 = gUnk_03004800;
 
-    if (gUnk_03002920[0xB].unk10 == 1) {
+    if (gUnk_03002920[0xB].onScreen == 1) {
         temp_r1_29 = gUnk_03002920[0xB].unkA;
         if (gUnk_03002920[0xB].unkA < 0xD) {
             gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[0xB].unkA];
@@ -759,7 +759,7 @@ void RenderHUDTop(void) {
         }
     }
 
-    if (gUnk_03002920[0xC].unk10 == 1) {
+    if (gUnk_03002920[0xC].onScreen == 1) {
         temp_r1_30 = gUnk_03002920[0xC].unkA;
         if (gUnk_03002920[0xC].unkA < 0xD) {
             gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[0xC].unkA];
@@ -812,7 +812,7 @@ void RenderHUDTop(void) {
     }
 
     for (sp0 = 1; sp0 <= 8; sp0++) {
-        if (gUnk_03002920[sp0].unk10 == 1) {
+        if (gUnk_03002920[sp0].onScreen == 1) {
             if (gUnk_03000830[sp0].unk0 != 1) {
                 temp_r1_8 = gUnk_03002920[sp0].unkA;
                 if (gUnk_03002920[sp0].unkA < 0xD) {
@@ -926,7 +926,7 @@ void RenderHUDTop(void) {
         if (sp0 == 0xB || sp0 == 0xC)
             continue;
 
-        if (gUnk_03002920[sp0].unk10 == 1) {
+        if (gUnk_03002920[sp0].onScreen == 1) {
             temp_r1_17 = gUnk_03002920[sp0].unkA;
             if (gUnk_03002920[sp0].unkA < 0xD) {
                 gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[sp0].unkA];
@@ -980,7 +980,7 @@ void RenderHUDTop(void) {
     }
 
     for (sp0 = 0xD; sp0 < gUnk_03005428; sp0++) {
-        if (gUnk_03002920[sp0].unk10 == 1) {
+        if (gUnk_03002920[sp0].onScreen == 1) {
             temp_r0_4 = gUnk_03002920[sp0].unkA;
             if (gUnk_03002920[sp0].unkA < 0xD) {
                 gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[sp0].unkA];
@@ -1034,7 +1034,7 @@ void RenderHUDTop(void) {
     }
 
     for (sp0 = 1; sp0 <= 8; sp0++) {
-        if (gUnk_03002920[sp0].unk10 == 1) {
+        if (gUnk_03002920[sp0].onScreen == 1) {
             if (gUnk_03000830[sp0].unk0 == 1) {
                 temp_r1_25 = gUnk_03002920[sp0].unkA;
                 if (gUnk_03002920[sp0].unkA < 0xD) {
@@ -1119,7 +1119,7 @@ void RenderDialogSprites(void) {
     sp4 = gUnk_03002920->xPosScreen;
 
     for (var_sb = 0xD; var_sb < gUnk_03005428; var_sb++) {
-        if (gUnk_03002920[var_sb].unk10 == 1) {
+        if (gUnk_03002920[var_sb].onScreen == 1) {
             if ((gUnk_03002920[var_sb].kind == 0x52) && (gUnk_03002920[var_sb].xPosScreen > (sp4 - 0x10))
                 && (gUnk_03002920[var_sb].xPosScreen < (sp4 + 0x10)) && (gUnk_03002920[var_sb].yPosScreen <= (sp0 + 0xA))
                 && (gUnk_03002920[var_sb].yPosScreen >= (u32)sp0)) {
@@ -1180,7 +1180,7 @@ void RenderDialogSprites(void) {
     }
 
     for (var_sb = 0; var_sb <= 0xC; var_sb++) {
-        if (gUnk_03002920[var_sb].unk10 == 1) {
+        if (gUnk_03002920[var_sb].onScreen == 1) {
             temp_r1_6 = gUnk_03002920[var_sb].unkA;
             if (gUnk_03002920[var_sb].unkA < 0xD) {
                 gUnk_0300466C = &gUnk_08078FC8[gUnk_03002920[var_sb].unkA];
@@ -1234,7 +1234,7 @@ void RenderDialogSprites(void) {
     }
 
     for (var_sb = 0xD; var_sb < gUnk_03005428; var_sb++) {
-        if (gUnk_03002920[var_sb].unk10 == 1) {
+        if (gUnk_03002920[var_sb].onScreen == 1) {
             if (gUnk_03002920[var_sb].kind == 0x52) {
                 if ((gUnk_03002920[var_sb].xPosScreen > (sp4 - 0x10) && gUnk_03002920[var_sb].xPosScreen < (sp4 + 0x10))
                     && (gUnk_03002920[var_sb].yPosScreen <= (sp0 + 0xA) && gUnk_03002920[var_sb].yPosScreen >= (u32)sp0)) {
@@ -1373,7 +1373,7 @@ void TransformEntityScreenPositions(void) {
     gUnk_03002920[0].xPosScreen = gUnk_03002920[0].xPosBg2 - gUnk_03003430.bg2HOfs;
     gUnk_03002920[0].yPosScreen = gUnk_03002920[0].yPosBg2 - gUnk_03003430.bg2VOfs;
 
-    if (gUnk_03002920[0x9].unk10 == 1) {
+    if (gUnk_03002920[0x9].onScreen == 1) {
         gUnk_03002920[0x9].xPosScreen = gUnk_03002920[0x9].xPosBg2 - gUnk_03003430.bg2HOfs;
         gUnk_03002920[0x9].yPosScreen = gUnk_03002920[0x9].yPosBg2 - gUnk_03003430.bg2VOfs;
         gUnk_03002920[0xA].xPosScreen = gUnk_03002920[0xA].xPosBg2 - gUnk_03003430.bg2HOfs;
@@ -1390,9 +1390,9 @@ void TransformEntityScreenPositions(void) {
             gUnk_03002920[var_r5].yPosScreen = gUnk_03002920[var_r5].yPosBg2 - gUnk_03003430.bg2VOfs;
             if ((gUnk_03002920[var_r5].xPosScreen >= (DISPLAY_WIDTH + 35) && gUnk_03002920[var_r5].xPosScreen <= (u16)-36)
                 || (gUnk_03002920[var_r5].yPosScreen >= (DISPLAY_HEIGHT + 64) && gUnk_03002920[var_r5].yPosScreen <= (u16)-36)) {
-                gUnk_03002920[var_r5].unk10 = 0;
+                gUnk_03002920[var_r5].onScreen = 0;
             } else {
-                gUnk_03002920[var_r5].unk10 = 1;
+                gUnk_03002920[var_r5].onScreen = 1;
             }
         }
     }
@@ -1475,7 +1475,7 @@ void TransformAllEntitiesToScreen(s8 arg0, s8 arg1) {
 
     for (var_r5 = 0xD; var_r5 < gUnk_03005428; var_r5++) {
         if (gUnk_03002920[var_r5].unkF == 0x1A) {
-            gUnk_03002920[var_r5].unk10 = 0;
+            gUnk_03002920[var_r5].onScreen = 0;
             continue;
         }
 
@@ -1486,19 +1486,19 @@ void TransformAllEntitiesToScreen(s8 arg0, s8 arg1) {
                     if ((gUnk_03002920[var_r5].xPosScreen >= (DISPLAY_WIDTH + 67) && gUnk_03002920[var_r5].xPosScreen <= (u16)(-68))
                         || (gUnk_03002920[var_r5].yPosScreen >= (DISPLAY_HEIGHT + 96)
                             && gUnk_03002920[var_r5].yPosScreen <= (u16)(-68))) {
-                        gUnk_03002920[var_r5].unk10 = 0;
+                        gUnk_03002920[var_r5].onScreen = 0;
                     } else {
-                        gUnk_03002920[var_r5].unk10 = 1;
+                        gUnk_03002920[var_r5].onScreen = 1;
                     }
                 }
             }
         } else {
             if (gUnk_03002920[var_r5].unkF == 0x1C) {
-                gUnk_03002920[var_r5].unk10 = 0;
+                gUnk_03002920[var_r5].onScreen = 0;
             } else {
                 gUnk_03002920[var_r5].xPosScreen = gUnk_03002920[var_r5].xPosBg2;
                 gUnk_03002920[var_r5].yPosScreen = gUnk_03002920[var_r5].yPosBg2;
-                gUnk_03002920[var_r5].unk10 = 1;
+                gUnk_03002920[var_r5].onScreen = 1;
             }
         }
     }
@@ -1812,7 +1812,7 @@ void UpdateUIState(void) {
 
                             case 25:
                                 SetPaletteAnimEntry(var_r6, 0);
-                                gUnk_03002920[var_r6].unk10 = 1;
+                                gUnk_03002920[var_r6].onScreen = 1;
                                 gUnk_03002920[var_r6].unkF = 0;
                                 break;
                         }
@@ -1843,12 +1843,12 @@ void UpdateUIState(void) {
                         gUnk_03002920[var_r6].affineHFlip_matrixNum = 3;
                         if (gUnk_03000830[0x12 - gUnk_0300363C].unk0 == 0) {
                             gUnk_03002920[var_r6].unkF = 0;
-                            gUnk_03002920[var_r6].unk10 = 1;
+                            gUnk_03002920[var_r6].onScreen = 1;
                             gUnk_03002920[var_r6].xPosBg2 = gUnk_03002920[0x12].xPosBg2;
                             gUnk_03002920[var_r6].yPosBg2 = gUnk_03002920[0x12].yPosBg2 - 0x3C;
                         } else {
                             gUnk_03002920[var_r6].unkF = 0x1A;
-                            gUnk_03002920[var_r6].unk10 = 0;
+                            gUnk_03002920[var_r6].onScreen = 0;
                         }
                         break;
 

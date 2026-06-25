@@ -126,7 +126,7 @@ struct Unk_03002920 {
     /* 0x0E_0 */ u32 affineEnable : 1;
     /* 0x0E_1 */ u32 affineDouble : 1;
     /* 0x0F */ u8 unkF;
-    /* 0x10 */ u8 unk10;
+    /* 0x10 */ u8 onScreen; /* 1 if the entity's screen position is within the visible area (+margin), else 0 */
     /* 0x11 */ u8 kind; /* entity/object type id; see ENTITY_KIND_* */
     /* 0x12 */ u8 pad12[0x1C - 0x12];
 }; /* size = 0x1C */

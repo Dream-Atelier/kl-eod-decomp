@@ -215,7 +215,7 @@ void ApplyEntityTileMovement(void) {
 void InitScrollState(void) {
     ResetEntityScrollState(1);
 
-    gUnk_03005220.unk5D = gUnk_03002920[0x9].unk10 = gUnk_03002920[0xA].unk10 = 0;
+    gUnk_03005220.unk5D = gUnk_03002920[0x9].onScreen = gUnk_03002920[0xA].onScreen = 0;
     gUnk_03005220.unk47 = 0;
     gUnk_03005220.deathSequenceTimer = 0;
     gUnk_03005220.unk38 = 0;
@@ -254,7 +254,7 @@ void InitScrollState(void) {
     gUnk_03005220.unk26 = 0;
     gUnk_03005220.unk5C = 1;
     gUnk_03005220.unk3D = 1;
-    gUnk_03002920[0].unk10 = 1;
+    gUnk_03002920[0].onScreen = 1;
     gUnk_03005220.unk16 = 0x230;
     gUnk_03005220.unk18 = 0;
     gUnk_03002920[0].affineEnable = 0;
@@ -310,8 +310,8 @@ void PlayerRespawnOrDeath(s32 arg0) {
         m4aSongNumStart(0x27);
 
         gUnk_03005220.deathSequenceTimer = 0x46;
-        gUnk_03002920[0x9].unk10 = 0;
-        gUnk_03002920[0xA].unk10 = 0;
+        gUnk_03002920[0x9].onScreen = 0;
+        gUnk_03002920[0xA].onScreen = 0;
         gUnk_03005220.unk57 = 0;
         gUnk_03005220.unk56 = 0;
         gUnk_03005220.unk3F = 0;
