@@ -186,7 +186,7 @@ void InitLevelBG(void) {
     gUnk_03003430.unk4C = 0;
     gUnk_03003430.pVramBg2Tiles = (void *)(VRAM + 0x8000);
     gUnk_03003430.pVramBg2Tilemap = (void *)(VRAM + 0xF000);
-    gUnk_03003430.unk48 = gUnk_08051C76[gUnk_03004C20.world - 1][gUnk_03004C20.level][2];
+    gUnk_03003430.bg2MapWidth = gUnk_08051C76[gUnk_03004C20.world - 1][gUnk_03004C20.level][2];
     gUnk_03003430.unk4A = gUnk_08051DBA[gUnk_03004C20.world - 1][gUnk_03004C20.level][2];
     gUnk_03003430.unk4E = gUnk_08051EFE[gUnk_03004C20.world - 1][gUnk_03004C20.level][2];
     gUnk_03003430.unk50 = gUnk_08052042[gUnk_03004C20.world - 1][gUnk_03004C20.level][2];
@@ -325,12 +325,12 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
             gUnk_03003430.unk44 = temp_r2;
             temp_r0_3 = temp_r2 + 0x1E;
             var_r7 = temp_r0_3 & 0x1F;
-            var_r5 = temp_r0_3 % gUnk_03003430.unk48;
+            var_r5 = temp_r0_3 % gUnk_03003430.bg2MapWidth;
             var_r6 = gUnk_03003430.bg2VOfs >> 3;
             for (var_r3 = 0; var_r3 < 0x15; var_r3++) {
                 temp_r1 = var_r3 + var_r6;
                 gUnk_03004DB0[((temp_r1 & 0x1F) << 5) + var_r7]
-                    = gUnk_03004790.pBufBg2Tilemap[(temp_r1 * gUnk_03003430.unk48) + var_r5];
+                    = gUnk_03004790.pBufBg2Tilemap[(temp_r1 * gUnk_03003430.bg2MapWidth) + var_r5];
             }
         }
     } else if (arg0 & 0x20) {
@@ -342,12 +342,12 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
         if (temp_r2 != gUnk_03003430.unk44) {
             gUnk_03003430.unk44 = temp_r2;
             var_r7 = temp_r2 & 0x1F;
-            var_r5 = (temp_r2 + gUnk_03003430.unk48) % gUnk_03003430.unk48;
+            var_r5 = (temp_r2 + gUnk_03003430.bg2MapWidth) % gUnk_03003430.bg2MapWidth;
             var_r6 = gUnk_03003430.bg2VOfs >> 3;
             for (var_r3 = 0; var_r3 < 0x15; var_r3++) {
                 temp_r1 = var_r3 + var_r6;
                 gUnk_03004DB0[((temp_r1 & 0x1F) << 5) + var_r7]
-                    = gUnk_03004790.pBufBg2Tilemap[(temp_r1 * gUnk_03003430.unk48) + var_r5];
+                    = gUnk_03004790.pBufBg2Tilemap[(temp_r1 * gUnk_03003430.bg2MapWidth) + var_r5];
             }
         }
     }
@@ -362,7 +362,7 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
             gUnk_03003430.unk46 = temp_r2;
             var_r6 = gUnk_03003430.bg2HOfs >> 3;
             var_r7 = (temp_r2 & 0x1F) << 5;
-            var_r5 = (((temp_r2 + gUnk_03003430.unk4A) % gUnk_03003430.unk4A) * gUnk_03003430.unk48) + var_r6;
+            var_r5 = (((temp_r2 + gUnk_03003430.unk4A) % gUnk_03003430.unk4A) * gUnk_03003430.bg2MapWidth) + var_r6;
             for (var_r3 = 0; var_r3 < 0x1F; var_r3++) {
                 gUnk_03004DB0[(var_r7) + (((var_r3 + var_r6) & 0x1F))] = gUnk_03004790.pBufBg2Tilemap[var_r5 + var_r3];
             }
@@ -381,7 +381,7 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
             var_r6 = gUnk_03003430.bg2HOfs >> 3;
             temp_r0_7 = temp_r2 + 0x14;
             var_r7 = (temp_r0_7 & 0x1F) << 5;
-            var_r5 = ((temp_r0_7 % gUnk_03003430.unk4A) * gUnk_03003430.unk48) + var_r6;
+            var_r5 = ((temp_r0_7 % gUnk_03003430.unk4A) * gUnk_03003430.bg2MapWidth) + var_r6;
             for (var_r3 = 0; var_r3 < 0x1F; var_r3++) {
                 gUnk_03004DB0[(var_r7) + ((var_r3 + var_r6) & 0x1F)] = gUnk_03004790.pBufBg2Tilemap[var_r5 + var_r3];
             }
@@ -1026,8 +1026,8 @@ void InitLevelFromROMTable(void) {
     } else {
         DmaFill16(3, 0, &gUnk_03003650, 0x1000);
         for (var_r6 = 0; var_r6 < 0x28; var_r6++) {
-            DmaCopy16Wait(3, &gUnk_03004790.pBufBg2Tilemap[var_r6 * gUnk_03003430.unk48], (void *)((var_r6 << 6) + &gUnk_03003650),
-                          0x1E * 2);
+            DmaCopy16Wait(3, &gUnk_03004790.pBufBg2Tilemap[var_r6 * gUnk_03003430.bg2MapWidth],
+                          (void *)((var_r6 << 6) + &gUnk_03003650), 0x1E * 2);
         }
         DmaCopy16Wait(3, &gUnk_03003650, gUnk_03003430.pVramBg2Tilemap, 0x1000);
     }
@@ -1055,8 +1055,9 @@ void ScrollBGColumnLoad(u8 arg0) {
             temp_r5 += temp_r1;
         }
         gUnk_03004DB0[temp_r5 & 0x3FF]
-            = gUnk_03004790.pBufBg2Tilemap[(gUnk_03003430.unk48 * (var_r6 >> 5)) + (var_r6 & 0x1F)
-                                           + ((gUnk_03003430.bg2VOfs >> 3) * gUnk_03003430.unk48) + (gUnk_03003430.bg2HOfs >> 3)];
+            = gUnk_03004790
+                  .pBufBg2Tilemap[(gUnk_03003430.bg2MapWidth * (var_r6 >> 5)) + (var_r6 & 0x1F)
+                                  + ((gUnk_03003430.bg2VOfs >> 3) * gUnk_03003430.bg2MapWidth) + (gUnk_03003430.bg2HOfs >> 3)];
     }
 
     gUnk_03003430.bg2VOfs += (arg0 * 8);
