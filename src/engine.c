@@ -195,10 +195,13 @@ void InitLevelBG(void) {
     if (gUnk_03004C20.level >= 1 && gUnk_03004C20.level <= 7) {
         if (gUnk_03004C20.room == 0xFF) {
             for (gUnk_03004C20.room = 1; gUnk_03004C20.room < 6; gUnk_03004C20.room++) {
-                gUnk_03005468.unk0 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk0;
-                gUnk_03005468.unk2 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk2;
-                gUnk_03005468.unk4 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk4;
-                gUnk_03005468.unk6 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk6;
+                gScrollBounds.scrollLeft
+                    = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk0;
+                gScrollBounds.scrollTop = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk2;
+                gScrollBounds.scrollRight
+                    = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk4;
+                gScrollBounds.scrollBottom
+                    = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk6;
 
                 temp_r4 = (gUnk_03004C20.unk8 >> ((gUnk_03004C20.room - 1) * 2)) & 3;
                 temp_r3 = (gUnk_03005284->unk16 >> ((gUnk_03004C20.room - 1) * 2)) & 3;
@@ -317,8 +320,8 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
 
     if (arg0 & 0x10) {
         gUnk_03003430.bg2HOfs += arg1.unk0;
-        if (gUnk_03003430.bg2HOfs > (gUnk_03005468.unk4 - 0xF0)) {
-            gUnk_03003430.bg2HOfs = gUnk_03005468.unk4 - 0xF0;
+        if (gUnk_03003430.bg2HOfs > (gScrollBounds.scrollRight - 0xF0)) {
+            gUnk_03003430.bg2HOfs = gScrollBounds.scrollRight - 0xF0;
         }
         temp_r2 = gUnk_03003430.bg2HOfs >> 3;
         if (temp_r2 != gUnk_03003430.bg2StreamColumn) {
@@ -335,8 +338,8 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
         }
     } else if (arg0 & 0x20) {
         gUnk_03003430.bg2HOfs += arg1.unk0;
-        if (((s16)(gUnk_03003430.bg2HOfs - gUnk_03005468.unk0)) > -0x100u) {
-            gUnk_03003430.bg2HOfs = gUnk_03005468.unk0;
+        if (((s16)(gUnk_03003430.bg2HOfs - gScrollBounds.scrollLeft)) > -0x100u) {
+            gUnk_03003430.bg2HOfs = gScrollBounds.scrollLeft;
         }
         temp_r2 = gUnk_03003430.bg2HOfs >> 3;
         if (temp_r2 != gUnk_03003430.bg2StreamColumn) {
@@ -354,8 +357,8 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
 
     if (arg0 & 0x40) {
         gUnk_03003430.bg2VOfs += arg1.unk2;
-        if (((s16)(gUnk_03003430.bg2VOfs - gUnk_03005468.unk2)) > -0x100u) {
-            gUnk_03003430.bg2VOfs = gUnk_03005468.unk2;
+        if (((s16)(gUnk_03003430.bg2VOfs - gScrollBounds.scrollTop)) > -0x100u) {
+            gUnk_03003430.bg2VOfs = gScrollBounds.scrollTop;
         }
         temp_r2 = gUnk_03003430.bg2VOfs >> 3;
         if (temp_r2 != gUnk_03003430.bg2StreamRow) {
@@ -372,8 +375,8 @@ void ScrollBGLayer(u8 arg0, struct ScrollBGLayer_Args arg1) {
             gUnk_03003430.bg2StreamRow = 0xF000;
         }
         gUnk_03003430.bg2VOfs += arg1.unk2;
-        if (gUnk_03003430.bg2VOfs >= (gUnk_03005468.unk6 - 0xA0)) {
-            gUnk_03003430.bg2VOfs = gUnk_03005468.unk6 - 0xA0;
+        if (gUnk_03003430.bg2VOfs >= (gScrollBounds.scrollBottom - 0xA0)) {
+            gUnk_03003430.bg2VOfs = gScrollBounds.scrollBottom - 0xA0;
         }
         temp_r2 = gUnk_03003430.bg2VOfs >> 3;
         if (temp_r2 != gUnk_03003430.bg2StreamRow) {
@@ -940,17 +943,17 @@ void InitLevelFromROMTable(void) {
     if (gUnk_03004C20.level == 0) {
         gUnk_03005210 = 0xFFFF;
         gUnk_03004C20.room = 1;
-        gUnk_03005468.unk0 = 0;
-        gUnk_03005468.unk2 = 0;
-        gUnk_03005468.unk4 = 0x100;
-        gUnk_03005468.unk6 = 0x100;
+        gScrollBounds.scrollLeft = 0;
+        gScrollBounds.scrollTop = 0;
+        gScrollBounds.scrollRight = 0x100;
+        gScrollBounds.scrollBottom = 0x100;
     } else if (gUnk_03004C20.level == 8) {
         gUnk_03005210 = 0xFFFF;
         gUnk_03004C20.room = 1;
-        gUnk_03005468.unk0 = 0;
-        gUnk_03005468.unk2 = 0;
-        gUnk_03005468.unk4 = 0x200;
-        gUnk_03005468.unk6 = 0x200;
+        gScrollBounds.scrollLeft = 0;
+        gScrollBounds.scrollTop = 0;
+        gScrollBounds.scrollRight = 0x200;
+        gScrollBounds.scrollBottom = 0x200;
     } else {
         if (gUnk_03004C20.room == 0) {
             gUnk_030051C8 = gUnk_03004654[1] - 1;
@@ -974,12 +977,12 @@ void InitLevelFromROMTable(void) {
 
         gUnk_03004C20.room
             = gUnk_080D48C8[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_030051C8 - (gUnk_03004654[1] - 1)].unk4_2;
-        gUnk_03005468.unk0 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk0;
-        gUnk_03005468.unk2 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk2;
-        gUnk_03005468.unk4 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk4;
-        gUnk_03005468.unk6 = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk6;
-        gUnk_030051CC.unk0 = gUnk_03005468.unk0 + ((s32)(gUnk_03005468.unk4 - gUnk_03005468.unk0) >> 1);
-        gUnk_030051CC.unk2 = gUnk_03005468.unk2 + ((s32)(gUnk_03005468.unk6 - gUnk_03005468.unk2) >> 1);
+        gScrollBounds.scrollLeft = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk0;
+        gScrollBounds.scrollTop = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk2;
+        gScrollBounds.scrollRight = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk4;
+        gScrollBounds.scrollBottom = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk6;
+        gUnk_030051CC.unk0 = gScrollBounds.scrollLeft + ((s32)(gScrollBounds.scrollRight - gScrollBounds.scrollLeft) >> 1);
+        gUnk_030051CC.unk2 = gScrollBounds.scrollTop + ((s32)(gScrollBounds.scrollBottom - gScrollBounds.scrollTop) >> 1);
     }
     gUnk_03004C20.unkA = 0;
     gUnk_03004C20.unkB = 0;
@@ -999,20 +1002,20 @@ void InitLevelFromROMTable(void) {
         gCallbackQueue.current[gCallbackQueue.currentCount - 1] = 0;
         gCallbackQueue.nextCount = 6;
     }
-    if (gUnk_03002920[0].xPosBg2 < (gUnk_03005468.unk0 + 0x78)) {
-        gUnk_03003430.bg2HOfs = gUnk_03005468.unk0;
+    if (gUnk_03002920[0].xPosBg2 < (gScrollBounds.scrollLeft + 0x78)) {
+        gUnk_03003430.bg2HOfs = gScrollBounds.scrollLeft;
     } else {
-        if ((gUnk_03005468.unk4 - 0x78) < gUnk_03002920[0].xPosBg2) {
-            gUnk_03003430.bg2HOfs = gUnk_03005468.unk4 - 0xF0;
+        if ((gScrollBounds.scrollRight - 0x78) < gUnk_03002920[0].xPosBg2) {
+            gUnk_03003430.bg2HOfs = gScrollBounds.scrollRight - 0xF0;
         } else {
             gUnk_03003430.bg2HOfs = gUnk_03002920[0].xPosBg2 - 0x78;
         }
     }
-    if (gUnk_03002920[0].yPosBg2 < (gUnk_03005468.unk2 + 0x78)) {
-        gUnk_03003430.bg2VOfs = gUnk_03005468.unk2;
+    if (gUnk_03002920[0].yPosBg2 < (gScrollBounds.scrollTop + 0x78)) {
+        gUnk_03003430.bg2VOfs = gScrollBounds.scrollTop;
     } else {
-        if ((gUnk_03005468.unk6 - 0x28) < gUnk_03002920[0].yPosBg2) {
-            gUnk_03003430.bg2VOfs = gUnk_03005468.unk6 - 0xA0;
+        if ((gScrollBounds.scrollBottom - 0x28) < gUnk_03002920[0].yPosBg2) {
+            gUnk_03003430.bg2VOfs = gScrollBounds.scrollBottom - 0xA0;
         } else {
             gUnk_03003430.bg2VOfs = gUnk_03002920[0].yPosBg2 - 0x78;
         }

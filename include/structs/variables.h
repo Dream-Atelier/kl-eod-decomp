@@ -217,14 +217,14 @@ extern struct Unk_03004790 gUnk_03004790;
 /* BG2 column tile scratch buffer. */
 extern u8 gUnk_03004DB0[];
 
-/* Room/scroll bounds. */
-struct Unk_03005468 {
-    u16 unk0;
-    u16 unk2;
-    u16 unk4;
-    u16 unk6;
+/* Camera scroll bounds for the current room, in world pixels (left/top/right/bottom). */
+struct ScrollBounds {
+    u16 scrollLeft; /* left bound: camera bg2HOfs clamped to >= scrollLeft */
+    u16 scrollTop; /* top bound: camera bg2VOfs clamped to >= scrollTop */
+    u16 scrollRight; /* right bound: camera bg2HOfs clamped to <= scrollRight - 0xF0 (screen width) */
+    u16 scrollBottom; /* bottom bound: camera bg2VOfs clamped to <= scrollBottom - 0xA0 (screen height) */
 };
-extern struct Unk_03005468 gUnk_03005468;
+extern struct ScrollBounds gScrollBounds;
 
 /* World-load lockout flag. */
 extern u8 gUnk_03004660;
