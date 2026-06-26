@@ -173,12 +173,12 @@ void InitLevelBG(void) {
 
     if ((gUnk_03004C20.level == 0) && (sp0 == 1)) {
         gUnk_03003430.bg1MapWidth = gUnk_0805265A[gUnk_03004C20.world - 1];
-        gUnk_03003430.unk2E = gUnk_08052666[gUnk_03004C20.world - 1];
+        gUnk_03003430.bg1MapHeight = gUnk_08052666[gUnk_03004C20.world - 1];
         gUnk_03003430.unk32 = gUnk_08052672[gUnk_03004C20.world - 1];
         gUnk_03003430.unk34 = gUnk_0805267E[gUnk_03004C20.world - 1];
     } else {
         gUnk_03003430.bg1MapWidth = gUnk_08051C76[gUnk_03004C20.world - 1][gUnk_03004C20.level][1];
-        gUnk_03003430.unk2E = gUnk_08051DBA[gUnk_03004C20.world - 1][gUnk_03004C20.level][1];
+        gUnk_03003430.bg1MapHeight = gUnk_08051DBA[gUnk_03004C20.world - 1][gUnk_03004C20.level][1];
         gUnk_03003430.unk32 = gUnk_08051EFE[gUnk_03004C20.world - 1][gUnk_03004C20.level][1];
         gUnk_03003430.unk34 = gUnk_08052042[gUnk_03004C20.world - 1][gUnk_03004C20.level][1];
     }
