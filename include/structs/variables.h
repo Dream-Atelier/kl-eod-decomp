@@ -115,8 +115,8 @@ struct Unk_03002920 {
     /* 0x08 */ u8 unk8;
     /* 0x09 */ u8 unk9;
     /* 0x0A */ u8 unkA;
-    /* 0x0B_0 */ s32 unkB_0 : 4; // related to X position
-    /* 0x0B_4 */ s32 unkB_4 : 4; // related to Y position
+    /* 0x0B_0 */ s32 xOffset : 4; /* signed pixel offset added to the sprite's OAM x (on top of xPosScreen) */
+    /* 0x0B_4 */ s32 yOffset : 4; /* signed pixel offset added to the sprite's OAM y (on top of yPosScreen) */
     /* 0x0C_0 */ u32 priority : 2;
     /* 0x0C_2 */ u32 flip : 2; /* OAM flip flags: bit0 = horizontal, bit1 = vertical */
     /* 0x0C_4 */ u32 unkC_4 : 4;

@@ -198,8 +198,8 @@ void ApplyEntityTileMovement(void) {
     if (var_r3 < gUnk_03004654[0x1A]) {
         gUnk_03002920[0].xPosBg2 += gUnk_03005220.unk56;
         gUnk_03002920[0].yPosBg2 += gUnk_03005220.unk57;
-        gUnk_03002920[0].unkB_0 = gUnk_03002920[gUnk_03005220.unk3F].unkB_0;
-        gUnk_03002920[0].unkB_4 = gUnk_03002920[gUnk_03005220.unk3F].unkB_4;
+        gUnk_03002920[0].xOffset = gUnk_03002920[gUnk_03005220.unk3F].xOffset;
+        gUnk_03002920[0].yOffset = gUnk_03002920[gUnk_03005220.unk3F].yOffset;
         return;
     }
 
