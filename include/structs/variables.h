@@ -12,8 +12,8 @@ struct Unk_03003430 {
     /* 0x08 */ u16 bg0HOfs;
     /* 0x0A */ u16 bg0VOfs;
     /* 0x0C */ u8 padC[0x10 - 0xC];
-    /* 0x10 */ u16 unk10;
-    /* 0x12 */ u16 unk12;
+    /* 0x10 */ u16 bg0MapWidth; /* Per-level BG0 tilemap width in tiles */
+    /* 0x12 */ u16 bg0MapHeight; /* Per-level BG0 tilemap height in tiles */
     /* 0x14 */ u16 unk14;
     /* 0x16 */ u16 unk16;
     /* 0x18 */ u8 unk18;

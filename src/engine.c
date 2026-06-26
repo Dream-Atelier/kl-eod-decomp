@@ -161,8 +161,8 @@ void InitLevelBG(void) {
     gUnk_03003430.unk14 = 0;
     gUnk_03003430.pVramBg0Tiles = (void *)VRAM;
     gUnk_03003430.pVramBg0Tilemap = (void *)(VRAM + 0xE000);
-    gUnk_03003430.unk10 = gUnk_08051C76[gUnk_03004C20.world - 1][gUnk_03004C20.level][0];
-    gUnk_03003430.unk12 = gUnk_08051DBA[gUnk_03004C20.world - 1][gUnk_03004C20.level][0];
+    gUnk_03003430.bg0MapWidth = gUnk_08051C76[gUnk_03004C20.world - 1][gUnk_03004C20.level][0];
+    gUnk_03003430.bg0MapHeight = gUnk_08051DBA[gUnk_03004C20.world - 1][gUnk_03004C20.level][0];
     gUnk_03003430.unk16 = gUnk_08051EFE[gUnk_03004C20.world - 1][gUnk_03004C20.level][0];
     gUnk_03003430.unk18 = gUnk_08052042[gUnk_03004C20.world - 1][gUnk_03004C20.level][0];
     gUnk_03003430.bg1HOfs = 0;
