@@ -50,7 +50,7 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
     gUnk_03002920[arg0].onScreen = 0;
     gUnk_03002920[arg0].unk8 = arg4;
     gUnk_03002920[arg0].unkF = arg7;
-    gUnk_03002920[arg0].unkC_2 = 0;
+    gUnk_03002920[arg0].flip = 0;
 
     switch (arg8 - 0x2F) {
         case 9:
@@ -158,14 +158,14 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
             gUnk_03004680[gUnk_03005288 + 1].unk0 = gUnk_03004680[gUnk_03005288 + 1].unk6 = COS(0);
             gUnk_03004680[gUnk_03005288 + 1].unk4 = SIN(0);
             gUnk_03004680[gUnk_03005288 + 1].unk2 = -SIN(0);
-            gUnk_03002920[arg0].unkC_2 = arg6;
+            gUnk_03002920[arg0].flip = arg6;
             break;
 
         case 0x35:
         case 0x74:
             gUnk_03002920[arg0].unkC_4 = arg6;
             if (arg6 != 3) {
-                gUnk_03002920[arg0].unkC_2 = arg6;
+                gUnk_03002920[arg0].flip = arg6;
             }
             break;
 
@@ -251,7 +251,7 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
         case 0x78:
             gUnk_03002920[arg0].unk8 = 0;
             gUnk_03002920[arg0].unk9 = arg4;
-            gUnk_03002920[arg0].unkC_2 = arg6 & 1;
+            gUnk_03002920[arg0].flip = arg6 & 1;
             if (arg8 == 0x79) {
                 gUnk_03002920[arg0].unkC_4 = arg6;
             }
@@ -354,7 +354,7 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
             } else if ((arg7 == 0) && (gUnk_03005220.unkC & (1 << (arg4 - 0x20)))) {
                 gUnk_03002920[arg0].unkF = 0x1C;
             }
-            gUnk_03002920[arg0].unkC_2 = arg6;
+            gUnk_03002920[arg0].flip = arg6;
             break;
 
         case 0x6:
@@ -367,7 +367,7 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
             if ((arg7 == 0) && ((gUnk_03005220.unk2_7 >> arg4) & 1)) {
                 gUnk_03002920[arg0].unkF = 0x1C;
             }
-            gUnk_03002920[arg0].unkC_2 = arg6;
+            gUnk_03002920[arg0].flip = arg6;
             break;
 
         case 0x2:
@@ -377,11 +377,11 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
             if ((gUnk_03005220.stars >> arg4) & 1) {
                 gUnk_03002920[arg0].unkF = 0x1C;
             }
-            gUnk_03002920[arg0].unkC_2 = arg6;
+            gUnk_03002920[arg0].flip = arg6;
             break;
 
         default:
-            gUnk_03002920[arg0].unkC_2 = arg6;
+            gUnk_03002920[arg0].flip = arg6;
             break;
     }
 
@@ -751,8 +751,8 @@ void RenderHUDTop(void) {
             if (gUnk_03002920[sp0].affineEnable) {
                 gUnk_03000820->split.hFlip = gUnk_03002920[0xB].affineHFlip_matrixNum >> 3;
             } else {
-                gUnk_03000820->split.hFlip = gUnk_03002920[0xB].unkC_2 & 1;
-                gUnk_03000820->split.vFlip = gUnk_03002920[0xB].unkC_2 >> 1;
+                gUnk_03000820->split.hFlip = gUnk_03002920[0xB].flip & 1;
+                gUnk_03000820->split.vFlip = gUnk_03002920[0xB].flip >> 1;
             }
 
             gUnk_03000820 += 1;
@@ -803,8 +803,8 @@ void RenderHUDTop(void) {
             if (gUnk_03002920[sp0].affineEnable) {
                 gUnk_03000820->split.hFlip = gUnk_03002920[0xC].affineHFlip_matrixNum >> 3;
             } else {
-                gUnk_03000820->split.hFlip = gUnk_03002920[0xC].unkC_2 & 1;
-                gUnk_03000820->split.vFlip = gUnk_03002920[0xC].unkC_2 >> 1;
+                gUnk_03000820->split.hFlip = gUnk_03002920[0xC].flip & 1;
+                gUnk_03000820->split.vFlip = gUnk_03002920[0xC].flip >> 1;
             }
 
             gUnk_03000820 += 1;
@@ -857,8 +857,8 @@ void RenderHUDTop(void) {
                     if (gUnk_03002920[sp0].affineEnable) {
                         gUnk_03000820->split.hFlip = gUnk_03002920[sp0].affineHFlip_matrixNum >> 3;
                     } else {
-                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].unkC_2 & 1;
-                        gUnk_03000820->split.vFlip = gUnk_03002920[sp0].unkC_2 >> 1;
+                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].flip & 1;
+                        gUnk_03000820->split.vFlip = gUnk_03002920[sp0].flip >> 1;
                     }
 
                     gUnk_03000820 += 1;
@@ -909,8 +909,8 @@ void RenderHUDTop(void) {
                     if (gUnk_03002920[sp0].affineEnable) {
                         gUnk_03000820->split.hFlip = gUnk_03002920[sp0].affineHFlip_matrixNum >> 3;
                     } else {
-                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].unkC_2 & 1;
-                        gUnk_03000820->split.vFlip = gUnk_03002920[sp0].unkC_2 >> 1;
+                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].flip & 1;
+                        gUnk_03000820->split.vFlip = gUnk_03002920[sp0].flip >> 1;
                     }
 
                     gUnk_03000820 += 1;
@@ -970,8 +970,8 @@ void RenderHUDTop(void) {
                 if (gUnk_03002920[sp0].affineEnable) {
                     gUnk_03000820->split.hFlip = gUnk_03002920[sp0].affineHFlip_matrixNum >> 3;
                 } else {
-                    gUnk_03000820->split.hFlip = gUnk_03002920[sp0].unkC_2 & 1;
-                    gUnk_03000820->split.vFlip = gUnk_03002920[sp0].unkC_2 >> 1;
+                    gUnk_03000820->split.hFlip = gUnk_03002920[sp0].flip & 1;
+                    gUnk_03000820->split.vFlip = gUnk_03002920[sp0].flip >> 1;
                 }
 
                 gUnk_03000820 += 1;
@@ -1024,8 +1024,8 @@ void RenderHUDTop(void) {
                 if (gUnk_03002920[sp0].affineEnable) {
                     gUnk_03000820->split.hFlip = gUnk_03002920[sp0].affineHFlip_matrixNum >> 3;
                 } else {
-                    gUnk_03000820->split.hFlip = gUnk_03002920[sp0].unkC_2 & 1;
-                    gUnk_03000820->split.vFlip = gUnk_03002920[sp0].unkC_2 >> 1;
+                    gUnk_03000820->split.hFlip = gUnk_03002920[sp0].flip & 1;
+                    gUnk_03000820->split.vFlip = gUnk_03002920[sp0].flip >> 1;
                 }
 
                 gUnk_03000820 += 1;
@@ -1079,8 +1079,8 @@ void RenderHUDTop(void) {
                     if (gUnk_03002920[sp0].affineEnable) {
                         gUnk_03000820->split.hFlip = gUnk_03002920[sp0].affineHFlip_matrixNum >> 3;
                     } else {
-                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].unkC_2 & 1;
-                        gUnk_03000820->split.vFlip = gUnk_03002920[sp0].unkC_2 >> 1;
+                        gUnk_03000820->split.hFlip = gUnk_03002920[sp0].flip & 1;
+                        gUnk_03000820->split.vFlip = gUnk_03002920[sp0].flip >> 1;
                     }
 
                     gUnk_03000820 += 1;
@@ -1169,8 +1169,8 @@ void RenderDialogSprites(void) {
                     if (gUnk_03002920[var_sb].affineEnable) {
                         gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].affineHFlip_matrixNum >> 3;
                     } else {
-                        gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].unkC_2 & 1;
-                        gUnk_03000820->split.vFlip = gUnk_03002920[var_sb].unkC_2 >> 1;
+                        gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].flip & 1;
+                        gUnk_03000820->split.vFlip = gUnk_03002920[var_sb].flip >> 1;
                     }
 
                     gUnk_03000820 += 1;
@@ -1224,8 +1224,8 @@ void RenderDialogSprites(void) {
                 if (gUnk_03002920[var_sb].affineEnable) {
                     gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].affineHFlip_matrixNum >> 3;
                 } else {
-                    gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].unkC_2 & 1;
-                    gUnk_03000820->split.vFlip = gUnk_03002920[var_sb].unkC_2 >> 1;
+                    gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].flip & 1;
+                    gUnk_03000820->split.vFlip = gUnk_03002920[var_sb].flip >> 1;
                 }
 
                 gUnk_03000820 += 1;
@@ -1283,8 +1283,8 @@ void RenderDialogSprites(void) {
                         if (gUnk_03002920[var_sb].affineEnable) {
                             gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].affineHFlip_matrixNum >> 3;
                         } else {
-                            gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].unkC_2 & 1;
-                            gUnk_03000820->split.vFlip = gUnk_03002920[var_sb].unkC_2 >> 1;
+                            gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].flip & 1;
+                            gUnk_03000820->split.vFlip = gUnk_03002920[var_sb].flip >> 1;
                         }
 
                         gUnk_03000820 += 1;
@@ -1337,8 +1337,8 @@ void RenderDialogSprites(void) {
                     if (gUnk_03002920[var_sb].affineEnable) {
                         gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].affineHFlip_matrixNum >> 3;
                     } else {
-                        gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].unkC_2 & 1;
-                        gUnk_03000820->split.vFlip = gUnk_03002920[var_sb].unkC_2 >> 1;
+                        gUnk_03000820->split.hFlip = gUnk_03002920[var_sb].flip & 1;
+                        gUnk_03000820->split.vFlip = gUnk_03002920[var_sb].flip >> 1;
                     }
 
                     gUnk_03000820 += 1;
@@ -1784,7 +1784,7 @@ void UpdateUIState(void) {
 
         if (gUnk_03002920[var_r6].unkF != 0x1C) {
             if (gUnk_03002920[var_r6].kind != 0) {
-                gUnk_03002920[var_r6].affineHFlip_matrixNum = gUnk_03002920[var_r6].unkC_2;
+                gUnk_03002920[var_r6].affineHFlip_matrixNum = gUnk_03002920[var_r6].flip;
                 gUnk_03002920[var_r6].affineDouble = 0;
 
                 switch (gUnk_03002920[var_r6].kind - 7) {
@@ -1882,7 +1882,7 @@ void UpdateUIState(void) {
 
                     case 0x17:
                         gUnk_03002920[var_r6].affineHFlip_matrixNum = 6;
-                        gUnk_03003590[3].unk5_0 = gUnk_03002920[var_r6].unkC_2;
+                        gUnk_03003590[3].unk5_0 = gUnk_03002920[var_r6].flip;
                         EntityMiniBoss((u8)var_r6);
                         break;
 
@@ -1920,9 +1920,9 @@ void UpdateUIState(void) {
                         gUnk_03002920[var_r6].affineHFlip_matrixNum = var_r6 - 0x13;
                         gUnk_03003590[var_r6 - 0x16].unk2 = 0x40;
                         gUnk_03003590[var_r6 - 0x16].unk0 = 0x40;
-                        gUnk_03003590[var_r6 - 0x16].unk5_0 = gUnk_03002920[var_r6].unkC_2;
+                        gUnk_03003590[var_r6 - 0x16].unk5_0 = gUnk_03002920[var_r6].flip;
 
-                        if (gUnk_03002920[var_r6].unkC_2 & 2) {
+                        if (gUnk_03002920[var_r6].flip & 2) {
                             gUnk_03003590[var_r6 - 0x16].unk4 = 0x80;
                         } else {
                             gUnk_03003590[var_r6 - 0x16].unk4 = 0;
@@ -1947,7 +1947,7 @@ void UpdateUIState(void) {
                         temp_r1_5 = &gUnk_03002920[gUnk_080E2A84[gUnk_03004C20.world - 1]
                                                                 [var_r6 - gUnk_080E2A84[gUnk_03004C20.world - 1][0]]];
                         if (temp_r1_5->kind == 0x22) {
-                            if (temp_r1_5->unkC_2 == 0) {
+                            if (temp_r1_5->flip == 0) {
                                 gUnk_03002920[var_r6].xPosBg2 -= 6;
                             } else {
                                 gUnk_03002920[var_r6].xPosBg2 += 9;
@@ -2635,13 +2635,13 @@ void InitLevelGameplay(u32 arg0) {
     if (gUnk_03004C20.level == 8) {
         gUnk_03002920->xPosBg2 = gUnk_080D6458[gUnk_03004C20.world - 1].unk0;
         gUnk_03002920->yPosBg2 = gUnk_080D6458[gUnk_03004C20.world - 1].unk2;
-        gUnk_03002920->unkC_2 = gUnk_080D6458[gUnk_03004C20.world - 1].unk4_0;
+        gUnk_03002920->flip = gUnk_080D6458[gUnk_03004C20.world - 1].unk4_0;
     } else {
         gUnk_03002920->xPosBg2
             = gUnk_080D48C8[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_030051C8 - (gUnk_03004654[1] - 1)].unk0;
         gUnk_03002920->yPosBg2
             = gUnk_080D48C8[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_030051C8 - (gUnk_03004654[1] - 1)].unk2;
-        gUnk_03002920->unkC_2
+        gUnk_03002920->flip
             = gUnk_080D48C8[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_030051C8 - (gUnk_03004654[1] - 1)].unk4_0;
     }
 

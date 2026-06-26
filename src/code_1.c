@@ -351,7 +351,7 @@ void PlayerRespawnOrDeath(s32 arg0) {
         m4aSongNumStart(0x8E);
     }
 
-    gUnk_03005220.unk44 = gUnk_03002920[0].unkC_2;
+    gUnk_03005220.unk44 = gUnk_03002920[0].flip;
     gUnk_03005220.unk3C = 0;
     gUnk_03005220.unk26 = 0;
     gUnk_03005220.unk28 = 0;

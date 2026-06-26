@@ -118,7 +118,7 @@ struct Unk_03002920 {
     /* 0x0B_0 */ s32 unkB_0 : 4; // related to X position
     /* 0x0B_4 */ s32 unkB_4 : 4; // related to Y position
     /* 0x0C_0 */ u32 priority : 2;
-    /* 0x0C_2 */ u32 unkC_2 : 2;
+    /* 0x0C_2 */ u32 flip : 2; /* OAM flip flags: bit0 = horizontal, bit1 = vertical */
     /* 0x0C_4 */ u32 unkC_4 : 4;
     /* 0x0D_0 */ u32 objMode : 2;
     /* 0x0D_2 */ u32 affineHFlip_matrixNum : 4;
