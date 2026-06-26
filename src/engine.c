@@ -544,10 +544,10 @@ void ProcessOamSpriteLayout(void) {
     }
 
     gUnk_03003430.bg1HOfs = (gUnk_03003430.bg2HOfs >> 1);
-    if (gUnk_03003430.bg2VOfs >= gUnk_03005474) {
-        gUnk_03003430.bg1VOfs += (gUnk_03003430.bg2VOfs - gUnk_03005474) & 1;
+    if (gUnk_03003430.bg2VOfs >= gPrevBg2VOfs) {
+        gUnk_03003430.bg1VOfs += (gUnk_03003430.bg2VOfs - gPrevBg2VOfs) & 1;
     } else {
-        gUnk_03003430.bg1VOfs -= (gUnk_03005474 - gUnk_03003430.bg2VOfs) & 1;
+        gUnk_03003430.bg1VOfs -= (gPrevBg2VOfs - gUnk_03003430.bg2VOfs) & 1;
     }
 
     if (gUnk_03003430.bg1VOfs & 0x8000) {
@@ -556,7 +556,7 @@ void ProcessOamSpriteLayout(void) {
         gUnk_03003430.bg1VOfs = 0x50;
     }
 
-    gUnk_03005474 = gUnk_03003430.bg2VOfs;
+    gPrevBg2VOfs = gUnk_03003430.bg2VOfs;
     gBg2PA = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2XMag));
     gBg2PB = MultiplyQ8(SIN(gBg2Alpha), ReciprocalQ8(gBg2XMag));
     gBg2PC = MultiplyQ8(-SIN(gBg2Alpha), ReciprocalQ8(gBg2YMag));
@@ -642,10 +642,10 @@ void UpdateCameraScroll(void) {
 
     gUnk_03003430.bg1HOfs = (gUnk_03003430.bg2HOfs >> 1);
     if (!(gUnk_03004C20.globalFrameCounter & 3) && (gUnk_03004660 == 0)) {
-        if (gUnk_03003430.bg2VOfs >= gUnk_03005474) {
-            gUnk_03003430.bg1VOfs += ((gUnk_03003430.bg2VOfs - gUnk_03005474) & 1);
+        if (gUnk_03003430.bg2VOfs >= gPrevBg2VOfs) {
+            gUnk_03003430.bg1VOfs += ((gUnk_03003430.bg2VOfs - gPrevBg2VOfs) & 1);
         } else {
-            gUnk_03003430.bg1VOfs -= ((gUnk_03005474 - gUnk_03003430.bg2VOfs) & 1);
+            gUnk_03003430.bg1VOfs -= ((gPrevBg2VOfs - gUnk_03003430.bg2VOfs) & 1);
         }
 
         if (gUnk_03003430.bg1VOfs & 0x8000) {
@@ -655,7 +655,7 @@ void UpdateCameraScroll(void) {
         }
     }
 
-    gUnk_03005474 = gUnk_03003430.bg2VOfs;
+    gPrevBg2VOfs = gUnk_03003430.bg2VOfs;
     gBg2PA = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2XMag));
     gBg2PB = MultiplyQ8(SIN(gBg2Alpha), ReciprocalQ8(gBg2XMag));
     gBg2PC = MultiplyQ8(-SIN(gBg2Alpha), ReciprocalQ8(gBg2YMag));
@@ -720,10 +720,10 @@ void UpdateCameraScrollPlayer2(void) {
 
     gUnk_03003430.bg1HOfs = (gUnk_03003430.bg2HOfs >> 1);
     if (!(gUnk_03004C20.globalFrameCounter & 3)) {
-        if (gUnk_03003430.bg2VOfs >= gUnk_03005474) {
-            gUnk_03003430.bg1VOfs += ((gUnk_03003430.bg2VOfs - gUnk_03005474) & 1);
+        if (gUnk_03003430.bg2VOfs >= gPrevBg2VOfs) {
+            gUnk_03003430.bg1VOfs += ((gUnk_03003430.bg2VOfs - gPrevBg2VOfs) & 1);
         } else {
-            gUnk_03003430.bg1VOfs -= ((gUnk_03005474 - gUnk_03003430.bg2VOfs) & 1);
+            gUnk_03003430.bg1VOfs -= ((gPrevBg2VOfs - gUnk_03003430.bg2VOfs) & 1);
         }
 
         if (gUnk_03003430.bg1VOfs & 0x8000) {
@@ -733,7 +733,7 @@ void UpdateCameraScrollPlayer2(void) {
         }
     }
 
-    gUnk_03005474 = gUnk_03003430.bg2VOfs;
+    gPrevBg2VOfs = gUnk_03003430.bg2VOfs;
     gBg2PA = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2XMag));
     gBg2PB = MultiplyQ8(SIN(gBg2Alpha), ReciprocalQ8(gBg2XMag));
     gBg2PC = MultiplyQ8(-SIN(gBg2Alpha), ReciprocalQ8(gBg2YMag));
@@ -981,8 +981,8 @@ void InitLevelFromROMTable(void) {
         gScrollBounds.scrollTop = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk2;
         gScrollBounds.scrollRight = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk4;
         gScrollBounds.scrollBottom = gUnk_080D2E88[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][gUnk_03004C20.room - 1].unk6;
-        gUnk_030051CC.unk0 = gScrollBounds.scrollLeft + ((s32)(gScrollBounds.scrollRight - gScrollBounds.scrollLeft) >> 1);
-        gUnk_030051CC.unk2 = gScrollBounds.scrollTop + ((s32)(gScrollBounds.scrollBottom - gScrollBounds.scrollTop) >> 1);
+        gScrollCenter.x = gScrollBounds.scrollLeft + ((s32)(gScrollBounds.scrollRight - gScrollBounds.scrollLeft) >> 1);
+        gScrollCenter.y = gScrollBounds.scrollTop + ((s32)(gScrollBounds.scrollBottom - gScrollBounds.scrollTop) >> 1);
     }
     gUnk_03004C20.unkA = 0;
     gUnk_03004C20.unkB = 0;

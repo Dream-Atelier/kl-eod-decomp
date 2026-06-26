@@ -285,7 +285,7 @@ extern struct Unk_030034E8 gUnk_030034E8;
 extern u8 gUnk_030051B8;
 extern s32 gUnk_03005480;
 extern s32 gUnk_030007C0;
-extern u16 gUnk_03005474;
+extern u16 gPrevBg2VOfs; /* Previous frame's bg2VOfs */
 
 /* Game-state struct at 0x03005220 (mirrored from kleod, full layout). */
 struct Unk_03005220 {
@@ -474,11 +474,12 @@ extern u8 *gUnk_03004654; /* small ROM/IWRAM byte pointer (indexed [1] in level 
 /* Globals first referenced by sub_08002FD0 (InitLevelFromROMTable). */
 extern u8 gUnk_03000800;
 extern u16 gUnk_03005210;
-struct Unk_030051CC {
-    s16 unk0;
-    s16 unk2;
+/* Center point of the current room's scroll bounds (world px) */
+struct ScrollCenter {
+    s16 x;
+    s16 y;
 };
-extern struct Unk_030051CC gUnk_030051CC;
+extern struct ScrollCenter gScrollCenter;
 
 struct Unk_080D2E88 {
     u16 unk0;
