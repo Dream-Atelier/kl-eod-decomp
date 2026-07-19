@@ -151,7 +151,47 @@ INCLUDE_ASM("asm/nonmatchings/code_3", UpdateOamSortOrder);
 INCLUDE_ASM("asm/nonmatchings/code_3", ProcessInputAndUpdateEntities);
 INCLUDE_ASM("asm/nonmatchings/code_3", sub_0803A8B8);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapInput);
-INCLUDE_ASM("asm/nonmatchings/code_3", CheckWorldCompletion);
+u8 CheckWorldCompletion(u8 arg0) {
+    u32 var_r0;
+    u32 var_r2;
+    u8 var_sl;
+    u8 var_ip;
+    u8 var_r6;
+    u8 var_r8;
+    u8 v50;
+    if (arg0 < 4) {
+        if (((gUnk_03004670->unk8[arg0][7] & 0x80) != 0) && ((gUnk_03004670->unk8[arg0 + 1][0] & 0x7F) != 0x7F))
+            return 1;
+    } else if ((gUnk_03004670->unk8[5][7] & 0x80) != 0) {
+        var_r8 = 0;
+        var_ip = 0;
+        var_r6 = 0;
+        var_sl = 0;
+        for (var_r0 = 0; var_r0 < 5; var_r0++) {
+            for (var_r2 = 0; var_r2 < 7; var_r2++) {
+                if ((var_r2 == 3 || var_r2 == 5) && (gUnk_03004670->unk8[var_r0][var_r2] & 0x7F) == 0x64)
+                    var_r8 += 1;
+                else if ((var_r2 != 7) && ((gUnk_03004670->unk8[var_r0][var_r2] & 0x7F) == 0x1E))
+                    var_ip += 1;
+                if (gUnk_03004670->unk8[var_r0][var_r2] & 0x80)
+                    var_r6 += 1;
+            }
+        }
+        v50 = gUnk_03004670->unk8[5][0] & 0x7F;
+        if (v50 == 0x1E)
+            var_sl += 1;
+        if ((gUnk_03004670->unk8[5][1] & 0x7F) == 0x1E)
+            var_sl += 1;
+        if ((arg0 == 4) && (v50 != 0x7F) && (var_r6 == 0x23))
+            return 1;
+        if ((arg0 == 5) && ((gUnk_03004670->unk8[5][1] & 0x7F) != 0x7F) && ((var_ip + var_r8) > 0x18))
+            return 1;
+        if ((arg0 == 6) && ((gUnk_03004670->unk8[5][2] & 0x7F) != 0x7F) && ((var_ip + var_r8 + var_sl) == 0x25))
+            return 1;
+    }
+    return 0;
+}
+
 /**
  * CopyWorldMapTiles: ported from kleod CopyWorldMapTiles.
  */
