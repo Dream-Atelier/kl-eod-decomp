@@ -23,6 +23,9 @@ gBg2YMag   = 0x03005420;
 gUnk_030034F8 = 0x030034F8;
 gUnk_03003430 = 0x03003430;
 gUnk_03002920 = 0x03002920;
+/* kleod-canonical typed views aliasing the same addresses (see variables.h). */
+gEntityInfo = 0x03002920;
+gBgInfo = 0x03003430;
 gUnk_03005428 = 0x03005428;
 gUnk_03003410 = 0x03003410;
 gCallbackQueue = 0x03003510;
