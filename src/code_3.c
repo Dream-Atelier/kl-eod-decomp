@@ -3,6 +3,102 @@
 #include "include_asm.h"
 #include "structs/variables.h"
 
+/* ── kleod code_08039D8C.c shared scaffolding ─────────────────────────────
+ * ROM data tables, common globals, cross-module externs, and forward decls
+ * for the logic functions ported from kleod's code_08039D8C.c. */
+#define BLEND_MAX 16
+#define BG_PLTT   ((void *)0x05000000)
+
+extern struct BgDataPtrs gBgDataPtrs; /* 0x03004790 */
+extern u8 gBlendValue; /* 0x03005498 */
+extern struct Unk_03004C08 gUnk_03004C08;
+
+/* Tile-collision query result (kleod sub_08014230). */
+struct Unk_08014184 {
+    u16 unk0;
+    u8 unk2;
+    u8 pad3[0x4 - 0x3];
+};
+
+/* Cross-module functions (defined in code_1). */
+extern struct Unk_08014184 *CheckTileCollisionSloped(struct Unk_08014184 *, u16, u16, u8);
+extern void PlayerRespawnOrDeath(s32);
+extern void SpawnEntityAtPosition(u16, u16, u8, u8);
+
+/* ROM data tables. */
+extern u8 gUnk_08064868[0x200];
+extern const u8 gUnk_08078508[0x20];
+extern u8 gUnk_08078628[0x20];
+extern u8 gUnk_08078728[0x20];
+extern u8 gUnk_08078768[0x20];
+extern u8 gUnk_080789C8[0x20];
+extern u8 gUnk_080B9468[0x200];
+extern u8 gUnk_080D8C30[6][0x40];
+extern const u8 gUnk_081166F8[4][4];
+extern const u16 gUnk_08116728[8][2];
+extern const u8 gUnk_08116780[8][0x20];
+extern const s8 gUnk_08116888[6][2];
+extern const u8 gUnk_081168DC[6];
+extern const u8 gUnk_081168E2[4];
+extern const u8 gUnk_081169F9[3][3];
+extern const u8 gUnk_08116A02[4][5];
+extern u8 gUnk_08116A46[4][2];
+extern u16 gUnk_08116A4E[4][4];
+extern const u8 gUnk_08116A6E[4][6];
+extern const u8 gUnk_08116A86[5][6];
+extern const u8 gUnk_08116AA4[3];
+extern const u8 gUnk_08116AA7[3];
+extern const u8 gUnk_0811710A[6];
+extern u16 gUnk_08117110[8];
+extern const void *gUnk_0818B9F8[];
+extern u32 gUnk_082EAF8C;
+extern u32 gUnk_082EB488;
+extern u32 gUnk_082EB5B8;
+extern u32 gUnk_082EBB20;
+extern u32 gUnk_082EBC68;
+extern u32 gUnk_082EC1A4;
+extern u32 gUnk_082EC2E4;
+extern u32 gUnk_082EC7C8;
+extern u32 gUnk_082EC8F4;
+extern u32 gUnk_082ECD74;
+extern u32 gUnk_083128F8;
+extern u32 gUnk_08312A58;
+extern u32 gUnk_08312B70;
+extern u32 gUnk_08312BD8;
+extern u32 gUnk_08313C34;
+extern u32 gUnk_08313F24;
+extern u32 gUnk_083141F0;
+extern u32 gUnk_083142EC;
+extern u32 gUnk_083155C4;
+
+/* Forward decls (code_08039D8C.c cluster). */
+void InitGameplayState(void);
+void UpdateOamSortOrder(void);
+void ProcessInputAndUpdateEntities(void);
+void UpdateWorldMapInput(void);
+u8 CheckWorldCompletion(u8 arg0);
+void CopyWorldMapTiles(u8 arg0);
+void SetWorldMapTilePalette(u8 arg0, u8 arg1);
+void UpdateWorldMapNodeTile(u8 arg0);
+void UpdateEntities(void);
+void CountCollectedGems(void);
+void UpdateWorldMapNodeAnim(void);
+void GameplayMainLoop(void);
+void InitLevelState(void);
+void SpawnEntitiesForVision(u8 arg0);
+void GetEntityLookupData(u8 arg0);
+void ComputeScrollLimits(void);
+void ApplyPlayerMovement(u8 arg0, struct Unk_0803D4AC arg1);
+void UpdatePlayerNormal(u8 arg0);
+void SetupEntitySpawnTable(u8 arg0);
+void RollRandomLevelVariant(void);
+void UpdatePlayerBoss(u8 arg0);
+void ConfigureEntityBehavior(u8 arg0, u8 arg1, u8 arg2);
+void TransitionLevelVariant(u8 arg0);
+void UpdateLevelProgression(void);
+void SetEntityVisibility(u8 arg0);
+void UpdatePlayerSpecial(u8 arg0);
+
 /* World-map node/tile ROM lookup tables (kleod-canonical). */
 extern const u8 gUnk_08116708[8][4];
 extern const u8 gUnk_08116748[7][8];

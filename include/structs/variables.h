@@ -191,6 +191,36 @@ struct BgInfo {
 }; /* size = 0x1C */
 extern struct BgInfo gBgInfo[4];
 
+/* Per-entity movement parameter row (ROM table gUnk_081168E8). */
+struct Unk_0803D4AC {
+    u8 unk0;
+    u8 unk1;
+    u8 unk2;
+    s8 unk3;
+    s8 unk4;
+    u8 unk5;
+    u8 unk6;
+};
+/* Decompressed BG tile/tilemap buffer pointers (0x03004790). */
+struct BgDataPtrs {
+    /* 0x00 */ void *pBufBg0Tiles;
+    /* 0x04 */ u16 *pBufBg0Tilemap;
+    /* 0x08 */ void *pBufBg1Tiles;
+    /* 0x0C */ u16 *pBufBg1Tilemap;
+    /* 0x10 */ void *pBufBg2Tiles;
+    /* 0x14 */ u8 *pBufBg2Tilemap;
+    /* 0x18 */ void *pBufBg3Tiles;
+    /* 0x1C */ u16 *pBufBg3Tilemap;
+}; /* size = 0x20 */
+/* World-map completion/animation state (0x03004C08). */
+struct Unk_03004C08 {
+    u8 unk0_0 : 4;
+    u8 unk0_4 : 4;
+    s8 unk1;
+    u8 unk2;
+    u8 pad3[0x4 - 0x3];
+};
+
 /* Active entity count (number of slots in gUnk_03002920 to iterate). */
 extern u8 gUnk_03005428;
 
