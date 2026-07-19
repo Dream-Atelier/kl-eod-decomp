@@ -7,11 +7,20 @@
  * ROM data tables, common globals, cross-module externs, and forward decls
  * for the logic functions ported from kleod's code_08039D8C.c. */
 #define BLEND_MAX 16
+#define OBJ_PLTT  ((void *)0x05000200)
+#define BG_VRAM   ((void *)0x06000000)
 #define BG_PLTT   ((void *)0x05000000)
 
 extern struct BgDataPtrs gBgDataPtrs; /* 0x03004790 */
 extern u8 gBlendValue; /* 0x03005498 */
 extern struct Unk_03004C08 gUnk_03004C08;
+extern u8 *gUnk_03004658;
+extern struct Unk_0803D4AC gUnk_081168E8[];
+extern u8 gUnk_03004D9C;
+extern struct Unk_0803D4AC gUnk_03003620;
+extern u8 gUnk_030034C0;
+extern struct Unk_030034B0 gUnk_030034B0;
+extern u8 gUnk_030007CC;
 extern u8 gUnk_03003D16[][8];
 extern u8 gUnk_03003DD6[][8];
 extern u8 gUnk_03003E96[][8];
@@ -454,7 +463,57 @@ void ConfigureEntityBehavior(u8 arg0, u8 arg1, u8 arg2) {
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", ResetEntityTypesOnDeath);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerMinigame);
-INCLUDE_ASM("asm/nonmatchings/code_3", TransitionLevelVariant);
+/**
+ * TransitionLevelVariant: ported from kleod TransitionLevelVariant.
+ */
+void TransitionLevelVariant(u8 arg0) {
+    u8 var_sb;
+
+    if ((gEntityInfo[0x18].unkF == arg0) && (gUnk_03005400.unkC > 2)) {
+        return;
+    }
+
+    if (arg0 == 0) {
+        if (gEntityInfo[0x18].unkF == 0) {
+            return;
+        }
+
+        gUnk_03004C20.room = gUnk_03005400.unkC;
+
+        for (var_sb = 0; var_sb < 6; var_sb++) {
+            SetupOAMSprite(
+                var_sb + 0x18, gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb + 0xB].unk28,
+                gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb + 0xB].unk0[gUnk_03004C20.room - 1].unk0,
+                gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb + 0xB].unk0[gUnk_03004C20.room - 1].unk2, 0, 0,
+                gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb + 0xB].unk0[gUnk_03004C20.room - 1].unk5, arg0,
+                gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_sb + 0xB].unk29);
+
+            if ((gEntityInfo[var_sb + 0x18].unkC_4 == 3) || (gEntityInfo[var_sb + 0x18].unkC_4 == 1)) {
+                DmaCopy16(3, &gUnk_08064868,
+                          OBJ_VRAM0 + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb + 0xC].tileNum * 0x20),
+                          0x200);
+            } else {
+                DmaCopy16(3, &gUnk_080B9468,
+                          OBJ_VRAM0 + (gUnk_0818B8E0[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk4[var_sb + 0xC].tileNum * 0x20),
+                          0x200);
+            }
+        }
+    } else {
+        gEntityInfo[0x1D].unkF = 0x1C;
+        gEntityInfo[0x1C].unkF = 0x1C;
+        gEntityInfo[0x1B].unkF = 0x1C;
+        gEntityInfo[0x1A].unkF = 0x1C;
+        gEntityInfo[0x19].unkF = 0x1C;
+        gEntityInfo[0x18].unkF = 0x1C;
+
+        gEntityInfo[0x1D].unk10 = 0;
+        gEntityInfo[0x1C].unk10 = 0;
+        gEntityInfo[0x1B].unk10 = 0;
+        gEntityInfo[0x1A].unk10 = 0;
+        gEntityInfo[0x19].unk10 = 0;
+        gEntityInfo[0x18].unk10 = 0;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateLevelProgression);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerAlternate);
 INCLUDE_ASM("asm/nonmatchings/code_3", HandleSceneTransitionInput);
