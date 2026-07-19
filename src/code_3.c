@@ -3,6 +3,21 @@
 #include "include_asm.h"
 #include "structs/variables.h"
 
+/* World-map node/tile ROM lookup tables (kleod-canonical). */
+extern const u8 gUnk_08116708[8][4];
+extern const u8 gUnk_08116748[7][8];
+extern const u8 gUnk_08116880[8];
+
+/* Forward decls for world-map cluster + callbacks referenced across definitions. */
+u8 CheckWorldCompletion(u8);
+void CopyWorldMapTiles(u8);
+void SetWorldMapTilePalette(u8, u8);
+void UpdateWorldMapNodeTile(u8);
+void CountCollectedGems(void);
+void UpdateWorldMapNodeAnim(void);
+void GameplayMainLoop(void);
+void InitGameplayState(void);
+
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World1_Vision1);
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World1_Vision2);
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World2_Vision1);
@@ -27,10 +42,85 @@ INCLUDE_ASM("asm/nonmatchings/code_3", UpdateOamSortOrder);
 INCLUDE_ASM("asm/nonmatchings/code_3", ProcessInputAndUpdateEntities);
 INCLUDE_ASM("asm/nonmatchings/code_3", sub_0803A8B8);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapInput);
-INCLUDE_ASM("asm/nonmatchings/code_3", CheckWorldCompletion); /* IsEntityActive */
-INCLUDE_ASM("asm/nonmatchings/code_3", CopyWorldMapTiles); /* UpdateEntityState */
-INCLUDE_ASM("asm/nonmatchings/code_3", SetWorldMapTilePalette);
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapNodeTile); /* UpdateEntityAnimation */
+INCLUDE_ASM("asm/nonmatchings/code_3", CheckWorldCompletion);
+/**
+ * CopyWorldMapTiles: ported from kleod CopyWorldMapTiles.
+ */
+void CopyWorldMapTiles(u8 arg0) {
+    u8 var_r0;
+    u8 var_r3;
+
+    arg0 += 1;
+    if (arg0 < 5) {
+        // Variables must be declared in this scope to match
+        u16 *var_r4 = &gBgTilemapBufs[1][gUnk_08116708[arg0][2] + (gUnk_08116708[arg0][3] << 5)];
+        u16 *var_r2 = &gBgTilemapBufs[1][arg0 * 0x5 + 0x280];
+        for (var_r0 = 0; var_r0 < 4; var_r0++) {
+            for (var_r3 = 0; var_r3 < 5; var_r3++) {
+                var_r4[var_r3] = var_r2[var_r3];
+            }
+            var_r4 += 0x20;
+            var_r2 += 0x20;
+        }
+    } else {
+        gBgTilemapBufs[1][gUnk_08116708[arg0][2] + ((gUnk_08116708[arg0][3] + 0) << 5) + 0]
+            = gBgTilemapBufs[1][((arg0 - 5) * 2) + 0x340];
+        gBgTilemapBufs[1][gUnk_08116708[arg0][2] + ((gUnk_08116708[arg0][3] + 0) << 5) + 1]
+            = gBgTilemapBufs[1][((arg0 - 5) * 2) + 0x341];
+        gBgTilemapBufs[1][gUnk_08116708[arg0][2] + ((gUnk_08116708[arg0][3] + 1) << 5) + 0]
+            = gBgTilemapBufs[1][((arg0 - 5) * 2) + 0x360];
+        gBgTilemapBufs[1][gUnk_08116708[arg0][2] + ((gUnk_08116708[arg0][3] + 1) << 5) + 1]
+            = gBgTilemapBufs[1][((arg0 - 5) * 2) + 0x361];
+    }
+}
+/**
+ * SetWorldMapTilePalette: ported from kleod SetWorldMapTilePalette.
+ */
+void SetWorldMapTilePalette(u8 arg0, u8 arg1) {
+    u16 temp_sl;
+    u8 var_r0;
+    u8 var_r3;
+    u16 *var_r5; // Must be declared last to match
+
+    arg0 += 1;
+    var_r5 = &gBgTilemapBufs[1][gUnk_08116708[arg0][2] + (gUnk_08116708[arg0][3] << 5)];
+    temp_sl = var_r5[0x20];
+    for (var_r0 = 0; var_r0 < 4; var_r0++) {
+        for (var_r3 = 0; var_r3 < 5; var_r3++) {
+            var_r5[var_r3] = (var_r5[var_r3] & 0xFFF) | (arg1 << 0xC);
+        }
+        var_r5 += 0x20;
+    }
+
+    if (arg0 == 4) {
+        gBgTilemapBufs[1][gUnk_08116708[4][2] + (gUnk_08116708[4][3] << 5) + 0x20] = temp_sl;
+    }
+}
+/**
+ * UpdateWorldMapNodeTile: ported from kleod UpdateWorldMapNodeTile.
+ */
+void UpdateWorldMapNodeTile(u8 arg0) {
+    vu32 a; // Required to match
+    if (arg0 < 4) {
+        gBgTilemapBufs[1][gUnk_08116748[arg0][0] + (gUnk_08116748[arg0][1] << 5)]
+            = gBgTilemapBufs[1][((gUnk_08116880[arg0] + 0x1C) * 0x20) + 0];
+        gBgTilemapBufs[1][gUnk_08116748[arg0][2] + (gUnk_08116748[arg0][3] << 5)]
+            = gBgTilemapBufs[1][((gUnk_08116880[arg0] + 0x1C) * 0x20) + 1];
+        gBgTilemapBufs[1][gUnk_08116748[arg0][4] + (gUnk_08116748[arg0][5] << 5)]
+            = gBgTilemapBufs[1][((gUnk_08116880[arg0] + 0x1C) * 0x20) + 2];
+        gBgTilemapBufs[1][gUnk_08116748[arg0][6] + (gUnk_08116748[arg0][7] << 5)]
+            = gBgTilemapBufs[1][((gUnk_08116880[arg0] + 0x1C) * 0x20) + 3];
+    } else {
+        gBgTilemapBufs[1][gUnk_08116748[arg0][0] + (gUnk_08116748[arg0][1] << 5)]
+            = gBgTilemapBufs[1][((gUnk_08116880[arg0] + 0x1C) * 0x20) + 4];
+        gBgTilemapBufs[1][gUnk_08116748[arg0][2] + (gUnk_08116748[arg0][3] << 5)]
+            = gBgTilemapBufs[1][((gUnk_08116880[arg0] + 0x1C) * 0x20) + 5];
+        gBgTilemapBufs[1][gUnk_08116748[arg0][4] + (gUnk_08116748[arg0][5] << 5)]
+            = gBgTilemapBufs[1][((gUnk_08116880[arg0] + 0x1C) * 0x20) + 6];
+        gBgTilemapBufs[1][gUnk_08116748[arg0][6] + (gUnk_08116748[arg0][7] << 5)]
+            = gBgTilemapBufs[1][((gUnk_08116880[arg0] + 0x1C) * 0x20) + 7];
+    }
+}
 /*
  * Iterates over entity slots 0-6 and updates active ones.
  * For each slot, checks if the entity is active via CheckWorldCompletion.
