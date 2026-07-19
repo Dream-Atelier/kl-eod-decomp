@@ -4,6 +4,7 @@
 #include "include_asm.h"
 #include "structs/variables.h"
 /* AUTOPORT-SYMS */
+extern u16 gUnk_030052B8;
 extern void AnimatePaletteEffects();
 extern void CameraModeSwitchHandler();
 extern void IntroSequenceUpdate();
@@ -620,7 +621,46 @@ INCLUDE_ASM("asm/nonmatchings/code_1", EntityBossPhaseC);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityBossPhaseD);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityMiniBoss);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityMiniBossAlt);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutDisableIRQ);
+/**
+ * TransitionFadeOutDisableIRQ: per-frame fade-to-black step (every other
+ * frame). Darkens all layers via BLDCNT, decrements the blend value, and once
+ * it reaches zero removes this callback from the queue.
+ */
+void TransitionFadeOutDisableIRQ(void) {
+    u32 removed;
+    u32 i;
+
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue -= 1;
+    if (gBlendValue == 0) {
+        // Remove TransitionFadeOutDisableIRQ from callback queue
+        removed = FALSE;
+        for (i = 0; i < (gCallbackQueue.currentCount - 1); i++) {
+            if ((gCallbackQueue.current[i] == TransitionFadeOutDisableIRQ) || (removed == TRUE)) {
+                gCallbackQueue.next[i] = gCallbackQueue.current[i + 1];
+                removed = TRUE;
+            } else {
+                gCallbackQueue.next[i] = gCallbackQueue.current[i];
+            }
+        }
+        if (removed == TRUE) {
+            gCallbackQueue.nextCount = gCallbackQueue.currentCount - 1;
+            gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        }
+
+        REG_IE &= ~INTR_FLAG_HBLANK;
+        REG_DISPSTAT &= ~DISPSTAT_HBLANK_INTR;
+        gUnk_030034E4 = 0;
+    } else {
+        gMosaicSize -= 1;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeInBldAlpha);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionInitLevelMusic);
 /**
@@ -825,7 +865,45 @@ INCLUDE_ASM("asm/nonmatchings/code_1", GameplayFrameInit);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutFull);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionReturnToWorldMap);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutMusicAndReset);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionClearAndRestart);
+/**
+ * TransitionClearAndRestart: per-frame fade-in step (every other frame). Brightens
+ * all layers via BLDCNT until the blend value reaches max, then resets BG2
+ * affine/blend state, disables the HBlank interrupt, clears video state, and
+ * queues InitLevelBG / ResetVideoRegisters to rebuild the scene.
+ */
+void TransitionClearAndRestart(void) {
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue += 1;
+    if (gBlendValue == BLEND_MAX) {
+        gUnk_030034E4 = 0;
+        gBg2XMag = gBg2YMag = 0x100;
+        gBg2Alpha = 0;
+
+        REG_IE &= ~INTR_FLAG_HBLANK;
+        REG_DISPSTAT &= ~DISPSTAT_HBLANK_INTR;
+
+        gUnk_03004658[0xC] = 0;
+        gUnk_03004C20.sceneFrameCounter = -1;
+        ClearVideoState();
+        gUnk_03003410.unk9 = 0;
+        gUnk_03003410.unkA = 0;
+        gCallbackQueue.next[0] = InitLevelBG;
+        gUnk_03003410.unk8 = 1;
+        gCallbackQueue.next[1] = ResetVideoRegisters;
+        gCallbackQueue.next[2] = NULL + 1;
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        gCallbackQueue.nextCount = 3;
+        gUnk_03004C20.sceneFrameCounter = -1;
+    } else {
+        gMosaicSize += 1;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeInRestoreWindows);
 /**
  * TransitionToGameplayScreen: kleod TransitionToGameplayScreen.
