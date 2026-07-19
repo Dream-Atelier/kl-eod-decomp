@@ -4,6 +4,34 @@
 #include "include_asm.h"
 #include "structs/variables.h"
 /* AUTOPORT-SYMS */
+extern void AnimatePaletteEffects();
+extern void CameraModeSwitchHandler();
+extern void IntroSequenceUpdate();
+extern void VBlankCallback_MinimalHW();
+extern void InitVideoAndBG();
+extern void TransitionFadeOutFull();
+extern void WaitVBlankAndClearMosaic();
+extern void InitWorldMapGfx();
+extern void UpdateSceneTransition();
+extern void IntroScrollAnimation();
+extern void VBlankCallback_TitleScreen();
+extern void LoadBGPalette();
+extern void ResetVideoRegisters();
+extern void InitLevelBG();
+extern void TransitionFadeInRestoreWindows();
+extern void UpdateAllEntities();
+#define BLEND_MAX       16
+#define BLDCNT_TGT1_ALL (BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_BG3 | BLDCNT_TGT1_OBJ | BLDCNT_TGT1_BD)
+extern u8 gBlendValue;
+extern u8 gSoundVolume;
+extern struct MP2KPlayerState gMPlayInfo_0, gMPlayInfo_1, gMPlayInfo_2, gMPlayInfo_3;
+extern struct EntityAnimationInfo gEntityAnimationInfo[];
+void m4aMPlayVolumeControl(struct MP2KPlayerState *, u16, u16);
+void m4aMPlayAllStop(void);
+void m4aSongNumStart(u16);
+void m4aSongNumContinue(u16);
+void m4aSoundVSyncOff(void);
+void m4aSoundVSyncOn(void);
 #define PLTT ((void *)0x05000000)
 extern u8 *gUnk_03004658;
 extern u8 gUnk_030007C4;
@@ -630,11 +658,168 @@ void TransitionToWorldMap(void) {
     callbackState[slotIdx] = isActive;
     *((u8 *)callbackState + 0x79) = 5;
 }
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionGameplayInit);
+/**
+ * TransitionGameplayInit: kleod TransitionGameplayInit.
+ */
+void TransitionGameplayInit(void) {
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue += 1;
+    if (gBlendValue == BLEND_MAX) {
+        gUnk_030034E4 = 0;
+        FreeAllDecompBuffers();
+        gUnk_03004C20.sceneFrameCounter = -1;
+        gCallbackQueue.next[0] = ReadKeyInput;
+        if (gUnk_03003410.unk7 == 1) {
+            gCallbackQueue.next[0] = ReadKeyInput; // Redundant, required to match
+            if (gUnk_03004C20.world == 6) {
+                gCallbackQueue.next[1] = UpdateAllEntities;
+                gCallbackQueue.next[2] = TransitionFadeInRestoreWindows;
+                gCallbackQueue.next[3] = VBlankCallback_Gameplay;
+                gCallbackQueue.next[4] = NULL + 1;
+                gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+                gCallbackQueue.nextCount = 5;
+            } else {
+                gUnk_03004C20.level = 0;
+                gUnk_03003410.unk9 = 0;
+                gUnk_03003410.unkA = 0;
+                gCallbackQueue.next[0] = InitLevelBG;
+                gUnk_03003410.unk8 = 1;
+                gCallbackQueue.next[1] = ResetVideoRegisters;
+                gCallbackQueue.next[2] = NULL + 1;
+                gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+                gCallbackQueue.nextCount = 3;
+            }
+            gUnk_03004C20.sceneFrameCounter = -1;
+        } else {
+            gEntityInfo[0xB].unk10 = 0;
+            gMosaicSize = 0;
+            gCallbackQueue.next[1] = LoadBGPalette;
+            gCallbackQueue.next[2] = VBlankCallback_TitleScreen;
+            gCallbackQueue.next[3] = NULL + 1;
+            gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+            gCallbackQueue.nextCount = 4;
+            gUnk_03004C20.sceneFrameCounter = -1;
+            gUnk_03004D9C = 0;
+        }
+    } else {
+        gMosaicSize += 1;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutWithMusic);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionWorldMapFadeOut);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionToSceneSelect);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionToTitleScreen);
+/**
+ * TransitionWorldMapFadeOut: kleod TransitionWorldMapFadeOut.
+ */
+void TransitionWorldMapFadeOut(void) {
+    u32 removed;
+    u32 i;
+
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue -= 1;
+    if (gBlendValue == 0) {
+        // remove TransitionWorldMapFadeOut from callback queue
+        // TODO: do while required to match, callback removal possibly a macro
+        do {
+            removed = FALSE;
+            for (i = 0; i < (gCallbackQueue.currentCount - 1); i++) {
+                if ((gCallbackQueue.current[i] == TransitionWorldMapFadeOut) || (removed == TRUE)) {
+                    gCallbackQueue.next[i] = gCallbackQueue.current[i + 1];
+                    removed = TRUE;
+                } else {
+                    gCallbackQueue.next[i] = gCallbackQueue.current[i];
+                }
+            }
+            if (removed == TRUE) {
+                gCallbackQueue.nextCount = gCallbackQueue.currentCount - 1;
+                gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+            }
+        } while (0);
+
+        gUnk_03004C20.sceneFrameCounter = 0;
+        gUnk_030034E4 = 0;
+    }
+}
+/**
+ * TransitionToSceneSelect: kleod TransitionToSceneSelect.
+ */
+void TransitionToSceneSelect(void) {
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue += 1;
+    if (gBlendValue == BLEND_MAX) {
+        gUnk_030034E4 = 0;
+        FreeAllDecompBuffers();
+
+        gBg2XMag = gBg2YMag = 0x100;
+        gBg2Alpha = 0;
+
+        REG_IE &= ~INTR_FLAG_HBLANK;
+        REG_DISPSTAT &= ~DISPSTAT_HBLANK_INTR;
+
+        gUnk_03004658[0xC] = 0;
+        gCallbackQueue.next[0] = ReadKeyInput;
+        gCallbackQueue.next[1] = UpdateSceneTransition;
+        gCallbackQueue.next[2] = VBlankCallback_Gameplay;
+        gCallbackQueue.next[3] = NULL + 1;
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        gCallbackQueue.nextCount = 4;
+        gUnk_03004C20.sceneFrameCounter = -1;
+    } else {
+        gMosaicSize += 1;
+    }
+}
+/**
+ * TransitionToTitleScreen: kleod TransitionToTitleScreen.
+ */
+void TransitionToTitleScreen(void) {
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue += 1;
+    if (gBlendValue == BLEND_MAX) {
+        gUnk_030034E4 = 0;
+        FreeAllDecompBuffers();
+
+        gBg2XMag = gBg2YMag = 0x100;
+        gBg2Alpha = 0;
+
+        REG_IE &= ~INTR_FLAG_HBLANK;
+        REG_DISPSTAT &= ~DISPSTAT_HBLANK_INTR;
+
+        gUnk_03004658[0xC] = 0;
+        gCallbackQueue.next[0] += 0; // FAKE
+        gUnk_03003410.unkA = gUnk_03003410.unk9 = 0;
+        gCallbackQueue.next[0] = InitLevelBG;
+        gUnk_03003410.unk8 = 1;
+        gCallbackQueue.next[1] = ResetVideoRegisters;
+        gCallbackQueue.next[2] = NULL + 1;
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        gCallbackQueue.nextCount = 3;
+        gUnk_03004C20.sceneFrameCounter = -1;
+    } else {
+        gMosaicSize += 1;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionGameOver);
 INCLUDE_ASM("asm/nonmatchings/code_1", GameplayFrameInit);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutFull);
@@ -642,7 +827,42 @@ INCLUDE_ASM("asm/nonmatchings/code_1", TransitionReturnToWorldMap);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutMusicAndReset);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionClearAndRestart);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeInRestoreWindows);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionToGameplayScreen);
+/**
+ * TransitionToGameplayScreen: kleod TransitionToGameplayScreen.
+ */
+void TransitionToGameplayScreen(void) {
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_LIGHTEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue += 1;
+    if (gBlendValue == BLEND_MAX) {
+        gUnk_030034E4 = 0;
+
+        gBg2XMag = gBg2YMag = 0x100;
+        gBg2Alpha = 0;
+
+        REG_IE &= ~INTR_FLAG_HBLANK;
+        REG_DISPSTAT &= ~DISPSTAT_HBLANK_INTR;
+
+        gUnk_03004658[0xC] = 0;
+        gUnk_03004C20.sceneFrameCounter = -1;
+        InitOamEntries();
+        gCallbackQueue.next[0] = ReadKeyInput;
+        gCallbackQueue.next[1] = UpdateAllEntities;
+        gCallbackQueue.next[2] = TransitionFadeInRestoreWindows;
+        gCallbackQueue.next[3] = VBlankCallback_Gameplay;
+        gCallbackQueue.next[4] = NULL + 1;
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        gCallbackQueue.nextCount = 5;
+        gUnk_03004C20.sceneFrameCounter = -1;
+    } else {
+        gMosaicSize += 1;
+    }
+}
 /**
  * TransitionSoftReset: fades to black then triggers soft reset after 16 frames.
  */
@@ -665,8 +885,90 @@ void TransitionSoftReset(void) {
 
     gBldyFadeLevel += 1;
 }
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionSelfRemoveFadeIn);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionToSaveScreen);
+/**
+ * TransitionSelfRemoveFadeIn: kleod TransitionSelfRemoveFadeIn.
+ */
+void TransitionSelfRemoveFadeIn(void) {
+    u32 removed;
+    u32 i;
+
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue -= 1;
+    if (gBlendValue == 0) {
+        // remove TransitionFadeInRestoreWindows from callback queue
+        removed = FALSE;
+        for (i = 0; i < (gCallbackQueue.currentCount - 1); i++) {
+            if ((gCallbackQueue.current[i] == TransitionSelfRemoveFadeIn) || (removed == TRUE)) {
+                gCallbackQueue.next[i] = gCallbackQueue.current[i + 1];
+                removed = TRUE;
+            } else {
+                gCallbackQueue.next[i] = gCallbackQueue.current[i];
+            }
+        }
+        if (removed == TRUE) {
+            gCallbackQueue.nextCount = gCallbackQueue.currentCount - 1;
+            gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        }
+
+        gUnk_030034E4 = 0;
+    } else {
+        gMosaicSize -= 1;
+    }
+}
+/**
+ * TransitionToSaveScreen: kleod TransitionToSaveScreen.
+ */
+void TransitionToSaveScreen(void) {
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue += 1;
+    if (gBlendValue == BLEND_MAX) {
+        REG_IE &= ~INTR_FLAG_VBLANK;
+        REG_DISPSTAT &= ~DISPSTAT_VBLANK_INTR;
+        m4aSoundVSyncOff();
+
+        m4aMPlayAllStop();
+        gUnk_03005284->unk1 = 6;
+        SaveGameWithVerify(0, 7);
+        SaveGameWithVerify(1, 0);
+        gUnk_030034E4 = 0;
+        ClearVideoState();
+        FreeAllDecompBuffers();
+        gUnk_03004C20.sceneFrameCounter = -1;
+
+        gBg2XMag = gBg2YMag = 0x100;
+        gBg2Alpha = 0;
+
+        REG_IE &= ~INTR_FLAG_HBLANK;
+        REG_DISPSTAT &= ~DISPSTAT_HBLANK_INTR;
+
+        gUnk_03004658[0xC] = 0;
+        gCallbackQueue.next[0] = ReadKeyInput;
+        gCallbackQueue.next[1] = InitVideoAndBG;
+        gCallbackQueue.next[2] = TransitionSelfRemoveFadeIn;
+        gCallbackQueue.next[3] = VBlankCallback_MinimalHW;
+        gCallbackQueue.next[4] = NULL + 1;
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        gCallbackQueue.nextCount = 5;
+
+        REG_IE |= INTR_FLAG_VBLANK;
+        REG_DISPSTAT |= DISPSTAT_VBLANK_INTR;
+        m4aSoundVSyncOn();
+    } else {
+        gMosaicSize += 1;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", SetPaletteAnimEntry);
 INCLUDE_ASM("asm/nonmatchings/code_1", UpdatePaletteAnimations);
 /**

@@ -653,6 +653,12 @@ struct Unk_03000830 {
 extern struct Unk_03000830 gUnk_03000830[];
 
 /* Rotation/scale matrix source table for OAM (halfwords at 0x03004680). */
+struct EntityAnimationInfo {
+    u8 state;
+    u8 timer;
+    volatile u8 frame;
+    u8 pad3[1];
+};
 struct Unk_03004680 {
     u16 unk0;
     u16 unk2;
