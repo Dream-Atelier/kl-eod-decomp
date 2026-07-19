@@ -404,7 +404,18 @@ void StreamCmd_EnableMosaic(void) {
     gStreamPtr += 3;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetSpriteAttrs);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetRenderMode);
+/**
+ * StreamCmd_SetRenderMode: set render mode to 2.
+ * Clears low 2 bits of gGfxBuffer[0], sets bit 1. Advances stream by 2.
+ */
+void StreamCmd_SetRenderMode(void) {
+    u8 *buf = (u8 *)gGfxBufferPtr;
+    u8 val = buf[0];
+    s32 mask = -4;
+    mask &= val;
+    buf[0] = mask | 2;
+    gStreamPtr += 2;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", DispatchLevelLayerSetup);
 /**
  * StreamCmd_SetBGScroll: set BG layer scroll from stream data.
