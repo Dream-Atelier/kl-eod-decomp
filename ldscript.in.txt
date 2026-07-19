@@ -51,6 +51,20 @@ gUnk_030034DC = 0x030034DC;
 gUnk_030051DC = 0x030051DC;
 gUnk_080E2A7C = 0x080E2A7C;
 gUnk_08078FC8 = 0x08078FC8;
+/* OBJ palette RAM / OBJ VRAM write cursors (advanced by the per-level VBlank
+ * DMA loaders). Extern symbols rather than literal-address macros so agbcc
+ * eager-loads their address into a callee-saved register and matches. */
+gVramWriteCursor = 0x030007DC;
+gPaletteVramCursor = 0x03005490;
+/* Per-level sprite tile / OBJ palette ROM graphics streamed by VBlankDMA_Level* */
+gUnk_0805EAE8 = 0x0805EAE8;
+gUnk_08077EE8 = 0x08077EE8;
+gUnk_08077F88 = 0x08077F88;
+gUnk_08077FA8 = 0x08077FA8;
+gUnk_08077FC8 = 0x08077FC8;
+gUnk_08077FE8 = 0x08077FE8;
+gUnk_08078008 = 0x08078008;
+gUnk_08078028 = 0x08078028;
 gUnk_03000810 = 0x03000810;
 gUnk_03000814 = 0x03000814;
 gUnk_03003508 = 0x03003508;

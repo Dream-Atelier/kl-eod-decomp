@@ -667,7 +667,73 @@ INCLUDE_ASM("asm/nonmatchings/code_1", UpdateHUDTimerAndLives);
 INCLUDE_ASM("asm/nonmatchings/code_1", IntroScrollAnimation);
 INCLUDE_ASM("asm/nonmatchings/code_1", IntroSequenceUpdate);
 INCLUDE_ASM("asm/nonmatchings/code_1", VBlankDMA_Level1);
-INCLUDE_ASM("asm/nonmatchings/code_1", VBlankDMA_Level2);
+/* Per-level sprite tile graphics (0x200 bytes each) and OBJ palettes (0x20
+ * bytes each) in ROM, streamed by the VBlankDMA_Level* loaders. */
+extern u8 gUnk_0805EAE8[0x200];
+extern u8 gUnk_08077EE8[0x20];
+extern u8 gUnk_08077F88[0x20];
+extern u8 gUnk_08077FA8[0x20];
+extern u8 gUnk_08077FC8[0x20];
+extern u8 gUnk_08077FE8[0x20];
+extern u8 gUnk_08078008[0x20];
+extern u8 gUnk_08078028[0x20];
+
+/**
+ * VBlankDMA_Level2: streams the OBJ palette and sprite tile graphics for
+ * level 2 into OBJ palette RAM / OBJ VRAM via a fixed sequence of DMA copies.
+ * Advances gVramWriteCursor (OBJ palette RAM) and gPaletteVramCursor (OBJ VRAM)
+ * as each block is transferred.
+ */
+void VBlankDMA_Level2(void) {
+    DmaCopy16Wait(3, &gUnk_08077EE8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805EAE8, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805EAE8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805EAE8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805EAE8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805EAE8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805EAE8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805EAE8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805EAE8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_08077F88, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, (void *)0x02000904, gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_08077FA8, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, (void *)0x02001104, gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_08077FC8, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, (void *)0x02001904, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_08077FE8, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, (void *)0x02001B04, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_08078008, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, (void *)0x02001D04, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_08078028, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, (void *)0x02001F04, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", VBlankDMA_Level3);
 INCLUDE_ASM("asm/nonmatchings/code_1", VBlankDMA_Level4);
 INCLUDE_ASM("asm/nonmatchings/code_1", VBlankDMA_Level5);
