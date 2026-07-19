@@ -132,6 +132,95 @@ struct Unk_03002920 {
 }; /* size = 0x1C */
 extern struct Unk_03002920 gUnk_03002920[];
 
+/* kleod-canonical typed views of the same data, used by logic ported from
+ * kleod so field/index expressions match kleod exactly. These alias the same
+ * addresses as gUnk_03002920 (0x03002920) and gUnk_03003430 (0x03003430);
+ * existing code continues to use the local names/structs above. */
+union __attribute__((packed)) EntityInfo_8 {
+    struct __attribute__((packed)) {
+        u8 unk8;
+        u8 unk9;
+    } split;
+    u16 all;
+};
+struct EntityInfo {
+    /* 0x00 */ u16 xPosBg2;
+    /* 0x02 */ u16 yPosBg2;
+    /* 0x04 */ u16 xPosScreen;
+    /* 0x06 */ u16 yPosScreen;
+    /* 0x08 */ union EntityInfo_8 unk8;
+    /* 0x0A */ u8 unkA;
+    /* 0x0B_0 */ s32 unkB_0 : 4;
+    /* 0x0B_4 */ s32 unkB_4 : 4;
+    /* 0x0C_0 */ u32 priority : 2;
+    /* 0x0C_2 */ u32 unkC_2 : 2;
+    /* 0x0C_4 */ u32 unkC_4 : 4;
+    /* 0x0D_0 */ u32 objMode : 2;
+    /* 0x0D_2 */ u32 affineHFlip_matrixNum : 4;
+    /* 0x0D_6 */ u32 unkD_6 : 2;
+    /* 0x0E_0 */ u32 affineEnable : 1;
+    /* 0x0E_1 */ u32 affineDouble : 1;
+    /* 0x0F */ u8 unkF;
+    /* 0x10 */ u8 unk10;
+    /* 0x11 */ u8 unk11;
+    /* 0x12 */ u8 unk12;
+    /* 0x13 */ u8 pad13[0x14 - 0x13];
+    /* 0x14 */ u16 unk14;
+    /* 0x16 */ u8 unk16;
+    /* 0x17 */ u8 unk17;
+    /* 0x18 */ u8 unk18;
+    /* 0x19 */ u8 pad19[0x1C - 0x19];
+}; /* size = 0x1C */
+extern struct EntityInfo gEntityInfo[];
+
+/* BG layer info, kleod-canonical array form (0x1C bytes per layer, 4 layers
+ * at 0x03003430). Aliases gUnk_03003430. */
+struct BgInfo {
+    /* 0x00 */ void *pTiles;
+    /* 0x04 */ void *pTilemap;
+    /* 0x08 */ u16 hOfs;
+    /* 0x0A */ u16 vOfs;
+    /* 0x0C */ u16 tileCol;
+    /* 0x0E */ u16 tileRow;
+    /* 0x10 */ u16 hLength;
+    /* 0x12 */ u16 vLength;
+    /* 0x14 */ u16 unk14;
+    /* 0x16 */ u16 unk16;
+    /* 0x18 */ u8 unk18;
+    /* 0x19 */ u8 pad19[0x1C - 0x19];
+}; /* size = 0x1C */
+extern struct BgInfo gBgInfo[4];
+
+/* Per-entity movement parameter row (ROM table gUnk_081168E8). */
+struct Unk_0803D4AC {
+    u8 unk0;
+    u8 unk1;
+    u8 unk2;
+    s8 unk3;
+    s8 unk4;
+    u8 unk5;
+    u8 unk6;
+};
+/* Decompressed BG tile/tilemap buffer pointers (0x03004790). */
+struct BgDataPtrs {
+    /* 0x00 */ void *pBufBg0Tiles;
+    /* 0x04 */ u16 *pBufBg0Tilemap;
+    /* 0x08 */ void *pBufBg1Tiles;
+    /* 0x0C */ u16 *pBufBg1Tilemap;
+    /* 0x10 */ void *pBufBg2Tiles;
+    /* 0x14 */ u8 *pBufBg2Tilemap;
+    /* 0x18 */ void *pBufBg3Tiles;
+    /* 0x1C */ u16 *pBufBg3Tilemap;
+}; /* size = 0x20 */
+/* World-map completion/animation state (0x03004C08). */
+struct Unk_03004C08 {
+    u8 unk0_0 : 4;
+    u8 unk0_4 : 4;
+    s8 unk1;
+    u8 unk2;
+    u8 pad3[0x4 - 0x3];
+};
+
 /* Active entity count (number of slots in gUnk_03002920 to iterate). */
 extern u8 gUnk_03005428;
 
@@ -243,28 +332,42 @@ struct Unk_030007E0 {
 };
 extern struct Unk_030007E0 gUnk_030007E0;
 
-/* World-4 wobble state at 0x03005400 (partial). */
+/* Player/scroll wobble & fall state at 0x03005400 (0x18 bytes, from kleod). */
 struct Unk_03005400 {
-    /* 0x0 */ u8 pad0[0x2 - 0x0];
-    /* 0x2 */ u16 unk2;
-    /* 0x4 */ u8 pad4[0x6 - 0x4];
-    /* 0x6 */ u16 unk6;
-    /* 0x8 */ u8 pad8[0xA - 0x8];
-    /* 0xA */ u8 unkA;
-    /* 0xB */ u8 unkB;
-    /* 0xC */ u8 unkC;
-    /* 0xD */ u8 unkD;
-    /* 0xE_0 */ u8 unkE_0 : 1;
-    /* 0xE_1 */ u8 unkE_1 : 1;
-    /* 0xE_2 */ u8 unkE_2 : 1;
-    /* 0xE_3 */ u8 unkE_3 : 4;
-    /* 0xE_7 */ u8 unkE_7 : 1;
-    /* 0x0F */ u8 padF[0x14 - 0xF];
+    /* 0x00 */ u16 unk0;
+    /* 0x02 */ u16 unk2;
+    /* 0x04 */ u16 unk4;
+    /* 0x06 */ u16 unk6;
+    /* 0x08_0 */ u8 unk8_0 : 1;
+    /* 0x08_1 */ u8 unk8_1 : 1;
+    /* 0x08_2 */ u8 unk8_2 : 1;
+    /* 0x08_3 */ u8 unk8_3 : 1;
+    /* 0x08_4 */ u8 unk8_4 : 1;
+    /* 0x08_5 */ u8 unk8_5 : 1;
+    /* 0x08_6 */ u8 unk8_6 : 1;
+    /* 0x08_7 */ u8 unk8_7 : 1;
+    /* 0x09 */ u8 unk9;
+    /* 0x0A */ u8 unkA;
+    /* 0x0B */ u8 unkB;
+    /* 0x0C */ u8 unkC;
+    /* 0x0D */ u8 unkD;
+    /* 0x0E_0 */ u8 unkE_0 : 1;
+    /* 0x0E_1 */ u8 unkE_1 : 1;
+    /* 0x0E_2 */ u8 unkE_2 : 1;
+    /* 0x0E_3 */ u8 unkE_3 : 1;
+    /* 0x0E_4 */ u8 unkE_4 : 1;
+    /* 0x0E_5 */ u8 unkE_5 : 2;
+    /* 0x0E_7 */ u8 unkE_7 : 1;
+    /* 0x0F */ s8 unkF;
+    /* 0x10 */ s8 unk10;
+    /* 0x11 */ u8 unk11;
+    /* 0x12 */ u8 unk12;
+    /* 0x13 */ u8 unk13;
     /* 0x14 */ u8 unk14;
-    /* 0x15 */ u8 pad15[0x16 - 0x15];
+    /* 0x15 */ u8 unk15;
     /* 0x16 */ s8 unk16;
     /* 0x17 */ u8 pad17[0x18 - 0x17];
-};
+}; /* size = 0x18 */
 extern struct Unk_03005400 gUnk_03005400;
 
 /* Affine reference points at 0x03005440. */
@@ -550,6 +653,12 @@ struct Unk_03000830 {
 extern struct Unk_03000830 gUnk_03000830[];
 
 /* Rotation/scale matrix source table for OAM (halfwords at 0x03004680). */
+struct EntityAnimationInfo {
+    u8 state;
+    u8 timer;
+    volatile u8 frame;
+    u8 pad3[1];
+};
 struct Unk_03004680 {
     u16 unk0;
     u16 unk2;

@@ -221,18 +221,25 @@ extern u8 gBg2Alpha;
  *   Entry 0: tileVram=0x06000000, tmapVram=0x0600E000
  *   Entry 1: tileVram=0x06004000, tmapVram=0x0600E800
  *   Entry 2: tileVram=0x06008000, tmapVram=0x0600F000 */
-#define gBGLayerState      ((struct BGLayerState *)0x03003430)
+#define gBGLayerState ((struct BGLayerState *)0x03003430)
 
-/* VRAM write cursor: current palette RAM destination for DMA transfers.
- * Advanced by 0x20 after each 32-byte palette DMA during scene setup. */
-#define gVramWriteCursor   (*(u32 *)0x030007DC)
+/* OBJ palette RAM write cursor: current palette RAM destination for DMA
+ * transfers. Advanced by 0x20 after each 32-byte palette DMA during scene
+ * setup. (Historically named "VramWrite"; it actually tracks OBJ palette RAM.)
+ * Extern volatile void* (address in ldscript) so the read-modify-write
+ * sequences in the per-level VBlank DMA loaders reload it after each transfer
+ * and agbcc eager-loads its address into a callee-saved register — matching. */
+extern void *volatile gVramWriteCursor;
 
 /* Initial VRAM write cursor value, saved at stream init and restored on reset. */
-#define gVramCursorInit    (*(u32 *)0x030034F4)
+#define gVramCursorInit (*(u32 *)0x030034F4)
 
-/* Palette VRAM write cursor: tracks current VRAM destination during
- * sequential tile/palette DMA transfers in scene setup. */
-#define gPaletteVramCursor (*(u32 *)0x03005490)
+/* OBJ VRAM write cursor: tracks current OBJ VRAM destination during
+ * sequential tile DMA transfers in scene setup. (Historically named
+ * "PaletteVram"; it actually tracks OBJ VRAM.) Extern volatile void* for the
+ * same reload-per-transfer / register-hoisting matching reason as
+ * gVramWriteCursor. */
+extern void *volatile gPaletteVramCursor;
 
 /* Initial palette cursor value, saved at stream init and restored on reset. */
 #define gPaletteCursorInit (*(u32 *)0x030052AC)
