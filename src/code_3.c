@@ -1,6 +1,7 @@
 #include "global.h"
 #include "globals.h"
 #include "include_asm.h"
+#include "structs/variables.h"
 
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World1_Vision1);
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World1_Vision2);
@@ -96,7 +97,53 @@ INCLUDE_ASM("asm/nonmatchings/code_3", UpdateLevelProgression);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerAlternate);
 INCLUDE_ASM("asm/nonmatchings/code_3", HandleSceneTransitionInput);
 INCLUDE_ASM("asm/nonmatchings/code_3", DecompressRowToTilemap);
-INCLUDE_ASM("asm/nonmatchings/code_3", SetEntityVisibility);
+void SetPaletteAnimEntry(u32, u8);
+
+/**
+ * SetEntityVisibility: toggles the boss/minigame entity set on or off.
+ * When enabling (arg0 == 1) it activates the player/HUD entities, kicks off the
+ * palette animation, and arms the flag entity (slot 0x1E). When disabling it
+ * clears the boss flag, retires the flag entity, and deactivates entity slots
+ * 0..0xC.
+ */
+void SetEntityVisibility(u8 arg0) {
+    u8 var_r2;
+
+    if (arg0 == 1) {
+        gUnk_03005400.unkE_7 = 1;
+
+        gEntityInfo[0].unkF = 0;
+        gEntityInfo[0].unk10 = arg0;
+        gEntityInfo[0x14].unkF = 0x19;
+        gEntityInfo[0x13].unkF = 0x19;
+
+        gUnk_03005220.unk3E = 0;
+        if (gUnk_03005220.unk31 == 1) {
+            SetPaletteAnimEntry(0, 0);
+        } else {
+            SetPaletteAnimEntry(0, 4);
+        }
+
+        if (gEntityInfo[0x1E].unk16 == 1) {
+            gEntityInfo[0x1E].unkF = 0xE;
+            gEntityInfo[0x1E].unk10 = 1;
+            gEntityInfo[0x1E].unk16 = 0;
+        }
+    } else {
+        gUnk_03005400.unkE_7 = 0;
+
+        if (gEntityInfo[0x1E].unk10 == 1) {
+            gEntityInfo[0x1E].unkF = 0x1C;
+            gEntityInfo[0x1E].unk10 = 0;
+            gEntityInfo[0x1E].unk16 = 1;
+        }
+
+        for (var_r2 = 0; var_r2 < 0xD; var_r2++) {
+            gEntityInfo[var_r2].unkF = 0x1C;
+            gEntityInfo[var_r2].unk10 = 0;
+        }
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerSpecial);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateLevelScrollDMA);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerFinalBoss);
