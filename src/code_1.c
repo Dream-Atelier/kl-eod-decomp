@@ -3,6 +3,16 @@
 #include "globals.h"
 #include "include_asm.h"
 #include "structs/variables.h"
+/* AUTOPORT-SYMS */
+#define PLTT ((void *)0x05000000)
+extern u8 *gUnk_03004658;
+extern u8 gUnk_030007C4;
+extern u8 gUnk_080A5088[0x800];
+extern struct Unk_030034B0 gUnk_030034B0;
+extern u16 gUnk_08057C70;
+extern struct Unk_03005294_03005418 *gUnk_03005418;
+extern u8 gUnk_03004D9C;
+extern struct Unk_03005294_03005418 *gUnk_03005294;
 
 #ifndef MAX
 #define MAX(a, b) (((a) >= (b)) ? (a) : (b))
@@ -659,10 +669,88 @@ INCLUDE_ASM("asm/nonmatchings/code_1", TransitionSelfRemoveFadeIn);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionToSaveScreen);
 INCLUDE_ASM("asm/nonmatchings/code_1", SetPaletteAnimEntry);
 INCLUDE_ASM("asm/nonmatchings/code_1", UpdatePaletteAnimations);
-INCLUDE_ASM("asm/nonmatchings/code_1", CopyBGScrollTiles);
-INCLUDE_ASM("asm/nonmatchings/code_1", UpdateHUDCounterDisplay);
-INCLUDE_ASM("asm/nonmatchings/code_1", UpdateHUDCollectibleCount);
-INCLUDE_ASM("asm/nonmatchings/code_1", UpdateHUDCollectibleCountAlt);
+/**
+ * CopyBGScrollTiles: ported from kleod CopyBGScrollTiles.
+ */
+void CopyBGScrollTiles(void) {
+    u32 var_r5;
+    u32 var_r6;
+
+    for (var_r6 = 0; var_r6 < 3; var_r6++) {
+        if (var_r6 < gUnk_03005220.hearts) {
+            var_r5 = 0;
+        } else {
+            var_r5 = 2;
+        }
+        gBgTilemapBufs[0][(var_r6 * 2) + 0x241] = gBgTilemapBufs[0][(var_r6 * 2) + ((var_r5 + 0x14) << 5)];
+        gBgTilemapBufs[0][(var_r6 * 2) + 0x242] = gBgTilemapBufs[0][(var_r6 * 2 + 1) + ((var_r5 + 0x14) << 5)];
+        gBgTilemapBufs[0][(var_r6 * 2) + 0x261] = gBgTilemapBufs[0][(var_r6 * 2) + ((var_r5 + 0x15) << 5)];
+        gBgTilemapBufs[0][(var_r6 * 2) + 0x262] = gBgTilemapBufs[0][(var_r6 * 2 + 1) + ((var_r5 + 0x15) << 5)];
+    }
+}
+/**
+ * UpdateHUDCounterDisplay: ported from kleod UpdateHUDCounterDisplay.
+ */
+s32 UpdateHUDCounterDisplay(void) {
+    s32 var_r5;
+    s32 var_sb;
+
+    var_sb = 0;
+    if ((gUnk_03004C20.unkA == 1) || (gUnk_03004C20.level == 6)) {
+        var_r5 = 0x64;
+    } else {
+        var_r5 = 0x1E;
+    }
+    if (var_r5 == gUnk_03005220.dreamStones) {
+        var_sb = 1;
+    }
+
+    if ((gUnk_03004C20.unkA == 1) || (gUnk_03004C20.level == 6)) {
+        var_r5 = 1;
+        if (gUnk_03005220.dreamStones > 0x63) {
+            gBgTilemapBufs[0][0x252] += 0;
+            gBgTilemapBufs[0][0x252] = gBgTilemapBufs[0][0x293];
+            gBgTilemapBufs[0][0x272] += 0;
+            gBgTilemapBufs[0][0x272] = gBgTilemapBufs[0][0x2B3];
+        }
+    } else {
+        var_r5 = 0;
+    }
+
+    if (gUnk_03005220.dreamStones > 9) {
+        gBgTilemapBufs[0][0x254 - var_r5] = gBgTilemapBufs[0][(gUnk_03005220.dreamStones / 10) + 0x292];
+        gBgTilemapBufs[0][0x274 - var_r5] = gBgTilemapBufs[0][(gUnk_03005220.dreamStones / 10) + 0x2B2];
+    }
+
+    gBgTilemapBufs[0][0x255 - var_r5] = gBgTilemapBufs[0][(gUnk_03005220.dreamStones % 10) + 0x292];
+    gBgTilemapBufs[0][0x275 - var_r5] = gBgTilemapBufs[0][(gUnk_03005220.dreamStones % 10) + 0x2B2];
+    return var_sb;
+}
+/**
+ * UpdateHUDCollectibleCount: ported from kleod UpdateHUDCollectibleCount.
+ */
+void UpdateHUDCollectibleCount(void) {
+    if ((u8)gUnk_03005220.lives > 9) {
+        gBgTilemapBufs[0][0x25B] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives / 10) + 0x292];
+        gBgTilemapBufs[0][0x27B] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives / 10) + 0x2B2];
+    } else if ((u8)gUnk_03005220.lives == 9) {
+        gBgTilemapBufs[0][0x25B] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives / 10) + 0x25E];
+        gBgTilemapBufs[0][0x27B] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives / 10) + 0x27E];
+    }
+    gBgTilemapBufs[0][0x25C] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives % 10) + 0x292];
+    gBgTilemapBufs[0][0x27C] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives % 10) + 0x2B2];
+}
+/**
+ * UpdateHUDCollectibleCountAlt: ported from kleod UpdateHUDCollectibleCountAlt.
+ */
+void UpdateHUDCollectibleCountAlt(void) {
+    if ((u8)gUnk_03005220.lives > 9) {
+        gBgTilemapBufs[0][0x25B] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives / 10) + 0x293];
+        gBgTilemapBufs[0][0x27B] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives / 10) + 0x2B3];
+    }
+    gBgTilemapBufs[0][0x25C] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives % 10) + 0x293];
+    gBgTilemapBufs[0][0x27C] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives % 10) + 0x2B3];
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", UpdateHUDTimerAndLives);
 INCLUDE_ASM("asm/nonmatchings/code_1", IntroScrollAnimation);
 INCLUDE_ASM("asm/nonmatchings/code_1", IntroSequenceUpdate);
