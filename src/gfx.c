@@ -409,11 +409,8 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetSpriteAttrs);
  * Clears low 2 bits of gGfxBuffer[0], sets bit 1. Advances stream by 2.
  */
 void StreamCmd_SetRenderMode(void) {
-    u8 *buf = (u8 *)gGfxBufferPtr;
-    u8 val = buf[0];
-    s32 mask = -4;
-    mask &= val;
-    buf[0] = mask | 2;
+    s8 *p = (s8 *)gGfxBufferPtr;
+    *p = (*p & ~3) | 2;
     gStreamPtr += 2;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", DispatchLevelLayerSetup);
@@ -641,11 +638,8 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGModeTiled);
  * Clears low 2 bits of gGfxBuffer[0], sets bit 1. Advances stream by 2.
  */
 void StreamCmd_SetRenderModeTiled(void) {
-    u8 *buf = (u8 *)gGfxBufferPtr;
-    u8 val = buf[0];
-    s32 mask = -4;
-    mask &= val;
-    buf[0] = mask | 2;
+    s8 *p = (s8 *)gGfxBufferPtr;
+    *p = (*p & ~3) | 2;
     gStreamPtr += 2;
 }
 void StreamCmd_ClearRenderMode(void) {
