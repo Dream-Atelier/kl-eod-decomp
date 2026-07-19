@@ -3,6 +3,7 @@
 #include "include_asm.h"
 #include "structs/variables.h"
 /* AUTOPORT-SYMS */
+extern u8 gUnk_03003790[][0x40];
 extern void *gUnk_030052AC;
 extern void *gUnk_030034F4;
 extern u8 gUnk_0805D1E8[0x800];
@@ -1220,7 +1221,44 @@ INCLUDE_ASM("asm/nonmatchings/code_3", RunWorldMapTransition);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateAllEntities);
 INCLUDE_ASM("asm/nonmatchings/code_3", GameplayMainLoop);
 INCLUDE_ASM("asm/nonmatchings/code_3", InitLevelState);
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdateEntitySpawnState);
+/**
+ * UpdateEntitySpawnState: advances an entity's spawn state machine (gEntityInfo[i].unkF), positioning it or clearing it once it
+ * scrolls past the per-room spawn threshold.
+ */
+void UpdateEntitySpawnState(u8 arg0) {
+    switch (gEntityInfo[arg0].unkF) {
+        case 24:
+            gEntityInfo[arg0].xPosBg2 = 24;
+            gEntityInfo[arg0].yPosBg2 = 24;
+            gEntityInfo[arg0].priority = 0;
+            gEntityInfo[arg0].unkF = 0x19;
+            break;
+
+        case 25:
+            if (gEntityInfo[arg0].xPosScreen
+                >= gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][arg0 - 0xD].unk0[gUnk_03004C20.room - 1].unk0) {
+                gEntityInfo[arg0].unkF = 0;
+            } else if ((gUnk_03004C20.sceneFrameCounter % 2) != 0) {
+                gEntityInfo[arg0].xPosBg2 += 1;
+            }
+            break;
+
+        case 17:
+            if (gEntityInfo[arg0].xPosBg2
+                <= (gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][arg0 - 0xD].unk0[gUnk_03004C20.room - 1].unk0
+                    - 0x10)) {
+                gEntityInfo[arg0].unk10 = 0;
+                gEntityInfo[arg0].unkF = 0x1C;
+            } else if ((gUnk_03004C20.sceneFrameCounter % 2) != 0) {
+                gEntityInfo[arg0].xPosBg2 -= 1;
+            }
+            break;
+
+        // Can be any case between 0 and 16, required to match
+        case 0:
+            break;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", SpawnEntitiesForVision);
 /**
  * GetEntityLookupData: loads entity parameters from ROM table into state.
@@ -1429,7 +1467,35 @@ void ConfigureEntityBehavior(u8 arg0, u8 arg1, u8 arg2) {
         var_r3 += gBgInfo[2].hLength;
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", ResetEntityTypesOnDeath);
+/**
+ * ResetEntityTypesOnDeath: on player death, reverts entities of a given type back to their idle spawn state so they re-appear
+ * correctly on respawn.
+ */
+void ResetEntityTypesOnDeath(u8 arg0) {
+    u8 var_r5;
+
+    if (gUnk_03005400.unkC == 0) {
+        return;
+    }
+
+    if (arg0 == 0x19) {
+        for (var_r5 = 0; var_r5 < 2; var_r5++) {
+            if (gEntityInfo[var_r5 + 0x13].unkF == 0x1C) {
+                gEntityInfo[var_r5 + 0x13].unkF = 0x19;
+            }
+        }
+    } else {
+        for (var_r5 = 0; var_r5 < 2; var_r5++) {
+            if ((gEntityInfo[var_r5 + 0x13].unkF == 0) || (gEntityInfo[var_r5 + 0x13].unkF == 0x19)) {
+                SpawnEntityAtPosition(gEntityInfo[var_r5 + 0x13].xPosBg2, gEntityInfo[var_r5 + 0x13].yPosBg2, 2, var_r5 + 0x13);
+            }
+
+            if (gEntityInfo[var_r5 + 0x13].unkF == 0x13) {
+                SpawnEntityAtPosition(gEntityInfo[var_r5 + 0x13].xPosBg2, gEntityInfo[var_r5 + 0x13].yPosBg2, 2, var_r5 + 0x13);
+            }
+        }
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerMinigame);
 /**
  * TransitionLevelVariant: ported from kleod TransitionLevelVariant.
@@ -1485,7 +1551,32 @@ void TransitionLevelVariant(u8 arg0) {
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateLevelProgression);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerAlternate);
 INCLUDE_ASM("asm/nonmatchings/code_3", HandleSceneTransitionInput);
-INCLUDE_ASM("asm/nonmatchings/code_3", DecompressRowToTilemap);
+/**
+ * DecompressRowToTilemap: DMA-copies a column/row of BG2 tilemap entries into the scrolling map buffer, used when streaming new
+ * terrain rows at the screen edge.
+ */
+void DecompressRowToTilemap(u8 arg0, u8 arg1) {
+    u8 *var_r3;
+    u8 var_r4;
+    void *var_r1;
+
+    if (arg0 == 0xFF) {
+        var_r3 = &gUnk_03003790[0][arg1];
+        var_r1 = gBgDataPtrs.pBufBg2Tilemap + ((gBgInfo[2].hLength * 0x1F) + 0x3C);
+        for (var_r4 = 0; var_r4 <= 0x1D; var_r4++) {
+            DmaCopy16(3, var_r1, var_r3, 0x6);
+            var_r3 += 0x40;
+        }
+    } else {
+        var_r3 = &gUnk_03003790[0][arg1];
+        var_r1 = gBgDataPtrs.pBufBg2Tilemap + ((arg0 * 6) + 0x3C);
+        for (var_r4 = 0; var_r4 <= 0x1D; var_r4++) {
+            DmaCopy16(3, var_r1, var_r3, 0x6);
+            var_r1 += gBgInfo[2].hLength;
+            var_r3 += 0x40;
+        }
+    }
+}
 void SetPaletteAnimEntry(u32, u8);
 
 /**
