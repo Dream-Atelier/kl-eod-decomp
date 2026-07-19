@@ -12,8 +12,12 @@
 extern struct BgDataPtrs gBgDataPtrs; /* 0x03004790 */
 extern u8 gBlendValue; /* 0x03005498 */
 extern struct Unk_03004C08 gUnk_03004C08;
+extern u8 gUnk_03003D16[][8];
+extern u8 gUnk_03003DD6[][8];
+extern u8 gUnk_03003E96[][8];
+extern u8 gUnk_03003F56[][8];
 
-/* Tile-collision query result (kleod sub_08014230). */
+/* Tile-collision query result (kleod CheckTileCollisionSloped). */
 struct Unk_08014184 {
     u16 unk0;
     u8 unk2;
@@ -257,7 +261,83 @@ void GetEntityLookupData(u8 idx) {
 INCLUDE_ASM("asm/nonmatchings/code_3", ComputeScrollLimits);
 INCLUDE_ASM("asm/nonmatchings/code_3", ApplyPlayerMovement);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerNormal);
-INCLUDE_ASM("asm/nonmatchings/code_3", SetupEntitySpawnTable);
+/**
+ * SetupEntitySpawnTable: ported from kleod SetupEntitySpawnTable.
+ */
+void SetupEntitySpawnTable(u8 arg0) {
+    u32 var_r3;
+
+    gUnk_03005400.unk14 = 0;
+
+    for (var_r3 = 0; var_r3 < 9; var_r3++) {
+        gEntityInfo[0x1B + var_r3].unkF = gEntityInfo[0x24 + var_r3].unkF = arg0;
+    }
+
+    if (arg0 == 0) {
+        switch (gUnk_03004C20.room - 1) {
+            case 0:
+                gUnk_03000790[0].unk8 = 0x48;
+                gUnk_03000790[0].unk4 = 0x48;
+                gUnk_03000790[1].unk8 = 0x48;
+                gUnk_03000790[1].unk4 = 0x48;
+                break;
+
+            case 1:
+                gUnk_03000790[0].unk8 = 0x68;
+                gUnk_03000790[0].unk4 = 0x68;
+                gUnk_03000790[1].unk8 = 0x48;
+                gUnk_03000790[1].unk4 = 0x48;
+                break;
+
+            case 2:
+                gUnk_03000790[0].unk8 = 0x68;
+                gUnk_03000790[0].unk4 = 0x68;
+                gUnk_03000790[1].unk8 = 0x68;
+                gUnk_03000790[1].unk4 = 0x68;
+                break;
+
+            case 3:
+                gUnk_03000790[0].unk8 = 0x88;
+                gUnk_03000790[0].unk4 = 0x88;
+                gUnk_03000790[1].unk8 = 0x48;
+                gUnk_03000790[1].unk4 = 0x48;
+                break;
+
+            case 4:
+                gUnk_03000790[0].unk8 = 0x48;
+                gUnk_03000790[0].unk4 = 0x48;
+                gUnk_03000790[1].unk8 = 0x88;
+                gUnk_03000790[1].unk4 = 0x88;
+                break;
+        }
+
+        for (var_r3 = 0; var_r3 < 9; var_r3++) {
+            gEntityInfo[0x1B + var_r3].xPosBg2
+                = gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_r3 + 0xE].unk0[gUnk_03004C20.room - 1].unk0;
+            gEntityInfo[0x24 + var_r3].xPosBg2
+                = gUnk_080E2B64[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1][var_r3 + 0x17].unk0[gUnk_03004C20.room - 1].unk0;
+
+            gEntityInfo[0x1B + var_r3].yPosBg2 = gUnk_03000790[0].unk4;
+            gEntityInfo[0x24 + var_r3].yPosBg2 = gUnk_03000790[1].unk4;
+
+            gEntityInfo[0x24 + var_r3].unk10 = 1;
+            gEntityInfo[0x1B + var_r3].unk10 = 1;
+        }
+
+        gUnk_03000790[0].unk0 = gEntityInfo[0x1B].xPosBg2 - 0x10;
+        gUnk_03000790[0].unk2 = gEntityInfo[0x1B].xPosBg2 + 0x10;
+        gUnk_03000790[1].unk0 = gEntityInfo[0x24].xPosBg2 - 0x10;
+        gUnk_03000790[1].unk2 = gEntityInfo[0x24].xPosBg2 + 0x10;
+        m4aSongNumStart(0x68);
+    } else {
+        gUnk_03005220.unk3B = 0;
+        gUnk_03005220.unk3A = 0;
+
+        for (var_r3 = 0; var_r3 < 9; var_r3++) {
+            gEntityInfo[0x1B + var_r3].unk10 = gEntityInfo[0x24 + var_r3].unk10 = 0;
+        }
+    }
+}
 /**
  * RollRandomLevelVariant: select a random level variant based on difficulty.
  *
@@ -275,7 +355,103 @@ void RollRandomLevelVariant(void) {
     levelState[0x0E] = parity + variant + 1;
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerBoss);
-INCLUDE_ASM("asm/nonmatchings/code_3", ConfigureEntityBehavior);
+/**
+ * ConfigureEntityBehavior: ported from kleod ConfigureEntityBehavior.
+ */
+void ConfigureEntityBehavior(u8 arg0, u8 arg1, u8 arg2) {
+    void *var_r3;
+    void *var_r5;
+    void *var_r6;
+    u32 var_sb;
+    u8 var_r1;
+
+    if (arg2 != 0) {
+        gEntityInfo[0x23].unkF = 0x19;
+        gEntityInfo[0x22].unkF = 0x19;
+        gEntityInfo[0x21].unkF = 0x19;
+        gEntityInfo[0x20].unkF = 0x19;
+    }
+
+    switch (arg1) {
+        case 0:
+            var_sb = 0xD;
+            var_r6 = &gUnk_03003D16[arg0];
+            var_r5 = &gBgDataPtrs.pBufBg2Tilemap[6 + (arg0 * 8) + (gBgInfo[2].hLength * 0x1B)];
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap + 0x3C;
+            break;
+
+        case 1:
+            var_sb = 4;
+            var_r6 = &gUnk_03003F56[arg0];
+            var_r5 = &gBgDataPtrs.pBufBg2Tilemap[6 + (arg0 * 8) + (gBgInfo[2].hLength * 0x24)];
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap + 0x3C + (gBgInfo[2].hLength * 0x13);
+            break;
+
+        case 2:
+            var_sb = 6;
+            var_r6 = &gUnk_03003E96[arg0];
+            var_r5 = &gBgDataPtrs.pBufBg2Tilemap[6 + (arg0 * 8) + (gBgInfo[2].hLength * 0x21)];
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap + 0x3C + (gBgInfo[2].hLength * 0x13);
+            break;
+
+        case 3:
+            var_sb = 6;
+            var_r6 = &gUnk_03003DD6[arg0];
+            var_r5 = &gBgDataPtrs.pBufBg2Tilemap[6 + (arg0 * 8) + (gBgInfo[2].hLength * 0x1E)];
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap + 0x3C + (gBgInfo[2].hLength * 0x13);
+            break;
+
+        case 4:
+            var_sb = 6;
+            var_r6 = &gUnk_03003D16[arg0];
+            var_r5 = &gBgDataPtrs.pBufBg2Tilemap[6 + (arg0 * 8) + (gBgInfo[2].hLength * 0x1B)];
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap + 0x3C + (gBgInfo[2].hLength * 0xD);
+            break;
+
+        case 5:
+            var_sb = 6;
+            var_r6 = &gUnk_03003D16[arg0];
+            var_r5 = &gBgDataPtrs.pBufBg2Tilemap[6 + (arg0 * 8) + (gBgInfo[2].hLength * 0x1B)];
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap + 0x3C + (gBgInfo[2].hLength * 0x16);
+            break;
+
+        case 6:
+            var_sb = 4;
+            var_r6 = &gUnk_03003F56[arg0];
+            var_r5 = &gBgDataPtrs.pBufBg2Tilemap[6 + (arg0 * 8) + (gBgInfo[2].hLength * 0x24)];
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap + 0x3C;
+            break;
+
+        case 7:
+            var_sb = 7;
+            var_r6 = &gUnk_03003E96[arg0];
+            var_r5 = &gBgDataPtrs.pBufBg2Tilemap[6 + (arg0 * 8) + (gBgInfo[2].hLength * 0x21)];
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap + 0x3C;
+            break;
+
+        case 8:
+            var_sb = 0xA;
+            var_r6 = &gUnk_03003DD6[arg0];
+            var_r5 = &gBgDataPtrs.pBufBg2Tilemap[6 + (arg0 * 8) + (gBgInfo[2].hLength * 0x1E)];
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap + 0x3C;
+            break;
+
+        case 9:
+            var_sb = 0xD;
+            var_r6 = &gUnk_03003D16[arg0];
+            var_r5 = &gBgDataPtrs.pBufBg2Tilemap[6 + (arg0 * 8) + (gBgInfo[2].hLength * 0x1B)];
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap + 0x3C;
+            break;
+    }
+
+    for (var_r1 = 0; var_r1 < var_sb; var_r1++) {
+        DmaCopy16Wait(3, var_r3, var_r6, 0x8);
+        DmaCopy16Wait(3, var_r3, var_r5, 0x8);
+        var_r6 += 0x40;
+        var_r5 += gBgInfo[2].hLength;
+        var_r3 += gBgInfo[2].hLength;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", ResetEntityTypesOnDeath);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerMinigame);
 INCLUDE_ASM("asm/nonmatchings/code_3", TransitionLevelVariant);
