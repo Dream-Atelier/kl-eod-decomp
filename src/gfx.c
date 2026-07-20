@@ -804,6 +804,26 @@ void EnableVBlankAndHandlers(void) {
     m4aMPlayAllContinue();
     gStreamPtr += 2;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetMusicParams);
+struct MP2KPlayerState;
+extern struct MP2KPlayerState gMPlayInfo_0, gMPlayInfo_1, gMPlayInfo_2, gMPlayInfo_3;
+void m4aMPlayVolumeControl(struct MP2KPlayerState *, u16, u16);
+/*
+ * Reads a 16-bit master-volume value from the data stream and applies it to
+ * all four music player slots (via m4aMPlayVolumeControl with full track mask
+ * 0xFF), also mirroring it into the gfx buffer word[12] and gSceneFadeCounter.
+ * Advances the data stream pointer by 4.
+ *   no parameters (reads from global data stream pointer at 0x03004D84)
+ *   no return value
+ */
+void StreamCmd_SetMusicParams(void) {
+    int val = ReadUnalignedU16(gStreamPtr + 2);
+    ((u16 *)gGfxBufferPtr)[12] = val;
+    gSceneFadeCounter = val;
+    m4aMPlayVolumeControl(&gMPlayInfo_0, 0xFF, gSceneFadeCounter);
+    m4aMPlayVolumeControl(&gMPlayInfo_1, 0xFF, gSceneFadeCounter);
+    m4aMPlayVolumeControl(&gMPlayInfo_2, 0xFF, gSceneFadeCounter);
+    m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, gSceneFadeCounter);
+    gStreamPtr += 4;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ConfigureBlend);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_RunScript);
