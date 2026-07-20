@@ -65,6 +65,10 @@ INSIDE_C_FUNCTION_ADDRESSES = {
     # original ROM this is the "SoundMixerMain" label luvdis split off,
     # but kleod / pokeemerald / sa3 all treat it as part of CgbSound.
     0x08050C70,
+    # _0803B3D2: internal label of UpdateWorldMapNodeAnim (0x0803B378). luvdis
+    # split it off as "RunWorldMapTransition", but kleod's sub_0803B378 is one
+    # 648-byte function spanning through 0x0803B600; the C definition owns it.
+    0x0803B3D2,
 }
 
 # ---------------------------------------------------------------------------

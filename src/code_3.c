@@ -2181,8 +2181,86 @@ void CountCollectedGems(void) {
     }
     gCallbackQueue.current[1] = GameplayMainLoop;
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapNodeAnim);
-INCLUDE_ASM("asm/nonmatchings/code_3", RunWorldMapTransition);
+/**
+ * UpdateWorldMapNodeAnim: drives the world-map node reveal animation across its 8 phases (tile/palette cycling with a random palette
+ * pick) as level completion advances, then hands off to the next map callback.
+ */
+void UpdateWorldMapNodeAnim(void) {
+    s32 var_r7;
+    s32 temp_r6;
+
+    if (gUnk_03004C08.unk0_0 < 4) {
+        var_r7 = 0;
+        temp_r6 = gUnk_08116880[gUnk_03004C08.unk0_0];
+    } else {
+        var_r7 = 4;
+        temp_r6 = gUnk_08116880[gUnk_03004C08.unk0_0];
+    }
+
+    switch ((gUnk_03004C08.unk2 / 30) - 1) {
+        case 0:
+            if ((gUnk_03004C08.unk2 % 30) == 0) {
+                m4aSongNumStart(0x89);
+            }
+            gBgTilemapBufs[1][gUnk_08116748[gUnk_03004C08.unk0_0][0] + (gUnk_08116748[gUnk_03004C08.unk0_0][1] << 5)]
+                = gBgTilemapBufs[1][0 + var_r7 + ((temp_r6 + 0x1C) << 5)];
+            break;
+
+        case 1:
+            if ((gUnk_03004C08.unk2 % 30) == 0) {
+                m4aSongNumStart(0x89);
+            }
+            gBgTilemapBufs[1][gUnk_08116748[gUnk_03004C08.unk0_0][2] + (gUnk_08116748[gUnk_03004C08.unk0_0][3] << 5)]
+                = gBgTilemapBufs[1][1 + var_r7 + ((temp_r6 + 0x1C) << 5)];
+            break;
+
+        case 2:
+            if (gUnk_03004C08.unk0_0 == 6) {
+                gUnk_03004C08.unk2 = 0x95;
+            } else {
+                if ((gUnk_03004C08.unk2 % 30) == 0) {
+                    m4aSongNumStart(0x89);
+                }
+                gBgTilemapBufs[1][gUnk_08116748[gUnk_03004C08.unk0_0][4] + (gUnk_08116748[gUnk_03004C08.unk0_0][5] << 5)]
+                    = gBgTilemapBufs[1][2 + var_r7 + ((temp_r6 + 0x1C) << 5)];
+            }
+            break;
+
+        case 3:
+            if ((gUnk_03004C08.unk0_0 != 4) && (gUnk_03004C08.unk0_0 != 6)) {
+                if ((gUnk_03004C08.unk2 % 30) == 0) {
+                    m4aSongNumStart(0x89);
+                }
+                gBgTilemapBufs[1][gUnk_08116748[gUnk_03004C08.unk0_0][6] + (gUnk_08116748[gUnk_03004C08.unk0_0][7] << 5)]
+                    = gBgTilemapBufs[1][3 + var_r7 + ((temp_r6 + 0x1C) << 5)];
+            }
+            break;
+
+        case 4:
+            if ((gUnk_03004C08.unk2 % 30) == 0) {
+                m4aSongNumStart(0x8A);
+            }
+            /* fallthrough */
+        case 5:
+        case 6:
+            if (gUnk_03004C08.unk0_0 < 4) {
+                if ((gUnk_03004C20.sceneFrameCounter % 4) == 0) {
+                    DmaCopy16(3, &gUnk_08116780[thunk_sub_080002A0() % 8], BG_PLTT + 0x160, 0x20);
+                    SetWorldMapTilePalette(gUnk_03004C08.unk0_0, 0xB);
+                }
+            } else {
+                CopyWorldMapTiles(gUnk_03004C08.unk0_0);
+            }
+            break;
+
+        case 7:
+            CopyWorldMapTiles(gUnk_03004C08.unk0_0);
+            gCallbackQueue.current[1] = CountCollectedGems;
+            break;
+    }
+
+    gUnk_03004C08.unk2 += 1;
+}
 /**
  * UpdateAllEntities: per-frame world-map/level entity driver. Selects the active world/level slot, flushes the OAM buffer to hardware,
  * and iterates the per-level progress table in gUnk_03004670 to drive each entity/node state.
