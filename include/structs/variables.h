@@ -53,8 +53,8 @@ extern struct Unk_03003430 gUnk_03003430;
 
 /* Scene/level state (counters, world/level/room). Address: 0x03004C20. */
 struct Unk_03004C20 {
-    /* 0x00 */ s32 sceneFrameCounter; /* per-scene; reset to 0 on scene entry */
-    /* 0x04 */ s32 globalFrameCounter; /* free-running since boot; never resets */
+    /* 0x00 */ u32 sceneFrameCounter; /* per-scene; reset to 0 on scene entry */
+    /* 0x04 */ u32 globalFrameCounter; /* free-running since boot; never resets */
     /* 0x08 */ u16 unk8;
     /* 0x0A */ u8 unkA;
     /* 0x0B */ u8 unkB;
@@ -239,6 +239,7 @@ struct Unk_03003410 {
     u8 unk9;
     u8 unkA;
     u8 unkB;
+    u8 unkC;
 };
 extern struct Unk_03003410 gUnk_03003410;
 
@@ -266,10 +267,19 @@ extern struct IntrTable gIntrTable;
 extern u16 gBgTilemapBufs[4][0x400];
 /* World-load progress / save-slot byte array (kleod-canonical, address 0x03004670). */
 struct Unk_03004670 {
-    u8 pad0[0x8 - 0x0];
-    u8 unk8[2][8];
+    u8 unk0;
+    u8 unk1;
+    u8 unk2;
+    u8 unk3;
+    u8 unk4;
+    u8 unk5;
+    u8 unk6;
+    u8 unk7;
+    u8 unk8[6][8];
+    s32 unk38;
+    u8 pad3C[0x40 - 0x3C];
 };
-extern volatile struct Unk_03004670 *gUnk_03004670;
+extern struct Unk_03004670 *gUnk_03004670;
 /* Scratch decompression buffer pointer (kleod-canonical, address 0x03005290). */
 extern void *gUnk_03005290;
 /* Sprite/palette state byte (kleod-canonical, address 0x030052A0). */
@@ -372,10 +382,20 @@ extern struct Unk_03005400 gUnk_03005400;
 
 /* Affine reference points at 0x03005440. */
 struct Unk_03005440 {
-    u16 unk0;
-    u16 unk2;
-    u16 unk4;
-    u16 unk6;
+    /* 0x00 */ u16 unk0;
+    /* 0x02 */ u16 unk2;
+    /* 0x04 */ u16 unk4;
+    /* 0x06 */ u16 unk6;
+    /* 0x08 */ u8 pad8[0xC - 0x8];
+    /* 0x0C */ u16 unkC;
+    /* 0x0E */ u16 unkE;
+    /* 0x10 */ u16 unk10;
+    /* 0x12 */ u16 unk12;
+    /* 0x14 */ u8 pad14[0x18 - 0x14];
+    /* 0x18 */ u16 unk18;
+    /* 0x1A */ u16 unk1A;
+    /* 0x1C */ u16 unk1C;
+    /* 0x1E */ u16 unk1E;
 };
 extern struct Unk_03005440 gUnk_03005440;
 
@@ -416,8 +436,8 @@ struct Unk_03005220 {
     /* 0x24 */ u16 unk24;
     /* 0x26 */ s16 unk26;
     /* 0x28 */ s16 unk28;
-    /* 0x2A */ u16 unk2A;
-    /* 0x2C */ u16 unk2C;
+    /* 0x2A */ s16 unk2A;
+    /* 0x2C */ s16 unk2C;
     /* 0x2E */ u8 unk2E;
     /* 0x2F */ s8 unk2F;
     /* 0x30 */ u8 unk30;
@@ -451,7 +471,7 @@ struct Unk_03005220 {
     /* 0x49 */ u8 unk49;
     /* 0x4A */ u8 unk4A;
     /* 0x4B */ u8 unk4B;
-    /* 0x4C */ u8 lives; /* lives count (HUD "x N") */
+    /* 0x4C */ s8 lives; /* lives count (HUD "x N") */
     /* 0x4D */ u8 unk4D;
     /* 0x4E */ u8 unk4E;
     /* 0x4F */ u8 unk4F;
@@ -478,6 +498,11 @@ extern struct Unk_03005220 gUnk_03005220;
 
 /* Level-config view struct at 0x03005284, accessed via pointer.
  * Holds per-level entity/state replay values. */
+struct Unk_030034B0 {
+    u8 pad0[0x6 - 0x0];
+    u8 unk6_0 : 4;
+    u8 unk6_4 : 4;
+};
 struct Unk_03005294_03005418_0 {
     u32 src;
     u8 unk4;
@@ -613,7 +638,7 @@ extern u16 gUnk_08051EFE[6][9][3];
 /* ROM lookup table at gUnk_08051EFE + 0xEA = 0x08051FE8: per-(world, slot) row */
 extern u8 gLevelRoomData[6][8][0x1C];
 extern u8 gUnk_08052624[6][9];
-extern void gUnk_03003650;
+extern u8 gUnk_03003650[][0x40];
 
 /* Globals first referenced by sub_08001158 (InitLevelBG). */
 extern u32 *gUnk_08189034[6][9][3]; /* tile-size pointer table */
@@ -717,6 +742,7 @@ struct Unk_0800BEF0 {
     u16 unk4;
     u16 unk6;
     s8 unk8;
+    s8 unk9;
 };
 
 /* sub_08003DC0 (SetupOAMSprite) — sprite-bookkeeping table at 0x080E2B64
@@ -812,7 +838,11 @@ extern void *gUnk_03004C10;
 /* sub_0800BFF4 family (kleod code_0800BFF4.c) state struct at 0x030051F0. */
 struct Unk_030051F0 {
     s32 unk0;
-    u8 pad4[0xE - 0x4];
+    u16 unk4;
+    u16 unk6;
+    u16 unk8;
+    u16 unkA;
+    u16 unkC;
     u8 unkE;
 };
 extern struct Unk_030051F0 gUnk_030051F0;
