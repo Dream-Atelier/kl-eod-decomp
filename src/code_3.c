@@ -1540,7 +1540,67 @@ void SetupBG3WindowOverlay(void) {
 
     gUnk_03004C20.sceneFrameCounter = 0;
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapInput);
+/**
+ * UpdateWorldMapInput: per-frame input handler for the world-map/vision-select screen. Advances the scene timer, reads D-pad to move
+ * the selection (with SFX), and A/B to confirm, writing the chosen slot into the save struct (gUnk_03005284) and triggering the
+ * level-entry or palette-effect callbacks.
+ */
+void UpdateWorldMapInput(void) {
+    gUnk_03004C20.sceneFrameCounter += 5;
+    if (gUnk_03004C20.sceneFrameCounter > 96) {
+        if (gUnk_03004C20.sceneFrameCounter < 200) {
+            gUnk_03004C20.sceneFrameCounter = 96;
+            if (gNewKeys & DPAD_RIGHT) {
+                gUnk_03005284->unk1C = 1;
+                m4aSongNumStart(0x51);
+                gUnk_03004C20.sceneFrameCounter = 0;
+            } else if (gNewKeys & DPAD_LEFT) {
+                gUnk_03005284->unk1C = 2;
+                m4aSongNumStart(0x51);
+                gUnk_03004C20.sceneFrameCounter = 0;
+            }
+
+            if (gNewKeys & (B_BUTTON | A_BUTTON)) {
+                if (gNewKeys & A_BUTTON) {
+                    m4aSongNumStart(0x52);
+                } else {
+                    m4aSongNumStart(0x54);
+                }
+
+                gUnk_03004C20.sceneFrameCounter = 200;
+                if ((gNewKeys & A_BUTTON) && (gUnk_03005284->unk1C == gUnk_03005284->unk1D)) {
+                    gUnk_03005284->unk1D = 3 ^ gUnk_03005284->unk1D;
+                } else {
+                    gUnk_03005284->unk1C = 3 - gUnk_03005284->unk1D;
+                }
+            }
+        } else if (gUnk_03004C20.sceneFrameCounter > 350) {
+            gUnk_03003410.unk4 = 0;
+
+            if (gUnk_03004C20.level == 8) {
+                gCallbackQueue.next[2] = AnimatePaletteEffects;
+            } else {
+                gCallbackQueue.next[2] = VBlankCallback_Gameplay;
+            }
+            gCallbackQueue.next[0] = ReadKeyInput;
+            gCallbackQueue.next[1] = InitGameplayState;
+            gCallbackQueue.next[3] = NULL + 1;
+            gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+            gCallbackQueue.nextCount = 4;
+
+            thunk_HeapFree(gBgDataPtrs.pBufBg3Tilemap);
+            thunk_HeapFree(gBgDataPtrs.pBufBg3Tiles);
+        }
+    }
+
+    if (gUnk_03004C20.sceneFrameCounter < 200) {
+        if (gUnk_03005284->unk1C == 1) {
+            REG_WIN1H = WIN_RANGE(0, 0xE0 - gUnk_03004C20.sceneFrameCounter);
+        } else {
+            REG_WIN1H = WIN_RANGE(gUnk_03004C20.sceneFrameCounter + 0x18, 0xE0);
+        }
+    }
+}
 u8 CheckWorldCompletion(u8 arg0) {
     u32 var_r0;
     u32 var_r2;
@@ -2174,7 +2234,83 @@ void SetEntityVisibility(u8 arg0) {
     }
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerSpecial);
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdateLevelScrollDMA);
+/**
+ * UpdateLevelScrollDMA: per-frame background palette/scroll animation cycle keyed off the scene frame counter (1800-frame loop). DMAs
+ * palette banks from gUnk_0818B9F8 into BG_PLTT and paces the cycle speed via gEntityInfo[0x12] state.
+ */
+void UpdateLevelScrollDMA(void) {
+    u16 temp_r6;
+
+    temp_r6 = gUnk_03004C20.sceneFrameCounter % 1800;
+    if (temp_r6 == 0) {
+        gUnk_03005400.unk8_7 ^= 1;
+    } else if (temp_r6 < 300) {
+        DmaCopy16(3, gUnk_0818B9F8[1], BG_PLTT, 0x60);
+    } else if (temp_r6 >= 300 && temp_r6 <= 1500) {
+        if ((gUnk_03004C20.sceneFrameCounter % 8) == 0) {
+            if (gEntityInfo[0x12].unk8.split.unk9 > 5) {
+                gEntityInfo[0x12].unk8.split.unk9 -= 1;
+            }
+        }
+
+        if ((gUnk_03004C20.sceneFrameCounter % gEntityInfo[0x12].unk8.split.unk9) == 0) {
+            DmaCopy16(3, gUnk_0818B9F8[1 + (gUnk_03005400.unk8_7 * 4) + gEntityInfo[0x12].unk8.split.unk8], BG_PLTT, 0x60);
+            gEntityInfo[0x12].unk8.split.unk8 = ((gEntityInfo[0x12].unk8.split.unk8 + 1) % 0x100u) % 4;
+        }
+    } else if (temp_r6 <= 1680) {
+        if ((gUnk_03004C20.sceneFrameCounter % 8) == 0) {
+            if (gEntityInfo[0x12].unk8.split.unk9 <= 0xF) {
+                gEntityInfo[0x12].unk8.split.unk9 += 1;
+            }
+        }
+
+        if ((gUnk_03004C20.sceneFrameCounter % gEntityInfo[0x12].unk8.split.unk9) == 0) {
+            DmaCopy16(3, gUnk_0818B9F8[1 + (gUnk_03005400.unk8_7 * 4) + gEntityInfo[0x12].unk8.split.unk8], BG_PLTT, 0x60);
+            gEntityInfo[0x12].unk8.split.unk8 = ((gEntityInfo[0x12].unk8.split.unk8 + 1) % 0x100u) % 4;
+        }
+    } else if (temp_r6 <= 1800) {
+        DmaCopy16(3, gUnk_0818B9F8[1], BG_PLTT, 0x60);
+    }
+
+    if ((temp_r6 >= 300 && temp_r6 <= 1700) && ((gUnk_03004C20.sceneFrameCounter % (gEntityInfo[0x12].unk8.split.unk9 - 4)) == 0)
+        && (gUnk_03005220.unk31 != 0)) {
+        gEntityInfo->xPosBg2 += 0; // FAKE?
+        if (gUnk_03005400.unk8_7 == 0) {
+            gEntityInfo->xPosBg2 += 1;
+        } else {
+            gEntityInfo->xPosBg2 -= 1;
+        }
+    }
+
+    if (gEntityInfo->xPosBg2 < 0x14) {
+        gEntityInfo->xPosBg2 = 0x14;
+    }
+    if (gEntityInfo->xPosBg2 > 0x1C4) {
+        gEntityInfo->xPosBg2 = 0x1C4;
+    }
+
+    if (gEntityInfo[0x14].unkF == 0) {
+        if (gEntityInfo[0x14].xPosBg2 < 0x14) {
+            gEntityInfo[0x14].xPosBg2 = 0x14;
+            gEntityInfo[0x14].unkC_2 = 0;
+        }
+        if (gEntityInfo[0x14].xPosBg2 > 0x1C4) {
+            gEntityInfo[0x14].xPosBg2 = 0x1C4;
+            gEntityInfo[0x14].unkC_2 = 1;
+        }
+    }
+
+    if (gEntityInfo[0x15].unkF == 0) {
+        if (gEntityInfo[0x15].xPosBg2 < 0x14) {
+            gEntityInfo[0x15].xPosBg2 = 0x14;
+            gEntityInfo[0x15].unkC_2 = 0;
+        }
+        if (gEntityInfo[0x15].xPosBg2 > 0x1C4) {
+            gEntityInfo[0x15].xPosBg2 = 0x1C4;
+            gEntityInfo[0x15].unkC_2 = 1;
+        }
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerFinalBoss);
 /**
  * Decompress: process a compressed asset's sub-header and decompress.
