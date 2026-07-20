@@ -5,10 +5,6 @@
 #include "structs/variables.h"
 
 extern s16 MultiplyQ8(s16 a, s16 b);
-#define BG_PLTT      ((void *)0x05000000)
-#define BG_PLTT_SIZE 0x200
-extern u16 gUnk_080D927C[];
-extern u16 gUnk_080D947C[];
 extern void VBlankHandler_OamOnly(void);
 extern void ComputeRotationMatrix(void);
 extern s16 ReciprocalQ8(s16 a);
