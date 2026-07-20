@@ -13,6 +13,9 @@ extern void UpdateScrollPosition(void);
 #endif
 extern void VBlankCallback_Dialog(void);
 /* AUTOPORT-SYMS */
+void UpdatePlayerFinalBoss(u8 arg0);
+void UpdatePlayerAlternate(u8 arg0);
+void UpdatePlayerMinigame(u8 arg0);
 void VBlankHandler_ModeB(void);
 #define BG_PLTT_SIZE 0x200
 void ReadKeyInput(void);
@@ -2276,7 +2279,212 @@ void UpdateAllEntities(void) {
     m4aSongNumStart(3);
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", GameplayMainLoop);
-INCLUDE_ASM("asm/nonmatchings/code_3", InitLevelState);
+/**
+ * InitLevelState: resets the per-level game state at level start — clears the gUnk_03005400 status flags, initializes the world/level
+ * lookup pointers, and seeds the level-config counters (gUnk_03005440) for the current world/level.
+ */
+void InitLevelState(void) {
+    u32 var_r4_4;
+    u32 var_r3;
+    u32 var_r4;
+
+    gUnk_030007CC = gUnk_081168DC[gUnk_03004C20.world - 1];
+
+    gUnk_03005400.unk8_6 = 0;
+    gUnk_03005400.unk8_0 = 0;
+    gUnk_03005400.unk8_1 = 0;
+    gUnk_03005400.unk8_2 = 0;
+    gUnk_03005400.unk8_3 = 0;
+    gUnk_03005400.unk8_4 = 0;
+
+    gUnk_03005400.unk9 = 0;
+
+    gUnk_03005400.unkE_7 = 0;
+    gUnk_03005400.unkE_3 = 0;
+    gUnk_03005400.unkE_4 = 0;
+    gUnk_03005400.unkE_0 = 0;
+    gUnk_03005400.unkE_1 = 0;
+
+    gUnk_03005400.unkA = 0;
+    gUnk_03005400.unkB = 0;
+    gUnk_03005400.unk13 = 0;
+    gUnk_03005400.unk14 = 0;
+    gUnk_03005400.unk15 = 0;
+    gUnk_03005400.unk16 = 0;
+    gUnk_03005400.unkC = 3;
+    gUnk_03005400.unkD = 0;
+    gUnk_03005400.unk0 = 0;
+    gUnk_03005400.unkF = 0;
+    gUnk_03005400.unk10 = 0;
+    gUnk_03005400.unk11 = 0;
+    gUnk_03005400.unk12 = 0;
+    gUnk_03005400.unk2 = 0;
+
+    REG_IE &= ~INTR_FLAG_VBLANK;
+    REG_DISPSTAT &= ~DISPSTAT_VBLANK_INTR;
+    REG_IE &= ~INTR_FLAG_HBLANK;
+    REG_DISPSTAT &= ~DISPSTAT_HBLANK_INTR;
+    m4aSoundVSyncOff();
+    m4aMPlayAllStop();
+
+    DmaFill16(3, 0, &gUnk_03003590, 0x80);
+
+    for (var_r4 = 0; var_r4 < 0xB; var_r4++) {
+        gEntityInfo[var_r4].affineEnable = 1;
+        gEntityInfo[var_r4].affineHFlip_matrixNum = 0;
+        gEntityInfo[var_r4].priority = 1;
+    }
+
+    for (var_r4 = 0xD; var_r4 < gUnk_03005428; var_r4++) {
+        gEntityInfo[var_r4].affineEnable = 1;
+        gEntityInfo[var_r4].affineHFlip_matrixNum = 0;
+
+        switch (gEntityInfo[var_r4].unk11) {
+            case 0x0:
+                gEntityInfo[var_r4].affineEnable = 0;
+                gEntityInfo[var_r4].priority = 0;
+                break;
+
+            case 0x20:
+                gEntityInfo[var_r4].affineEnable = 0;
+                gEntityInfo[var_r4].priority = 0;
+                break;
+
+            case 0xB:
+            case 0x16:
+            case 0x76:
+            case 0x77:
+            case 0x78:
+            case 0x79:
+            case 0x7A:
+            case 0x7B:
+            case 0x7C:
+            case 0x7D:
+                gEntityInfo[var_r4].priority = 0;
+                break;
+
+            case 0x36:
+                gEntityInfo[var_r4].priority = 2;
+                break;
+
+            default:
+                gEntityInfo[var_r4].priority = 1;
+                break;
+        }
+
+        if ((gEntityInfo[var_r4].unk11 == 0) && (gEntityInfo[var_r4].unkF != 0x1C)) {
+            gEntityInfo[var_r4].unk10 = 1;
+        }
+    }
+
+    switch (gUnk_03004C20.world - 1) {
+        case 0:
+            gUnk_030034A8 = UpdatePlayerNormal;
+            gUnk_03005288 = 5;
+            break;
+
+        case 1:
+            gUnk_030034A8 = UpdatePlayerBoss;
+            gUnk_03005288 = 5;
+
+            gEntityInfo[0x1A].priority = 1;
+            gEntityInfo[0x19].priority = 1;
+            gEntityInfo[0x18].priority = 1;
+            gEntityInfo[0x17].priority = 1;
+
+            gEntityInfo[0x1A].affineEnable = 1;
+            gEntityInfo[0x19].affineEnable = 1;
+            gEntityInfo[0x18].affineEnable = 1;
+            gEntityInfo[0x17].affineEnable = 1;
+
+            gEntityInfo[0x19].unkC_2 = 1;
+            gEntityInfo[0x17].unkC_2 = 1;
+            gEntityInfo[0x19].affineHFlip_matrixNum = 1;
+            gEntityInfo[0x17].affineHFlip_matrixNum = 1;
+
+            gEntityInfo[0x1A].unkC_2 = 0;
+            gEntityInfo[0x18].unkC_2 = 0;
+            gEntityInfo[0x1A].affineHFlip_matrixNum = 0;
+            gEntityInfo[0x18].affineHFlip_matrixNum = 0;
+            break;
+
+        case 2:
+            gUnk_030034A8 = UpdatePlayerMinigame;
+            gUnk_03005288 = 0xF;
+
+            for (var_r4 = 0; var_r4 < gUnk_03005428; var_r4++) {
+                gEntityInfo[var_r4].priority = 0;
+            }
+
+            REG_BG0CNT = BGCNT_PRIORITY(3) | gUnk_08051BD4[gUnk_03004C20.world - 1][gUnk_03004C20.level][0] | 0x1C40;
+            REG_BG1CNT = BGCNT_PRIORITY(1) | gUnk_08051BD4[gUnk_03004C20.world - 1][gUnk_03004C20.level][1] | 0x1D44;
+            REG_BG2CNT = BGCNT_PRIORITY(0) | gUnk_08051BD4[gUnk_03004C20.world - 1][gUnk_03004C20.level][2] | 0x9E48;
+
+            ConfigureEntityBehavior(0, 0, 0);
+            ConfigureEntityBehavior(1, 0, 0);
+            ConfigureEntityBehavior(2, 0, 0);
+            ConfigureEntityBehavior(3, 0, 0);
+            ConfigureEntityBehavior(4, 0, 0);
+            ConfigureEntityBehavior(5, 0, 0);
+            break;
+
+        case 3:
+            gUnk_03005288 = 0xF;
+            gUnk_030034A8 = UpdatePlayerAlternate;
+
+            REG_BG0CNT = BGCNT_PRIORITY(3) | gUnk_08051BD4[gUnk_03004C20.world - 1][gUnk_03004C20.level][0] | 0x1C40;
+            REG_BG1CNT = BGCNT_PRIORITY(0) | gUnk_08051BD4[gUnk_03004C20.world - 1][gUnk_03004C20.level][1] | 0x1D44;
+            REG_BG2CNT = BGCNT_PRIORITY(0) | gUnk_08051BD4[gUnk_03004C20.world - 1][gUnk_03004C20.level][2] | 0x9E49;
+
+            gUnk_03005440.unkC = 0x30;
+            gUnk_03005440.unkE = 0;
+            gUnk_03005440.unk10 = 0x30;
+            gUnk_03005440.unk12 = 0x200;
+            gUnk_03005440.unk18 = 0x1B0;
+            gUnk_03005440.unk1A = 0;
+            gUnk_03005440.unk1C = 0x1B0;
+            gUnk_03005440.unk1E = 0x200;
+            break;
+
+        case 4:
+            gUnk_03005288 = 0xF;
+            gUnk_030034A8 = UpdatePlayerSpecial;
+            break;
+
+        case 5:
+            gUnk_03005288 = 0xF;
+            gUnk_030034A8 = UpdatePlayerFinalBoss;
+            gEntityInfo[0x12].unk8.split.unk9 = 0x10;
+
+            gUnk_03005400.unkE_7 = 1;
+            gUnk_030007E0.unkC_0 = 3;
+            gUnk_030007E0.unkC_4 = 0;
+            gUnk_030007E0.unk6 = 0x78;
+            gUnk_030007E0.unk0 = 0x78;
+            gUnk_030007E0.unk8 = 0x80;
+            gUnk_030007E0.unk2 = 0x80;
+            gUnk_030007E0.unkA = 0;
+            break;
+    }
+
+    var_r4_4 = 0;
+    for (var_r3 = 0; var_r3 < (gCallbackQueue.currentCount - 1); var_r3++) {
+        if ((gCallbackQueue.current[var_r3] == InitLevelState) || (var_r4_4 == 1)) {
+            gCallbackQueue.next[var_r3] = gCallbackQueue.current[var_r3 + 1];
+            var_r4_4 = 1;
+        } else {
+            gCallbackQueue.next[var_r3] = gCallbackQueue.current[var_r3];
+        }
+    }
+    if (var_r4_4 == 1) {
+        gCallbackQueue.nextCount = gCallbackQueue.currentCount - 1;
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+    }
+
+    REG_IE |= INTR_FLAG_VBLANK;
+    REG_DISPSTAT |= DISPSTAT_VBLANK_INTR;
+    m4aSoundVSyncOn();
+}
 /**
  * UpdateEntitySpawnState: advances an entity's spawn state machine (gEntityInfo[i].unkF), positioning it or clearing it once it
  * scrolls past the per-room spawn threshold.
