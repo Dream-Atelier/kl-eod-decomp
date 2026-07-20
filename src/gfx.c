@@ -629,7 +629,48 @@ void StreamCmd_InitHBlankWait(void) {
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitSpriteWave);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitButtonWait);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_StopMotion);
-INCLUDE_ASM("asm/nonmatchings/gfx", ProcessScreenFade);
+/**
+ * ProcessScreenFade: step the active screen fade one frame toward its target.
+ *
+ * Only acts on odd global frames. Writes the fade's blend config into REG_BLDCNT
+ * from a ROM lookup table indexed by the control struct's palette byte, then
+ * increments or decrements gUnk_03005498 depending on the direction bit
+ * (bit 6 of byte 1, extracted via `<<25 >>31`). When the counter reaches the
+ * target level (byte 6) it clamps to that level, clears gPauseFlag, and returns 0
+ * (fade complete); otherwise returns 1 (fade still in progress).
+ */
+s32 ProcessScreenFade(void) {
+    u8 *p;
+    u32 sign;
+    u8 c;
+
+    gUnk_030034E4 = 1;
+    if (gUnk_03004C20.globalFrameCounter & 1) {
+        REG_BLDCNT = gBlendModeTable[((u8 *)gGfxBufferPtr)[5]];
+        p = (u8 *)gGfxBufferPtr;
+        sign = ((u32)p[1] << 25) >> 31;
+        if (sign != 0) {
+            c = gUnk_03005498;
+            gUnk_03005498 = c - 1;
+            if ((u8)(c - 1) <= p[6]) {
+                gUnk_030034E4 = 0;
+                gUnk_03005498 = p[6];
+                return 0;
+            }
+            return 1;
+        } else {
+            c = gUnk_03005498;
+            gUnk_03005498 = c + 1;
+            if ((u8)(c + 1) >= p[6]) {
+                gUnk_030034E4 = sign;
+                gUnk_03005498 = p[6];
+                return 0;
+            }
+            return 1;
+        }
+    }
+    return 1;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdatePaletteFadeStep);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessSceneTransitionOut);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGModeTiled);
