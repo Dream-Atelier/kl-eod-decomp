@@ -7,6 +7,8 @@ extern struct EntityAnimationInfo gEntityAnimationInfo[];
 extern void SetupBG3WindowOverlay(void);
 extern void UpdateScrollPosition(void);
 void SetPaletteAnimEntry(s32, u8);
+extern s16 MultiplyQ8(s16, s16);
+extern s16 ReciprocalQ8(s16);
 extern u8 thunk_sub_080002A0();
 extern u8 thunk_sub_080002D0();
 #ifndef OAM_SIZE
@@ -3131,7 +3133,78 @@ void GetEntityLookupData(u8 idx) {
     flags[0x11] = entry[5];
     flags[0x12] = entry[6];
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", ComputeScrollLimits);
+/**
+ * ComputeScrollLimits: recomputes the BG2 affine matrix (from magnification/angle) and the per-level camera scroll bounds.
+ */
+void ComputeScrollLimits(void) {
+    u8 sp0;
+    s16 temp_r4;
+    s16 temp_r7;
+    s16 temp_sb;
+    s16 temp_sl;
+    u8 var_r4;
+
+    temp_sl = MultiplyQ8(COS(0), ReciprocalQ8(gBg2XMag));
+    temp_sb = MultiplyQ8(SIN(0), ReciprocalQ8(gBg2XMag));
+    temp_r7 = MultiplyQ8(-SIN(0), ReciprocalQ8(gBg2YMag));
+    temp_r4 = MultiplyQ8(COS(0), ReciprocalQ8(gBg2YMag));
+
+    gUnk_03004680[0].unk0 = temp_sl;
+    gUnk_03004680[0].unk2 = temp_sb;
+    gUnk_03004680[0].unk4 = temp_r7;
+    gUnk_03004680[0].unk6 = temp_r4;
+
+    gUnk_03004680[1].unk0 = -temp_sl;
+    gUnk_03004680[1].unk2 = temp_sb;
+    gUnk_03004680[1].unk4 = temp_r7;
+    gUnk_03004680[1].unk6 = temp_r4;
+
+    gUnk_03004680[2].unk0 = temp_sl;
+    gUnk_03004680[2].unk2 = temp_sb;
+    gUnk_03004680[2].unk4 = temp_r7;
+    gUnk_03004680[2].unk6 = -temp_r4;
+
+    temp_sl = MultiplyQ8(COS(gUnk_03003590[0].unk4), ReciprocalQ8(gBg2XMag + gUnk_03003590[0].unk0 + gUnk_030007CC));
+    temp_sb = MultiplyQ8(SIN(gUnk_03003590[0].unk4), ReciprocalQ8(gBg2XMag + gUnk_03003590[0].unk0 + gUnk_030007CC));
+    temp_r7 = MultiplyQ8(-SIN(gUnk_03003590[0].unk4), ReciprocalQ8(gBg2YMag + gUnk_03003590[0].unk2 + gUnk_030007CC));
+    temp_r4 = MultiplyQ8(COS(gUnk_03003590[0].unk4), ReciprocalQ8(gBg2YMag + gUnk_03003590[0].unk2 + gUnk_030007CC));
+
+    if (gUnk_03003590[0].unk5_0 == 0) {
+        gUnk_03004680[3].unk0 = temp_sl;
+        gUnk_03004680[3].unk4 = temp_r7;
+    } else {
+        gUnk_03004680[3].unk0 = -temp_sl;
+        gUnk_03004680[3].unk4 = -temp_r7;
+    }
+    gUnk_03004680[3].unk2 = temp_sb;
+    gUnk_03004680[3].unk6 = temp_r4;
+
+    for (sp0 = 1; sp0 < 0x10; sp0++) {
+        if (gUnk_03003590[sp0].unk5_0 == 0) {
+            var_r4 = gUnk_03003590[sp0].unk4;
+        } else {
+            var_r4 = -gUnk_03003590[sp0].unk4;
+        }
+
+        temp_sl = MultiplyQ8(COS(var_r4), ReciprocalQ8(gBg2XMag + gUnk_03003590[sp0].unk0));
+        temp_sb = MultiplyQ8(SIN(var_r4), ReciprocalQ8(gBg2XMag + gUnk_03003590[sp0].unk0));
+        temp_r7 = MultiplyQ8(-SIN(var_r4), ReciprocalQ8(gBg2YMag + gUnk_03003590[sp0].unk2));
+        temp_r4 = MultiplyQ8(COS(var_r4), ReciprocalQ8(gBg2YMag + gUnk_03003590[sp0].unk2));
+
+        if (gUnk_03003590[sp0].unk5_0 == 0) {
+            gUnk_03004680[sp0 + 3].unk0 = temp_sl;
+        } else {
+            gUnk_03004680[sp0 + 3].unk0 = -temp_sl;
+        }
+        if ((gUnk_03003590[sp0].unk5_0 != 0) && (gUnk_03003590[sp0].unk4 != 0)) {
+            gUnk_03004680[sp0 + 3].unk4 = -temp_r7;
+        } else {
+            gUnk_03004680[sp0 + 3].unk4 = temp_r7;
+        }
+        gUnk_03004680[sp0 + 3].unk2 = temp_sb;
+        gUnk_03004680[sp0 + 3].unk6 = temp_r4;
+    }
+}
 /**
  * x
  */
