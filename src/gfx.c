@@ -695,7 +695,20 @@ void StreamCmd_ClearRenderMode(void) {
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleDisplayFlag);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleLayerFlag);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBlendMode);
+/**
+ * StreamCmd_SetBlendMode: set the hardware blend control (BLDCNT) from stream data.
+ *
+ * Copies the blend-mode index (stream byte[2]) into gGfxBuffer[5], looks it up in
+ * the ROM blend-mode table at 0x08057B4C, and writes the resulting value to
+ * REG_BLDCNT. Also stores the raw blend value (stream byte[3]) to gBlendValue.
+ * Advances the stream by 4.
+ */
+void StreamCmd_SetBlendMode(void) {
+    ((u8 *)gGfxBufferPtr)[5] = gStreamPtr[2];
+    REG_BLDCNT = gBlendModeTable[((u8 *)gGfxBufferPtr)[5]];
+    gUnk_03005498 = gStreamPtr[3];
+    gStreamPtr += 4;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetScrollPosition);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGScreenSize);
 /**
