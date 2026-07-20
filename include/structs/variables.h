@@ -395,7 +395,7 @@ struct Unk_03005220 {
     /* 0x00_0 */ u32 hearts : 2; /* player health 0..3 */
     /* 0x00_2 */ u32 stars : 3; /* bitmask: one bit per star piece collected this vision; HUD count = popcount */
     /* 0x00_5 */ u32 dreamStones : 7; /* dream stones collected this vision (the HUD "N/30") */
-    /* 0x01_4 */ u32 unk1_4 : 3;
+    /* 0x01_4 */ u32 keys : 3; /* bitfield of keys */
     /* 0x01_7 */ u32 unk1_7 : 8;
     /* 0x02_7 */ u32 unk2_7 : 6;
     /* 0x03_5 */ u32 unk3_5 : 1;
@@ -496,7 +496,8 @@ struct Unk_03005284 {
     /* 0x00 */ u8 unk0;
     /* 0x01 */ u8 unk1;
     /* 0x02 */ u8 unk2;
-    /* 0x03 */ u8 pad3[0x5 - 0x3];
+    /* 0x03 */ u8 unk3;
+    /* 0x04 */ u8 unk4;
     /* 0x05 */ u8 unk5;
     /* 0x06 */ u8 unk6;
     /* 0x07 */ u8 unk7;
@@ -513,6 +514,9 @@ struct Unk_03005284 {
     /* 0x14 */ u16 unk14;
     /* 0x16 */ u16 unk16;
     /* 0x18 */ u32 unk18;
+    /* 0x1C */ u8 unk1C;
+    /* 0x1D */ u8 unk1D;
+    /* 0x1E */ u8 unk1E;
 };
 extern struct Unk_03005284 *gUnk_03005284;
 

@@ -320,7 +320,7 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
         case 0x0:
         case 0x1:
         case 0x3:
-            if (gUnk_03005220.unk1_4 & arg8) {
+            if (gUnk_03005220.keys & arg8) {
                 gUnk_03002920[arg0].unkF = 0x1C;
             }
             break;
@@ -2378,7 +2378,7 @@ extern void RenderMenuUI(void);
 extern void InitGameplayState(void);
 extern void ProcessInputAndUpdateEntities(void);
 extern void UpdateWorldMapInput(void);
-extern void sub_0803A8B8(void);
+extern void SetupBG3WindowOverlay(void);
 
 /**
  * AnimatePaletteEffects: per-frame screen-shake, affine wobble, and register flush.
@@ -2435,7 +2435,7 @@ void AnimatePaletteEffects(void) {
     if (gUnk_03004C20.world == 0x5 || gUnk_03004C20.world == 0x6) {
         if ((gCallbackQueue.current[1] == ProcessInputAndUpdateEntities) || (gCallbackQueue.current[0] == InitGameplayState)
             || (gCallbackQueue.current[1] == InitGameplayState) || (gCallbackQueue.current[1] == UpdateWorldMapInput)
-            || (gCallbackQueue.current[1] == sub_0803A8B8)) {
+            || (gCallbackQueue.current[1] == SetupBG3WindowOverlay)) {
             if (gUnk_030034BC == 0) {
                 var_sb = 0;
                 var_r8 = 1;
@@ -2658,7 +2658,7 @@ void InitLevelGameplay(u32 arg0) {
         gUnk_03005220.stars = 0;
         gUnk_03005220.dreamStones = 0;
         gUnk_03005220.hearts = 3;
-        gUnk_03005220.unk1_4 = 0;
+        gUnk_03005220.keys = 0;
         gUnk_03005220.unk14 = 0;
         gUnk_03005220.unk3_6 = gUnk_03005220.unk3_5 = 0;
         if ((gUnk_03004C20.unkB != 0) || ((gUnk_03004C20.world == 6) && ((gUnk_03004C20.level == 1) || (gUnk_03004C20.level == 3)))) {
@@ -2686,7 +2686,7 @@ void InitLevelGameplay(u32 arg0) {
         gUnk_03005220.hearts = gUnk_03005284->unk8_0;
         gUnk_03005220.stars = gUnk_03005284->unk8_2;
         gUnk_03005220.dreamStones = gUnk_03005284->unk8_5;
-        gUnk_03005220.unk1_4 = gUnk_03005284->unk9_4;
+        gUnk_03005220.keys = gUnk_03005284->unk9_4;
         gUnk_03005220.unk4 = gUnk_03005284->unk18;
         gUnk_03005220.unk2_7 = gUnk_03005284->unkA_7;
         gUnk_03005220.unk3_5 = gUnk_03005284->unkB_5;
@@ -2711,7 +2711,7 @@ void InitLevelGameplay(u32 arg0) {
         gUnk_03005284->unk8_0 = gUnk_03005220.hearts;
         gUnk_03005284->unk16 = gUnk_03004C20.unk8;
         gUnk_03005284->unk8_2 = gUnk_03005220.stars;
-        gUnk_03005284->unk9_4 = gUnk_03005220.unk1_4;
+        gUnk_03005284->unk9_4 = gUnk_03005220.keys;
         gUnk_03005284->unk14 = gUnk_03005220.unk14;
         gUnk_03005284->unkB_5 = gUnk_03005220.unk3_5;
         gUnk_03005284->unkB_6 = gUnk_03005220.unk3_6;

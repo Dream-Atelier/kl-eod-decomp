@@ -860,7 +860,56 @@ void TransitionToTitleScreen(void) {
         gMosaicSize += 1;
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionGameOver);
+/**
+ * TransitionGameOver: per-frame fade-out step (every other frame) run after a game over; once fully darkened, frees decomp buffers,
+ * resets BG2 affine/HBlank state, records save progress, and queues either the world-map return or the next-level setup depending on
+ * world/level.
+ */
+void TransitionGameOver(void) {
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue += 1;
+    if (gBlendValue == BLEND_MAX) {
+        gUnk_030034E4 = 0;
+        FreeAllDecompBuffers();
+
+        gBg2XMag = gBg2YMag = 0x100;
+        gBg2Alpha = 0;
+
+        REG_IE &= ~INTR_FLAG_HBLANK;
+        REG_DISPSTAT &= ~DISPSTAT_HBLANK_INTR;
+        gUnk_03004658[0xC] = 0;
+
+        if (gUnk_03005220.unk37 == 0) {
+            if ((gUnk_03004C20.world != 6) && (gUnk_03004C20.level == 8)) {
+                gUnk_03005284->unk4 = gUnk_03004C20.world * 3;
+                gBlendValue = BLEND_MAX;
+                gCallbackQueue.next[0] = InitWorldMapGfx;
+                gCallbackQueue.next[1] = NULL + 1;
+                gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+                gCallbackQueue.nextCount = 2;
+            } else {
+                ClearVideoState();
+                gUnk_03003410.unk9 = 0;
+                gUnk_03003410.unkA = 0;
+                gCallbackQueue.next[0] = InitLevelBG;
+                gUnk_03003410.unk8 = 1;
+                gCallbackQueue.next[1] = ResetVideoRegisters;
+                gCallbackQueue.next[2] = NULL + 1;
+                gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+                gCallbackQueue.nextCount = 3;
+            }
+        }
+        gUnk_03004C20.sceneFrameCounter = -1;
+    } else {
+        gMosaicSize += 1;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", GameplayFrameInit);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutFull);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionReturnToWorldMap);
