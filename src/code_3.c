@@ -1976,7 +1976,7 @@ void DecompressRowToTilemap(u8 arg0, u8 arg1) {
         }
     }
 }
-void SetPaletteAnimEntry(u32, u8);
+void SetPaletteAnimEntry(s32, u8);
 
 /**
  * SetEntityVisibility: toggles the boss/minigame entity set on or off.

@@ -57,7 +57,7 @@ void SoftResetRom(u32);
 void ResetEntityScrollState(s32 arg0);
 void SpawnEntityAtPosition(u16, u16, u8, u8);
 void EntityHitReaction(u8);
-void SetPaletteAnimEntry(u32, u8);
+void SetPaletteAnimEntry(s32, u8);
 void CopyBGScrollTiles(void);
 void m4aSongNumStart(u16);
 
@@ -1047,7 +1047,20 @@ void TransitionToSaveScreen(void) {
         gMosaicSize += 1;
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_1", SetPaletteAnimEntry);
+/**
+ * SetPaletteAnimEntry: (re)starts the palette/sprite animation for entry arg0
+ * with animation id arg1, resetting its timer to 1 and frame to 0xFF. Entries
+ * above 8 are remapped relative to the current dynamic-entry base (gUnk_030007C4).
+ */
+void SetPaletteAnimEntry(s32 arg0, u8 arg1) {
+    if (arg0 > 8) {
+        arg0 = arg0 + (9 - gUnk_030007C4);
+    }
+
+    gEntityAnimationInfo[arg0].state = arg1;
+    gEntityAnimationInfo[arg0].timer = 1;
+    gEntityAnimationInfo[arg0].frame = 0xFF;
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", UpdatePaletteAnimations);
 /**
  * CopyBGScrollTiles: ported from kleod CopyBGScrollTiles.
