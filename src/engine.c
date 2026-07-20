@@ -5,6 +5,12 @@
 #include "structs/variables.h"
 
 extern s16 MultiplyQ8(s16 a, s16 b);
+#define BG_PLTT      ((void *)0x05000000)
+#define BG_PLTT_SIZE 0x200
+extern u16 gUnk_080D927C[];
+extern u16 gUnk_080D947C[];
+extern void VBlankHandler_OamOnly(void);
+extern void ComputeRotationMatrix(void);
 extern s16 ReciprocalQ8(s16 a);
 extern void TransitionGameplayInit(void);
 extern void ComputeScrollLimits(void);
@@ -1065,7 +1071,47 @@ void ScrollBGColumnLoad(u8 arg0) {
 
     gUnk_03003430.bg2VOfs += (arg0 * 8);
 }
-INCLUDE_ASM("asm/nonmatchings/engine", InitVideoAndBG);
+/**
+ * InitVideoAndBG: resets video interrupts and display control, clears the
+ * window and BG scroll registers, initialises the BG2 affine transform from the
+ * default magnification/angle, and installs the OAM-only VBlank handler.
+ */
+void InitVideoAndBG(void) {
+    REG_IE &= ~INTR_FLAG_VBLANK;
+    REG_DISPSTAT &= ~DISPSTAT_VBLANK_INTR;
+    REG_DISPCNT = DISPCNT_BG2_ON | DISPCNT_BG1_ON | DISPCNT_BG0_ON | DISPCNT_MODE_4;
+
+    REG_WININ = REG_WINOUT = REG_WIN0H = REG_WIN0V = REG_WIN1H = REG_WIN1V = 0;
+    REG_BG2CNT = BGCNT_PRIORITY(1);
+
+    gBgInfo[2].vOfs = 0;
+    gBgInfo[2].hOfs = 0;
+    gBgInfo[1].vOfs = 0;
+    gBgInfo[1].hOfs = 0;
+    gBgInfo[0].vOfs = 0;
+    gBgInfo[0].hOfs = 0;
+    gBg2Alpha = 0;
+
+    gBg2XMag = gBg2YMag = 0x500;
+
+    gBg2PA = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2XMag));
+    gBg2PB = MultiplyQ8(SIN(gBg2Alpha), ReciprocalQ8(gBg2XMag));
+    gBg2PC = MultiplyQ8(-SIN(gBg2Alpha), ReciprocalQ8(gBg2YMag));
+    gBg2PD = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2YMag));
+
+    gBg2X = (((gBgInfo[2].hOfs + DISPLAY_WIDTH_CENTER) << 8) - (gBg2PA * DISPLAY_WIDTH_CENTER)) - (gBg2PB * DISPLAY_HEIGHT_CENTER);
+    gBg2Y = (((gBgInfo[2].vOfs + DISPLAY_HEIGHT_CENTER) << 8) - (gBg2PC * DISPLAY_WIDTH_CENTER)) - (gBg2PD * DISPLAY_HEIGHT_CENTER);
+
+    DmaCopy16(3, &gUnk_080D927C, BG_PLTT, BG_PLTT_SIZE);
+    DmaCopy16(3, &gUnk_080D947C, VRAM, 0x9600);
+
+    gUnk_03004C20.sceneFrameCounter = 0;
+    gCallbackQueue.current[1] = ComputeRotationMatrix;
+    gIntrTable.vBlank = VBlankHandler_OamOnly;
+    REG_IE |= INTR_FLAG_VBLANK;
+    REG_DISPSTAT |= DISPSTAT_VBLANK_INTR;
+    m4aMPlayAllStop();
+}
 void ComputeRotationMatrix(void) {
     gBg2PA = MultiplyQ8(COS(gBg2Alpha), ReciprocalQ8(gBg2XMag));
     gBg2PB = MultiplyQ8(SIN(gBg2Alpha), ReciprocalQ8(gBg2XMag));

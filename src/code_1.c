@@ -4,6 +4,7 @@
 #include "include_asm.h"
 #include "structs/variables.h"
 /* AUTOPORT-SYMS */
+extern u16 gUnk_030052B8;
 extern void AnimatePaletteEffects();
 extern void CameraModeSwitchHandler();
 extern void IntroSequenceUpdate();
@@ -56,7 +57,7 @@ void SoftResetRom(u32);
 void ResetEntityScrollState(s32 arg0);
 void SpawnEntityAtPosition(u16, u16, u8, u8);
 void EntityHitReaction(u8);
-void SetPaletteAnimEntry(u32, u8);
+void SetPaletteAnimEntry(s32, u8);
 void CopyBGScrollTiles(void);
 void m4aSongNumStart(u16);
 
@@ -620,7 +621,46 @@ INCLUDE_ASM("asm/nonmatchings/code_1", EntityBossPhaseC);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityBossPhaseD);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityMiniBoss);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityMiniBossAlt);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutDisableIRQ);
+/**
+ * TransitionFadeOutDisableIRQ: per-frame fade-to-black step (every other
+ * frame). Darkens all layers via BLDCNT, decrements the blend value, and once
+ * it reaches zero removes this callback from the queue.
+ */
+void TransitionFadeOutDisableIRQ(void) {
+    u32 removed;
+    u32 i;
+
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue -= 1;
+    if (gBlendValue == 0) {
+        // Remove TransitionFadeOutDisableIRQ from callback queue
+        removed = FALSE;
+        for (i = 0; i < (gCallbackQueue.currentCount - 1); i++) {
+            if ((gCallbackQueue.current[i] == TransitionFadeOutDisableIRQ) || (removed == TRUE)) {
+                gCallbackQueue.next[i] = gCallbackQueue.current[i + 1];
+                removed = TRUE;
+            } else {
+                gCallbackQueue.next[i] = gCallbackQueue.current[i];
+            }
+        }
+        if (removed == TRUE) {
+            gCallbackQueue.nextCount = gCallbackQueue.currentCount - 1;
+            gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        }
+
+        REG_IE &= ~INTR_FLAG_HBLANK;
+        REG_DISPSTAT &= ~DISPSTAT_HBLANK_INTR;
+        gUnk_030034E4 = 0;
+    } else {
+        gMosaicSize -= 1;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeInBldAlpha);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionInitLevelMusic);
 /**
@@ -825,7 +865,45 @@ INCLUDE_ASM("asm/nonmatchings/code_1", GameplayFrameInit);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutFull);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionReturnToWorldMap);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutMusicAndReset);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionClearAndRestart);
+/**
+ * TransitionClearAndRestart: per-frame fade-in step (every other frame). Brightens
+ * all layers via BLDCNT until the blend value reaches max, then resets BG2
+ * affine/blend state, disables the HBlank interrupt, clears video state, and
+ * queues InitLevelBG / ResetVideoRegisters to rebuild the scene.
+ */
+void TransitionClearAndRestart(void) {
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_ALL;
+
+    gBlendValue += 1;
+    if (gBlendValue == BLEND_MAX) {
+        gUnk_030034E4 = 0;
+        gBg2XMag = gBg2YMag = 0x100;
+        gBg2Alpha = 0;
+
+        REG_IE &= ~INTR_FLAG_HBLANK;
+        REG_DISPSTAT &= ~DISPSTAT_HBLANK_INTR;
+
+        gUnk_03004658[0xC] = 0;
+        gUnk_03004C20.sceneFrameCounter = -1;
+        ClearVideoState();
+        gUnk_03003410.unk9 = 0;
+        gUnk_03003410.unkA = 0;
+        gCallbackQueue.next[0] = InitLevelBG;
+        gUnk_03003410.unk8 = 1;
+        gCallbackQueue.next[1] = ResetVideoRegisters;
+        gCallbackQueue.next[2] = NULL + 1;
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        gCallbackQueue.nextCount = 3;
+        gUnk_03004C20.sceneFrameCounter = -1;
+    } else {
+        gMosaicSize += 1;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeInRestoreWindows);
 /**
  * TransitionToGameplayScreen: kleod TransitionToGameplayScreen.
@@ -969,8 +1047,81 @@ void TransitionToSaveScreen(void) {
         gMosaicSize += 1;
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_1", SetPaletteAnimEntry);
-INCLUDE_ASM("asm/nonmatchings/code_1", UpdatePaletteAnimations);
+/**
+ * SetPaletteAnimEntry: (re)starts the palette/sprite animation for entry arg0
+ * with animation id arg1, resetting its timer to 1 and frame to 0xFF. Entries
+ * above 8 are remapped relative to the current dynamic-entry base (gUnk_030007C4).
+ */
+void SetPaletteAnimEntry(s32 arg0, u8 arg1) {
+    if (arg0 > 8) {
+        arg0 = arg0 + (9 - gUnk_030007C4);
+    }
+
+    gEntityAnimationInfo[arg0].state = arg1;
+    gEntityAnimationInfo[arg0].timer = 1;
+    gEntityAnimationInfo[arg0].frame = 0xFF;
+}
+/**
+ * UpdatePaletteAnimations: per-frame driver for all 0x2D palette/sprite animation
+ * slots. Decrements each active slot's timer, advances its frame, handles the
+ * end/loop/branch sentinels (-1 loop, -2 despawn, -3 hold), DMAs the new frame's
+ * palette into its destination, and mirrors the frame's flip flags onto the owner
+ * entity in gEntityInfo.
+ */
+void UpdatePaletteAnimations(void) {
+    vu32 sp0;
+    struct Unk_03005294_03005418 *var_r5;
+    struct Unk_03005294_03005418_0 **temp_r7;
+    struct Unk_03005294_03005418_0 *var_r4;
+
+    for (sp0 = 0; sp0 < 0x2D; sp0++) {
+        if (sp0 < 9) {
+            var_r5 = &gUnk_03005418[sp0];
+        } else {
+            var_r5 = &gUnk_03005294[sp0] - 9;
+        }
+        if (var_r5->unk0 == NULL) {
+            break;
+        }
+        if (var_r5->unk0 == NULL + 1) {
+            continue;
+        }
+
+        if (gEntityAnimationInfo[sp0].timer == 0xFF) {
+            continue;
+        }
+
+        if (--gEntityAnimationInfo[sp0].timer != 0) {
+            continue;
+        }
+
+        temp_r7 = var_r5->unk0;
+        var_r4 = temp_r7[gEntityAnimationInfo[sp0].state];
+        if (var_r4[++gEntityAnimationInfo[sp0].frame].src == -1) {
+            gEntityAnimationInfo[sp0].frame = 0;
+        } else if (var_r4[gEntityAnimationInfo[sp0].frame].src == -2) {
+            gEntityAnimationInfo[sp0].timer |= 0xFF;
+            gEntityInfo[var_r5->unkA].unk10 = 0;
+            gEntityInfo[var_r5->unkA].unkF = 0x1C;
+            gEntityInfo[var_r5->unkA].unk8.split.unk8 = 0;
+            continue;
+        } else if (var_r4[gEntityAnimationInfo[sp0].frame].src > 9999) {
+            if (var_r4[gEntityAnimationInfo[sp0].frame].src == -3) {
+                gEntityAnimationInfo[sp0].timer |= 0xFF;
+                continue;
+            }
+        } else {
+            gEntityAnimationInfo[sp0].state = var_r4[gEntityAnimationInfo[sp0].frame].src;
+            gEntityAnimationInfo[sp0].frame = 0;
+            var_r4 = temp_r7[gEntityAnimationInfo[sp0].state];
+        }
+
+        gEntityAnimationInfo[sp0].timer = var_r4[gEntityAnimationInfo[sp0].frame].unk4;
+        DmaCopy16(3, var_r4[gEntityAnimationInfo[sp0].frame].src, var_r5->dest, var_r5->size);
+        gEntityInfo[var_r5->unkA].unkB_0 = var_r4[gEntityAnimationInfo[sp0].frame].unk5_0;
+        gEntityInfo[var_r5->unkA].unkB_4 = var_r4[gEntityAnimationInfo[sp0].frame].unk5_4;
+    }
+}
 /**
  * CopyBGScrollTiles: ported from kleod CopyBGScrollTiles.
  */
