@@ -117,6 +117,18 @@ extern u8 gUnk_08078788[0x20];
 extern u8 gUnk_08078748[0x20];
 extern u8 gUnk_0805F0E8[0x200];
 extern u8 gUnk_08078348[0x20];
+struct Unk_08189A24 {
+    u8 pad0[0x3C - 0x0];
+    void ***unk3C;
+    u8 pad40[0x60 - 0x40];
+    void ***unk60;
+    u8 pad64[0x6C - 0x64];
+    void ***unk6C;
+    u8 pad70[0x78 - 0x70];
+    void ***unk78;
+    u8 pad7C[0x90 - 0x7C];
+    void ***unk90;
+};
 extern struct Unk_08189A24 *gUnk_08189A24[6][9];
 extern u8 gUnk_08061088[0x800];
 extern u8 gUnk_080784E8[0x20];
@@ -249,7 +261,66 @@ void UpdateWorldMapNodeAnim(void);
 void GameplayMainLoop(void);
 void InitGameplayState(void);
 
-INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World1_Vision1);
+/**
+ * LoadLevel_World1_Vision1: streams the tile and palette graphics data for World 1, Vision 1 from ROM into VRAM and palette RAM via
+ * DMA (including the level-specific palette tables indexed through gUnk_08189A24), advancing the write cursors.
+ */
+void LoadLevel_World1_Vision1(void) {
+    DmaCopy16Wait(3, &gUnk_080784A8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08060A08, gPaletteVramCursor, 0x80);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x80;
+
+    DmaCopy16Wait(3, &gUnk_080784C8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08060A88, gPaletteVramCursor, 0x600);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x600;
+
+    DmaCopy16Wait(3, &gUnk_080784E8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08061088, gPaletteVramCursor, 0x800);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_08078728, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, **gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C, gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_08078348, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805F0E8, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805F0E8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805F0E8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_08078748, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, **gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk6C, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, (void *)0x0200A984, gPaletteVramCursor, 0x20);
+    gPaletteVramCursor += 0x20;
+    DmaCopy16Wait(3, (void *)0x0200A904, gPaletteVramCursor, 0x80);
+    gPaletteVramCursor += 0x80;
+
+    DmaCopy16Wait(3, &gUnk_08078728, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x24 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_08078788, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x28 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x2C / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_080783A8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805F408, gPaletteVramCursor, 0x80);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x80;
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World1_Vision2);
 /**
  * LoadLevel_World2_Vision1: streams the tile and palette graphics data for World 2, Vision 1 from ROM into VRAM and palette RAM via
@@ -689,7 +760,69 @@ void LoadLevel_World4_Vision1(void) {
     gVramWriteCursor += 0x20;
     gPaletteVramCursor += 0x80;
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World4_Vision2);
+/**
+ * LoadLevel_World4_Vision2: streams the tile and palette graphics data for World 4, Vision 2 from ROM into VRAM and palette RAM via
+ * DMA (including the level-specific palette tables indexed through gUnk_08189A24), advancing the write cursors.
+ */
+void LoadLevel_World4_Vision2(void) {
+    DmaCopy16Wait(3, &gUnk_080784A8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08060A08, gPaletteVramCursor, 0x80);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x80;
+
+    DmaCopy16Wait(3, &gUnk_080784C8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08060A88, gPaletteVramCursor, 0x600);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x600;
+
+    DmaCopy16Wait(3, &gUnk_080784E8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08061088, gPaletteVramCursor, 0x800);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_080788A8, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, **gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C, gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    SetPaletteAnimEntry(0x12, 0);
+
+    DmaCopy16Wait(3, &gUnk_08078328, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805EEE8, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805EEE8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_080788C8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08064C68, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_08064C68, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_08064E68, gPaletteVramCursor, 0x100);
+    gPaletteVramCursor += 0x100;
+
+    DmaCopy16Wait(3, &gUnk_08078848, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08064868, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_08064868, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_08064868, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_08064868, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_08064868, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_08064868, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_080783A8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805F408, gPaletteVramCursor, 0x80);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x80;
+}
 /**
  * LoadLevel_World5_Vision1: streams the tile and palette graphics data for World 5, Vision 1 from ROM into VRAM and palette RAM via
  * DMA, advancing the gVramWriteCursor/gPaletteVramCursor write cursors.
@@ -988,7 +1121,68 @@ void LoadLevel_World6_Vision1(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World6_Vision2);
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World7_Vision1);
-INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World7_Vision2);
+/**
+ * LoadLevel_World7_Vision2: streams the tile and palette graphics data for World 7, Vision 2 from ROM into VRAM and palette RAM via
+ * DMA (including the level-specific palette tables indexed through gUnk_08189A24), advancing the write cursors.
+ */
+void LoadLevel_World7_Vision2(void) {
+    DmaCopy16Wait(3, &gUnk_080784A8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08060A08, gPaletteVramCursor, 0x80);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x80;
+
+    DmaCopy16Wait(3, &gUnk_080784C8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08060A88, gPaletteVramCursor, 0x600);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x600;
+
+    DmaCopy16Wait(3, &gUnk_080784E8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08061088, gPaletteVramCursor, 0x800);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_08078948, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x20 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_08078328, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805EEE8, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805EEE8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+
+    SetPaletteAnimEntry(0x17, 0);
+    SetPaletteAnimEntry(0x18, 0);
+
+    DmaCopy16Wait(3, &gUnk_08078968, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, **gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C, gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+    DmaCopy16Wait(3, **gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C, gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+    DmaCopy16Wait(3, **gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C, gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_08078988, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x38 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x44 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x44 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x4 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x8 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_080783A8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805F408, gPaletteVramCursor, 0x80);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x80;
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World8_Vision1);
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World8_Vision2);
 /**
@@ -1124,7 +1318,82 @@ void LoadLevel_World9_Vision1(void) {
     gVramWriteCursor += 0x20;
     gPaletteVramCursor += 0x80;
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World9_Vision2);
+/**
+ * LoadLevel_World9_Vision2: streams the tile and palette graphics data for World 9, Vision 2 from ROM into VRAM and palette RAM via
+ * DMA (including the level-specific palette tables indexed through gUnk_08189A24), advancing the write cursors.
+ */
+void LoadLevel_World9_Vision2(void) {
+    DmaCopy16Wait(3, &gUnk_080784A8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08060A08, gPaletteVramCursor, 0x80);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x80;
+
+    DmaCopy16Wait(3, &gUnk_080784C8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08060A88, gPaletteVramCursor, 0x600);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x600;
+
+    DmaCopy16Wait(3, &gUnk_080784E8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08061088, gPaletteVramCursor, 0x800);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_080789C8, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x60 / 4], gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_080789E8, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x8 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_08078328, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805EEE8, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_08078328, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805EEE8, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_08078A28, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x4C / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x54 / 4], gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x54 / 4], gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x50 / 4], gPaletteVramCursor, 0x400);
+    gPaletteVramCursor += 0x400;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x1C / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x20 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x24 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_08078A48, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, &gUnk_08065768, gPaletteVramCursor, 0x20);
+    gPaletteVramCursor += 0x20;
+    DmaCopy16Wait(3, &gUnk_08065788, gPaletteVramCursor, 0x20);
+    gPaletteVramCursor += 0x20;
+    DmaCopy16Wait(3, &gUnk_080657A8, gPaletteVramCursor, 0x20);
+    gPaletteVramCursor += 0x20;
+
+    DmaCopy16Wait(3, &gUnk_08078A68, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    DmaCopy16Wait(3, *gUnk_08189A24[gUnk_03004C20.world - 1][gUnk_03004C20.level]->unk3C[0x8 / 4], gPaletteVramCursor, 0x800);
+    gPaletteVramCursor += 0x800;
+
+    DmaCopy16Wait(3, &gUnk_080783A8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805F408, gPaletteVramCursor, 0x80);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x80;
+}
 /**
  * LoadLevel_BossArena: streams the boss-arena tile and palette graphics data from ROM into VRAM and palette RAM via DMA, advancing the
  * gVramWriteCursor/gPaletteVramCursor write cursors.
