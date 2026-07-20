@@ -1676,7 +1676,95 @@ void UpdateEntities(void) {
         }
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", CountCollectedGems);
+/**
+ * CountCollectedGems: counts collected gems/dream-stones for the current world by scanning the per-level progress bytes in
+ * gUnk_03004670, returning whether the world is complete.
+ */
+void CountCollectedGems(void) {
+    u8 sp0;
+    u8 var_ip;
+    u8 var_r0;
+    u8 var_r3;
+    u8 var_r6;
+    u8 var_r8;
+
+    if ((gUnk_03004670->unk8[5][7] & 0x80) != 0) {
+        var_ip = 0;
+        var_r8 = 0;
+        var_r6 = 0;
+        sp0 = 0;
+        for (var_r0 = 0; var_r0 < 5; var_r0++) {
+            for (var_r3 = 0; var_r3 < 7; var_r3++) {
+                if ((var_r3 == 3 || var_r3 == 5) && (gUnk_03004670->unk8[var_r0][var_r3] & 0x7F) == 0x64) {
+                    var_ip += 1;
+                } else if ((var_r3 != 7) && ((gUnk_03004670->unk8[var_r0][var_r3] & 0x7F) == 0x1E)) {
+                    var_r8 += 1;
+                }
+                if (gUnk_03004670->unk8[var_r0][var_r3] & 0x80) {
+                    var_r6 += 1;
+                }
+            }
+        }
+
+        if ((gUnk_03004670->unk8[5][0] & 0x7F) == 0x1E) {
+            sp0 += 1;
+        }
+        if ((gUnk_03004670->unk8[5][1] & 0x7F) == 0x1E) {
+            sp0 += 1;
+        }
+
+        if (((gUnk_03004670->unk8[5][0] & 0x7F) == 0x7F) && (var_r6 == 0x23)) {
+            gUnk_03004C08.unk0_0 = 4;
+            gUnk_03004C08.unk2 = 0;
+            gUnk_03004670->unk8[5][0] = 0x80;
+            gCallbackQueue.current[1] = UpdateWorldMapNodeAnim;
+            return;
+        } else if (((gUnk_03004670->unk8[5][1] & 0x7F) == 0x7F) && ((var_r8 + var_ip) > 0x18)) {
+            gUnk_03004C08.unk0_0 = 5;
+            gUnk_03004C08.unk2 = 0;
+            gUnk_03004670->unk8[5][1] = 0x80;
+            gCallbackQueue.current[1] = UpdateWorldMapNodeAnim;
+            return;
+        } else if (((gUnk_03004670->unk8[5][2] & 0x7F) == 0x7F) && ((sp0 + var_ip + var_r8) == 0x25)) {
+            gUnk_03004C08.unk0_0 = 6;
+            gUnk_03004C08.unk2 = 0;
+            gUnk_03004670->unk8[5][2] = 0x80;
+            gCallbackQueue.current[1] = UpdateWorldMapNodeAnim;
+            return;
+        } else {
+            // gCallbackQueue.current[1] = GameplayMainLoop;
+        }
+    } else {
+        if (((gUnk_03004670->unk8[0][7] & 0x80) != 0) && ((gUnk_03004670->unk8[1][0] & 0x7F) == 0x7F)) {
+            gUnk_03004C08.unk0_0 = 0;
+            gUnk_03004C08.unk2 = 0;
+            gUnk_03004670->unk8[1][0] &= 0x80;
+            gCallbackQueue.current[1] = UpdateWorldMapNodeAnim;
+            return;
+        } else if (((gUnk_03004670->unk8[1][7] & 0x80) != 0) && ((gUnk_03004670->unk8[2][0] & 0x7F) == 0x7F)) {
+            gUnk_03004C08.unk0_0 = 1;
+            gUnk_03004C08.unk2 = 0;
+            gUnk_03004670->unk8[2][0] &= 0x80;
+            gCallbackQueue.current[1] = UpdateWorldMapNodeAnim;
+            return;
+        } else if (((gUnk_03004670->unk8[2][7] & 0x80) != 0) && ((gUnk_03004670->unk8[3][0] & 0x7F) == 0x7F)) {
+            gUnk_03004C08.unk0_0 = 2;
+            gUnk_03004C08.unk2 = 0;
+            gUnk_03004670->unk8[3][0] &= 0x80;
+            gCallbackQueue.current[1] = UpdateWorldMapNodeAnim;
+            return;
+        } else if (((gUnk_03004670->unk8[3][7] & 0x80) != 0) && ((gUnk_03004670->unk8[4][0] & 0x7F) == 0x7F)) {
+            gUnk_03004C08.unk0_0 = 3;
+            gUnk_03004C08.unk2 = 0;
+            gUnk_03004670->unk8[4][0] &= 0x80;
+            gCallbackQueue.current[1] = UpdateWorldMapNodeAnim;
+            return;
+        } else {
+            // gCallbackQueue.current[1] = GameplayMainLoop;
+        }
+    }
+    gCallbackQueue.current[1] = GameplayMainLoop;
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapNodeAnim);
 INCLUDE_ASM("asm/nonmatchings/code_3", RunWorldMapTransition);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateAllEntities);

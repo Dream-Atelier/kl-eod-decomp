@@ -269,7 +269,7 @@ struct Unk_03004670 {
     u8 pad0[0x8 - 0x0];
     u8 unk8[2][8];
 };
-extern volatile struct Unk_03004670 *gUnk_03004670;
+extern struct Unk_03004670 *gUnk_03004670;
 /* Scratch decompression buffer pointer (kleod-canonical, address 0x03005290). */
 extern void *gUnk_03005290;
 /* Sprite/palette state byte (kleod-canonical, address 0x030052A0). */
