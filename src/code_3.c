@@ -5,6 +5,7 @@
 extern struct EntityAnimationInfo gEntityAnimationInfo[];
 extern void SetupBG3WindowOverlay(void);
 extern void UpdateScrollPosition(void);
+void SetPaletteAnimEntry(s32, u8);
 extern u8 thunk_sub_080002A0();
 extern u8 thunk_sub_080002D0();
 #ifndef OAM_SIZE
@@ -15,6 +16,7 @@ extern u8 thunk_sub_080002D0();
 #endif
 extern void VBlankCallback_Dialog(void);
 /* AUTOPORT-SYMS */
+void IntroSequenceUpdate(void);
 void TransitionReturnToWorldMap(void);
 void TransitionClearAndRestart(void);
 void TransitionSoftReset(void);
@@ -3033,7 +3035,86 @@ void UpdateEntitySpawnState(u8 arg0) {
             break;
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", SpawnEntitiesForVision);
+/**
+ * SpawnEntitiesForVision: initializes the entity table for the current vision — reads the per-level entity list from ROM,
+ * positions/enables each entity, and seeds their palette-animation entries.
+ */
+void SpawnEntitiesForVision(u8 arg0) {
+    u32 var_r4;
+    u32 var_r6;
+    u32 temp_r1;
+
+    gEntityInfo[arg0].affineDouble = 1;
+    if (gUnk_03005400.unkE_4 != 0) {
+        temp_r1 = gUnk_0811710A[gUnk_03004C20.world - 1];
+        for (var_r6 = 0; var_r6 < 2; var_r6++) {
+            if ((gEntityInfo[temp_r1 + var_r6].unkF == 0) || (gEntityInfo[temp_r1 + var_r6].unkF == 0x19)) {
+                SpawnEntityAtPosition(gEntityInfo[temp_r1 + var_r6].xPosBg2, gEntityInfo[temp_r1 + var_r6].yPosBg2, 2,
+                                      temp_r1 + var_r6);
+                gEntityInfo[temp_r1 + var_r6].unkF = 0x1C;
+                gEntityInfo[temp_r1 + var_r6].unk10 = 0;
+            }
+        }
+
+        if (gUnk_03005220.unk42 != 0) {
+            gEntityInfo[gUnk_03005220.unk42].unkF = 0x1C;
+            gEntityInfo[gUnk_03005220.unk42].unk10 = 0;
+            gUnk_03005220.unk38 = 0;
+            gUnk_03005220.unk43 = 0;
+            gUnk_03005220.unk42 = 0;
+            if (gEntityAnimationInfo[0].state >= 0x16) {
+                SetPaletteAnimEntry(0, gEntityAnimationInfo[0].state - 0x16);
+            }
+        }
+
+        gEntityInfo[0].priority = 0;
+        gUnk_03005400.unkE_4 = 0;
+        REG_BLDCNT = BLDCNT_TGT2_BG0 | BLDCNT_TGT2_BG1 | BLDCNT_TGT2_BG2 | BLDCNT_EFFECT_BLEND;
+        gBlendValue = BLEND_MAX;
+
+        for (var_r6 = 0x12; var_r6 < gUnk_03005428; var_r6++) {
+            gEntityInfo[var_r6].objMode = 1;
+        }
+    } else {
+        if ((gUnk_03004C20.globalFrameCounter % 8) == 0) {
+            if (gBlendValue != 0) {
+                gBlendValue -= 1;
+            }
+        }
+        if (gBlendValue != 0) {
+            return;
+        }
+
+        if ((gUnk_03005220.unk31 == 0) && (gUnk_03005220.unk35 == 0)) {
+            return;
+        }
+
+        gEntityInfo[arg0].unkF = 4;
+        gUnk_03003410.unkB = 2;
+
+        for (var_r4 = 0; var_r4 < (gCallbackQueue.currentCount + 1); var_r4++) {
+            if (var_r4 == 4) {
+                gCallbackQueue.next[4] = IntroSequenceUpdate;
+            } else if (var_r4 > 4) {
+                gCallbackQueue.next[var_r4] = gCallbackQueue.current[var_r4 - 1];
+            } else {
+                gCallbackQueue.next[var_r4] = gCallbackQueue.current[var_r4];
+            }
+        }
+        if (var_r4 > 3) {
+            gCallbackQueue.nextCount = gCallbackQueue.currentCount + 1;
+            gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        }
+
+        gEntityInfo[0x9].unk10 = 0;
+        gEntityInfo[0xA].unk10 = 0;
+        if (gUnk_03005220.unk31 != 0) {
+            SetPaletteAnimEntry(0, 0);
+        } else if (gUnk_03005220.unk35 != 0) {
+            SetPaletteAnimEntry(0, 0x10);
+        }
+    }
+}
 /**
  * GetEntityLookupData: loads entity parameters from ROM table into state.
  *
