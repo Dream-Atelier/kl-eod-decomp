@@ -13,6 +13,8 @@ extern void UpdateScrollPosition(void);
 #endif
 extern void VBlankCallback_Dialog(void);
 /* AUTOPORT-SYMS */
+void VBlankHandler_ModeB(void);
+#define BG_PLTT_SIZE 0x200
 void ReadKeyInput(void);
 void VBlankCallback_Gameplay(void);
 void AnimatePaletteEffects(void);
@@ -2026,7 +2028,253 @@ void CountCollectedGems(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapNodeAnim);
 INCLUDE_ASM("asm/nonmatchings/code_3", RunWorldMapTransition);
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdateAllEntities);
+/**
+ * UpdateAllEntities: per-frame world-map/level entity driver. Selects the active world/level slot, flushes the OAM buffer to hardware,
+ * and iterates the per-level progress table in gUnk_03004670 to drive each entity/node state.
+ */
+void UpdateAllEntities(void) {
+    s32 var_r4;
+    s32 var_r5;
+    s32 temp_r6;
+    s32 temp_r8;
+
+    if (gUnk_03004C20.world == 6) {
+        gUnk_03004C08.unk0_4 = (gUnk_03004C20.world - 1) + (gUnk_03004C20.level - 1);
+    } else {
+        gUnk_03004C08.unk0_4 = gUnk_03004C20.world - 1;
+    }
+    gUnk_03004C08.unk1 = 0;
+
+    temp_r6 = gUnk_03004C20.world;
+    temp_r8 = gUnk_03004C20.level;
+    ClearVideoState();
+    DmaCopy32(3, gOamBuffer, OAM, OAM_SIZE);
+    gUnk_03003410.unk8 = 0;
+    gUnk_03004C20.world = 1;
+    gUnk_03004C20.level = 1;
+    gUnk_03004C20.unkA = 0;
+    ResetVideoRegisters();
+    gUnk_03004C20.world = temp_r6;
+    gUnk_03004C20.level = temp_r8;
+
+    gUnk_03004680[0].unk0 = 0x100;
+    gUnk_03004680[0].unk2 = 0;
+    gUnk_03004680[0].unk4 = 0;
+    gUnk_03004680[0].unk6 = 0x100;
+
+    gEntityInfo[0].unk10 = 1;
+    for (var_r4 = 1; var_r4 < 0x13; var_r4++) {
+        gEntityInfo[var_r4].unk10 = 0;
+    }
+
+    REG_IE &= ~INTR_FLAG_VBLANK;
+    REG_DISPSTAT &= ~DISPSTAT_VBLANK_INTR;
+    REG_IE &= ~INTR_FLAG_HBLANK;
+    REG_DISPSTAT &= ~DISPSTAT_HBLANK_INTR;
+    m4aSoundVSyncOff();
+    m4aMPlayAllStop();
+    REG_DISPCNT = 0;
+
+    gBgInfo[0].pTiles = BG_VRAM;
+    gBgInfo[1].pTiles = BG_VRAM + 0x4000;
+    gBgInfo[2].pTiles = BG_VRAM + 0x8000;
+    gBgInfo[3].pTiles = BG_VRAM + 0xC000;
+    gBgInfo[0].pTilemap = BG_VRAM + 0xE000;
+    gBgInfo[1].pTilemap = BG_VRAM + 0xE800;
+    gBgInfo[2].pTilemap = BG_VRAM + 0xF000;
+    gBgInfo[3].pTilemap = BG_VRAM + 0xF800;
+    DecompressDma(&gUnk_083128F8, BG_PLTT, BG_PLTT_SIZE);
+
+    gBgDataPtrs.pBufBg0Tiles = thunk_HeapAlloc(gUnk_08312A58 & 0x7FFFFFFF, 0);
+    gBgDataPtrs.pBufBg0Tilemap = thunk_HeapAlloc(gUnk_08312B70 & 0x7FFFFFFF, 0);
+    gBgDataPtrs.pBufBg1Tiles = thunk_HeapAlloc(gUnk_08312BD8 & 0x7FFFFFFF, 0);
+    gBgDataPtrs.pBufBg1Tilemap = thunk_HeapAlloc(gUnk_08313C34 & 0x7FFFFFFF, 0);
+    Decompress(gBgDataPtrs.pBufBg0Tiles, &gUnk_08312A58);
+    Decompress(gBgDataPtrs.pBufBg0Tilemap, &gUnk_08312B70);
+    Decompress(gBgDataPtrs.pBufBg1Tiles, &gUnk_08312BD8);
+    Decompress(gBgDataPtrs.pBufBg1Tilemap, &gUnk_08313C34);
+    gBgDataPtrs.pBufBg0Tiles += 4;
+    gBgDataPtrs.pBufBg0Tilemap += 2;
+    gBgDataPtrs.pBufBg1Tiles += 4;
+    gBgDataPtrs.pBufBg1Tilemap += 2;
+    DmaCopy16Wait(3, gBgDataPtrs.pBufBg0Tiles, gBgInfo[0].pTiles, 0x260);
+    DmaCopy16Wait(3, gBgDataPtrs.pBufBg1Tiles, gBgInfo[1].pTiles, 0x1BC0);
+    DmaFill16(3, 0, &gBgTilemapBufs[0], 0x800);
+
+    for (var_r4 = 0, var_r5 = 0; var_r4 < 0x258; var_r5++, var_r4++) {
+        if (((var_r4 % 30) == 0) && (var_r4 != 0)) {
+            var_r5 += 2;
+        }
+        gBgTilemapBufs[0][var_r5] = gBgDataPtrs.pBufBg0Tilemap[var_r4];
+    }
+
+    for (var_r4 = 0; var_r4 < 0x400; var_r4++) {
+        gBgTilemapBufs[1][var_r4] = gBgDataPtrs.pBufBg1Tilemap[var_r4];
+    }
+
+    thunk_HeapFree(gBgDataPtrs.pBufBg1Tilemap - 2);
+    thunk_HeapFree(gBgDataPtrs.pBufBg1Tiles - 4);
+    thunk_HeapFree(gBgDataPtrs.pBufBg0Tilemap - 2);
+    thunk_HeapFree(gBgDataPtrs.pBufBg0Tiles - 4);
+
+    gBgDataPtrs.pBufBg0Tiles = thunk_HeapAlloc(gUnk_08313F24 & 0x7FFFFFFF, 0);
+    gBgDataPtrs.pBufBg0Tilemap = thunk_HeapAlloc(gUnk_083141F0 & 0x7FFFFFFF, 0);
+    gBgDataPtrs.pBufBg1Tiles = thunk_HeapAlloc(gUnk_083142EC & 0x7FFFFFFF, 0);
+    gBgDataPtrs.pBufBg1Tilemap = thunk_HeapAlloc(gUnk_083155C4 & 0x7FFFFFFF, 0);
+    Decompress(gBgDataPtrs.pBufBg0Tiles, &gUnk_08313F24);
+    Decompress(gBgDataPtrs.pBufBg0Tilemap, &gUnk_083141F0);
+    Decompress(gBgDataPtrs.pBufBg1Tiles, &gUnk_083142EC);
+    Decompress(gBgDataPtrs.pBufBg1Tilemap, &gUnk_083155C4);
+    gBgDataPtrs.pBufBg0Tiles += 4;
+    gBgDataPtrs.pBufBg0Tilemap += 2;
+    gBgDataPtrs.pBufBg1Tiles += 4;
+    gBgDataPtrs.pBufBg1Tilemap += 2;
+    DmaCopy16Wait(3, gBgDataPtrs.pBufBg0Tiles, gBgInfo[2].pTiles, 0x820);
+    DmaCopy16Wait(3, gBgDataPtrs.pBufBg1Tiles, gBgInfo[3].pTiles, 0x1A80);
+
+    for (var_r4 = 0, var_r5 = 0; var_r4 <= 0x257; var_r5++, var_r4++) {
+        if (((var_r4 % 30) == 0) && (var_r4 != 0)) {
+            var_r5 += 2;
+        }
+        gBgTilemapBufs[2][var_r5] = gBgDataPtrs.pBufBg0Tilemap[var_r4];
+        gBgTilemapBufs[3][var_r5] = gBgDataPtrs.pBufBg1Tilemap[var_r4];
+    }
+
+    thunk_HeapFree(gBgDataPtrs.pBufBg1Tilemap - 2);
+    thunk_HeapFree(gBgDataPtrs.pBufBg1Tiles - 4);
+    thunk_HeapFree(gBgDataPtrs.pBufBg0Tilemap - 2);
+    thunk_HeapFree(gBgDataPtrs.pBufBg0Tiles - 4);
+
+    REG_DISPCNT = 0x3F40;
+    REG_BG0CNT = 0x1C41;
+    REG_BG1CNT = 0x1D46;
+    REG_BG2CNT = 0x1E48;
+    REG_BG3CNT = 0x1F4F;
+
+    REG_WININ = WININ_WIN0_BG0 | WININ_WIN0_BG1 | WININ_WIN0_BG3 | WININ_WIN0_OBJ | WININ_WIN0_CLR;
+    REG_WINOUT = WINOUT_WIN01_BG0 | WINOUT_WIN01_BG1 | WINOUT_WIN01_BG3 | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR;
+
+    REG_WIN0H = gUnk_08116728[gUnk_03004C08.unk0_4][0];
+    REG_WIN0V = gUnk_08116728[gUnk_03004C08.unk0_4][1];
+
+    gEntityInfo[0].xPosBg2 = gUnk_08116708[gUnk_03004C08.unk0_4][0];
+    gEntityInfo[0].yPosBg2 = gUnk_08116708[gUnk_03004C08.unk0_4][1];
+
+    gBgInfo[3].vOfs = 0;
+    gBgInfo[3].hOfs = 0;
+    gBgInfo[2].hOfs = 0;
+    gBgInfo[1].vOfs = 0;
+    gBgInfo[1].hOfs = 0;
+    gBgInfo[0].hOfs = 0;
+    gBgInfo[2].vOfs = 4;
+    gBgInfo[0].vOfs = 0x400;
+
+    if ((gUnk_03004670->unk1 == 0) && (gUnk_03004670->unk2 == 0) && (gUnk_03004670->unk3 == 0)) {
+        gUnk_03004670->unk1 = 0x63;
+        gUnk_03004670->unk2 = 0x3B;
+        gUnk_03004670->unk3 = 0x63;
+    }
+    if ((gUnk_03004670->unk4 == 0) && (gUnk_03004670->unk5 == 0) && (gUnk_03004670->unk6 == 0)) {
+        gUnk_03004670->unk4 = 0x63;
+        gUnk_03004670->unk5 = 0x3B;
+        gUnk_03004670->unk6 = 0x63;
+    }
+
+    if (gUnk_03004C08.unk0_4 == 5) {
+        gBgTilemapBufs[0][0x4C] = 0xA00C;
+        gBgTilemapBufs[0][0x4D] = 0xA00D;
+        gBgTilemapBufs[0][0x4E] = 0xA00E;
+        gBgTilemapBufs[0][0x4F] = 0xA00F;
+        gBgTilemapBufs[0][0x50] = 0xA010;
+
+        gBgTilemapBufs[0][0x6D] = 0xA000 | ((gUnk_03004670->unk1 / 10) + 1);
+        gBgTilemapBufs[0][0x6E] = 0xA000 | ((gUnk_03004670->unk1 % 10) + 1);
+        gBgTilemapBufs[0][0x6F] = 0xA00B;
+        gBgTilemapBufs[0][0x70] = 0xA000 | ((gUnk_03004670->unk2 / 10) + 1);
+        gBgTilemapBufs[0][0x71] = 0xA000 | ((gUnk_03004670->unk2 % 10) + 1);
+        gBgTilemapBufs[0][0x72] = 0xA00B;
+        gBgTilemapBufs[0][0x73] = 0xA000 | ((gUnk_03004670->unk3 / 10) + 1);
+        gBgTilemapBufs[0][0x74] = 0xA000 | ((gUnk_03004670->unk3 % 10) + 1);
+
+        gBgTilemapBufs[0][0x2C] = 0xA011;
+        gBgTilemapBufs[0][0x30] = 0xA010;
+        gBgTilemapBufs[0][0x31] = 0xA004;
+        gBgTilemapBufs[0][0x32] = 0xA001;
+
+        gBgTilemapBufs[0][0x2E] = 0xA000 | (((gUnk_03004670->unk8[5][0] & 0x7F) / 10) + 1);
+        gBgTilemapBufs[0][0x2F] = 0xA000 | (((gUnk_03004670->unk8[5][0] & 0x7F) % 10) + 1);
+    } else if (gUnk_03004C08.unk0_4 == 6) {
+        gBgTilemapBufs[0][0x4C] = 0xA000;
+        gBgTilemapBufs[0][0x4D] = 0xA000;
+        gBgTilemapBufs[0][0x4E] = 0xA000;
+        gBgTilemapBufs[0][0x4F] = 0xA000;
+        gBgTilemapBufs[0][0x50] = 0xA000;
+
+        gBgTilemapBufs[0][0x6D] = 0xA000;
+        gBgTilemapBufs[0][0x6E] = 0xA000;
+        gBgTilemapBufs[0][0x6F] = 0xA000;
+        gBgTilemapBufs[0][0x70] = 0xA000;
+        gBgTilemapBufs[0][0x71] = 0xA000;
+        gBgTilemapBufs[0][0x72] = 0xA000;
+        gBgTilemapBufs[0][0x73] = 0xA000;
+        gBgTilemapBufs[0][0x74] = 0xA000;
+
+        gBgTilemapBufs[0][0x2C] = 0xA011;
+        gBgTilemapBufs[0][0x30] = 0xA010;
+        gBgTilemapBufs[0][0x31] = 0xA004;
+        gBgTilemapBufs[0][0x32] = 0xA001;
+
+        gBgTilemapBufs[0][0x2E] = 0xA000 | (((gUnk_03004670->unk8[5][1] & 0x7F) / 10) + 1);
+        gBgTilemapBufs[0][0x2F] = 0xA000 | (((gUnk_03004670->unk8[5][1] & 0x7F) % 10) + 1);
+    } else if (gUnk_03004C08.unk0_4 == 7) {
+        gBgTilemapBufs[0][0x4C] = 0xA00C;
+        gBgTilemapBufs[0][0x4D] = 0xA00D;
+        gBgTilemapBufs[0][0x4E] = 0xA00E;
+        gBgTilemapBufs[0][0x4F] = 0xA00F;
+        gBgTilemapBufs[0][0x50] = 0xA010;
+
+        gBgTilemapBufs[0][0x6D] = 0xA000 | ((gUnk_03004670->unk4 / 10) + 1);
+        gBgTilemapBufs[0][0x6E] = 0xA000 | ((gUnk_03004670->unk4 % 10) + 1);
+        gBgTilemapBufs[0][0x6F] = 0xA00B;
+        gBgTilemapBufs[0][0x70] = 0xA000 | ((gUnk_03004670->unk5 / 10) + 1);
+        gBgTilemapBufs[0][0x71] = 0xA000 | ((gUnk_03004670->unk5 % 10) + 1);
+        gBgTilemapBufs[0][0x72] = 0xA00B;
+        gBgTilemapBufs[0][0x73] = 0xA000 | ((gUnk_03004670->unk6 / 10) + 1);
+        gBgTilemapBufs[0][0x74] = 0xA000 | ((gUnk_03004670->unk6 % 10) + 1);
+
+        gBgTilemapBufs[0][0x2C] = 0xA000;
+        gBgTilemapBufs[0][0x30] = 0xA000;
+        gBgTilemapBufs[0][0x31] = 0xA000;
+        gBgTilemapBufs[0][0x32] = 0xA000;
+
+        gBgTilemapBufs[0][0x2E] = 0xA000;
+        gBgTilemapBufs[0][0x2F] = 0xA000;
+    }
+
+    REG_BG0HOFS = 0;
+    REG_BG0VOFS = 0;
+    REG_BG1HOFS = 0;
+    REG_BG1VOFS = 0;
+    REG_BG2HOFS = 0;
+    REG_BG2VOFS = 0;
+    REG_BG3HOFS = 0;
+    REG_BG3VOFS = 0;
+
+    gBg2X = gBg2Y = 0;
+    SetPaletteAnimEntry(0, 0);
+    UpdatePaletteAnimations();
+    gIntrTable.vBlank = VBlankHandler_ModeB;
+    gCallbackQueue.current[1] = CountCollectedGems;
+    UpdateEntities();
+    gUnk_03005284->unk1 = gUnk_03004C20.world;
+    SaveGameWithVerify(0, 7);
+    SaveGameWithVerify(1, 0);
+
+    REG_IE |= INTR_FLAG_VBLANK;
+    REG_DISPSTAT |= DISPSTAT_VBLANK_INTR;
+    m4aSoundVSyncOn();
+    m4aSongNumStart(3);
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", GameplayMainLoop);
 INCLUDE_ASM("asm/nonmatchings/code_3", InitLevelState);
 /**
