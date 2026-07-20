@@ -2836,4 +2836,3 @@ void VBlankCallback_TitleScreen(void) {
     gUnk_03003420 = 1;
 }
 INCLUDE_ASM("asm/nonmatchings/code_0", VBlankCallback_Credits); /* TextStateMachine — master UI/text state machine */
-INCLUDE_ASM("asm/nonmatchings/code_0", sub_0800DE24);

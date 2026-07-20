@@ -670,13 +670,24 @@ def _merge_fragments(func_entries):
                 break
             # Don't absorb a function that is called/branched to from
             # other functions — it is an independent entry point that
-            # should remain separately decompilable.  Exception: if
-            # the merged code and the next function share cross-label
-            # references (e.g. backward branches into the merged block),
-            # they MUST stay in the same file for the assembler to
-            # resolve short branches.
+            # should remain separately decompilable.  Two exceptions where
+            # we MUST still absorb:
+            #   1. The merged code and the next function share cross-label
+            #      references (e.g. backward branches into the merged block),
+            #      so they must stay in the same file for the assembler to
+            #      resolve short branches.
+            #   2. `merged` is still a fall-through fragment (no return at
+            #      its end).  Its code physically continues into next_name —
+            #      this is a shared tail / mid-function branch target that
+            #      other functions also jump into (e.g. EntitySpawnFromLevelData
+            #      falling into sub_0801AF28).  Emitting the fragment on its
+            #      own would produce an un-decompilable .s file that doesn't
+            #      end in a return.  The absorbed label stays `.global` (see
+            #      _downgrade_internal_symbols) so the external branches
+            #      still resolve.
             if next_name in external_refs:
-                if not _has_cross_label_refs(merged, next_lines):
+                if (not _has_cross_label_refs(merged, next_lines)
+                        and not _is_fragment(merged, is_last_in_module=False)):
                     break
             if (not _is_fragment(merged, is_last_in_module=False)
                     and not _has_unresolved_pool_refs(merged, next_lines)):

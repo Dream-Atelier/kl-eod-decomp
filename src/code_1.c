@@ -385,9 +385,7 @@ void PlayerRespawnOrDeath(s32 arg0) {
     gUnk_03005220.unk28 = 0;
 }
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityBehaviorMasterUpdate);
-INCLUDE_ASM("asm/nonmatchings/code_1", sub_080158AC);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntitySpawnFromLevelData);
-INCLUDE_ASM("asm/nonmatchings/code_1", sub_0801AF28);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerFollowEntityMovement);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerGrabInputCheck);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerEntityCollisionCheck);
