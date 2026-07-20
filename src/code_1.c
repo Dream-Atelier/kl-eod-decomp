@@ -1061,7 +1061,67 @@ void SetPaletteAnimEntry(s32 arg0, u8 arg1) {
     gEntityAnimationInfo[arg0].timer = 1;
     gEntityAnimationInfo[arg0].frame = 0xFF;
 }
-INCLUDE_ASM("asm/nonmatchings/code_1", UpdatePaletteAnimations);
+/**
+ * UpdatePaletteAnimations: per-frame driver for all 0x2D palette/sprite animation
+ * slots. Decrements each active slot's timer, advances its frame, handles the
+ * end/loop/branch sentinels (-1 loop, -2 despawn, -3 hold), DMAs the new frame's
+ * palette into its destination, and mirrors the frame's flip flags onto the owner
+ * entity in gEntityInfo.
+ */
+void UpdatePaletteAnimations(void) {
+    vu32 sp0;
+    struct Unk_03005294_03005418 *var_r5;
+    struct Unk_03005294_03005418_0 **temp_r7;
+    struct Unk_03005294_03005418_0 *var_r4;
+
+    for (sp0 = 0; sp0 < 0x2D; sp0++) {
+        if (sp0 < 9) {
+            var_r5 = &gUnk_03005418[sp0];
+        } else {
+            var_r5 = &gUnk_03005294[sp0] - 9;
+        }
+        if (var_r5->unk0 == NULL) {
+            break;
+        }
+        if (var_r5->unk0 == NULL + 1) {
+            continue;
+        }
+
+        if (gEntityAnimationInfo[sp0].timer == 0xFF) {
+            continue;
+        }
+
+        if (--gEntityAnimationInfo[sp0].timer != 0) {
+            continue;
+        }
+
+        temp_r7 = var_r5->unk0;
+        var_r4 = temp_r7[gEntityAnimationInfo[sp0].state];
+        if (var_r4[++gEntityAnimationInfo[sp0].frame].src == -1) {
+            gEntityAnimationInfo[sp0].frame = 0;
+        } else if (var_r4[gEntityAnimationInfo[sp0].frame].src == -2) {
+            gEntityAnimationInfo[sp0].timer |= 0xFF;
+            gEntityInfo[var_r5->unkA].unk10 = 0;
+            gEntityInfo[var_r5->unkA].unkF = 0x1C;
+            gEntityInfo[var_r5->unkA].unk8.split.unk8 = 0;
+            continue;
+        } else if (var_r4[gEntityAnimationInfo[sp0].frame].src > 9999) {
+            if (var_r4[gEntityAnimationInfo[sp0].frame].src == -3) {
+                gEntityAnimationInfo[sp0].timer |= 0xFF;
+                continue;
+            }
+        } else {
+            gEntityAnimationInfo[sp0].state = var_r4[gEntityAnimationInfo[sp0].frame].src;
+            gEntityAnimationInfo[sp0].frame = 0;
+            var_r4 = temp_r7[gEntityAnimationInfo[sp0].state];
+        }
+
+        gEntityAnimationInfo[sp0].timer = var_r4[gEntityAnimationInfo[sp0].frame].unk4;
+        DmaCopy16(3, var_r4[gEntityAnimationInfo[sp0].frame].src, var_r5->dest, var_r5->size);
+        gEntityInfo[var_r5->unkA].unkB_0 = var_r4[gEntityAnimationInfo[sp0].frame].unk5_0;
+        gEntityInfo[var_r5->unkA].unkB_4 = var_r4[gEntityAnimationInfo[sp0].frame].unk5_4;
+    }
+}
 /**
  * CopyBGScrollTiles: ported from kleod CopyBGScrollTiles.
  */

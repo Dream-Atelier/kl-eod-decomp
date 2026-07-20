@@ -478,6 +478,20 @@ extern struct Unk_03005220 gUnk_03005220;
 
 /* Level-config view struct at 0x03005284, accessed via pointer.
  * Holds per-level entity/state replay values. */
+struct Unk_03005294_03005418_0 {
+    u32 src;
+    u8 unk4;
+    s32 unk5_0 : 4;
+    s32 unk5_4 : 4;
+};
+struct Unk_03005294_03005418 {
+    struct Unk_03005294_03005418_0 **unk0;
+    void *dest;
+    u16 size;
+    u8 unkA;
+    u8 padB[0xC - 0xB];
+};
+
 struct Unk_03005284 {
     /* 0x00 */ u8 unk0;
     /* 0x01 */ u8 unk1;
