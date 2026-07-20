@@ -193,6 +193,11 @@ struct Unk_08014184 {
 
 /* Cross-module functions (defined in code_1). */
 extern struct Unk_08014184 *CheckTileCollisionSloped(struct Unk_08014184 *, u16, u16, u8);
+static inline struct Unk_08014184 Call_CheckTileCollisionSloped(u16 arg1, u16 arg2, u8 arg3) {
+    struct Unk_08014184 sp;
+    CheckTileCollisionSloped(&sp, arg1, arg2, arg3);
+    return sp;
+}
 extern void PlayerRespawnOrDeath(s32);
 extern void SpawnEntityAtPosition(u16, u16, u8, u8);
 
@@ -2963,7 +2968,122 @@ void GetEntityLookupData(u8 idx) {
     flags[0x12] = entry[6];
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", ComputeScrollLimits);
-INCLUDE_ASM("asm/nonmatchings/code_3", ApplyPlayerMovement);
+/**
+ * x
+ */
+void ApplyPlayerMovement(u8 arg0, struct Unk_0803D4AC arg1) {
+    struct Unk_08014184 temp_r0;
+    struct Unk_08014184 temp_r0_1;
+    u16 sp10;
+    u16 temp_sl;
+    u32 var_r3;
+
+    sp10 = gEntityInfo[arg0].xPosBg2;
+    temp_sl = gEntityInfo[arg0].yPosBg2;
+
+    if (gUnk_03005400.unk8_4) {
+        gUnk_03005400.unk10 += 2;
+        if ((gUnk_03005400.unk10 >> 4) > 2) {
+            gUnk_03005400.unk10 = 0x20;
+        }
+        gEntityInfo[arg0].yPosBg2 += (gUnk_03005400.unk10 >> 0x4);
+
+        if (gUnk_03004C20.unkA == 0) {
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap[(gEntityInfo[arg0].xPosBg2 >> 3)
+                                                + (((gEntityInfo[arg0].yPosBg2 + gUnk_08116888[gUnk_03004C20.world - 1][1]) >> 3)
+                                                   * gBgInfo[2].hLength)];
+        } else {
+            temp_r0 = Call_CheckTileCollisionSloped(gEntityInfo[arg0].xPosBg2,
+                                                    gEntityInfo[arg0].yPosBg2 + gUnk_08116888[gUnk_03004C20.world - 1][1], 0x18);
+            if (temp_r0.unk0 != 0xFFFF) {
+                var_r3 = gUnk_03004654[0x1B];
+            } else {
+                var_r3 = gBgDataPtrs.pBufBg2Tilemap[(gEntityInfo[arg0].xPosBg2 >> 3)
+                                                    + (((gEntityInfo[arg0].yPosBg2 + gUnk_08116888[gUnk_03004C20.world - 1][1]) >> 3)
+                                                       * gBgInfo[2].hLength)];
+            }
+        }
+
+        if (gUnk_03004654[0x1B] <= var_r3) {
+            gEntityInfo[arg0].yPosBg2 = temp_sl;
+            gUnk_03005400.unk8_2 = 1;
+        } else {
+            gUnk_03005400.unk8_2 = 0;
+        }
+    }
+
+    if (arg1.unk4 != 0) {
+        temp_sl = gEntityInfo[arg0].yPosBg2;
+        if ((gUnk_03004C20.globalFrameCounter & arg1.unk2) == arg1.unk2) {
+            gUnk_03005400.unk10 += gUnk_03005400.unk12;
+            if ((gUnk_03005400.unk10 >> 4) > arg1.unk4) {
+                gUnk_03005400.unk10 = arg1.unk4 << 4;
+            }
+            gEntityInfo[arg0].yPosBg2 += (gUnk_03005400.unk10 >> 4);
+        }
+
+        if (gUnk_03004C20.unkA == 0) {
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap[(gEntityInfo[arg0].xPosBg2 >> 3)
+                                                + (((gEntityInfo[arg0].yPosBg2 + gUnk_08116888[gUnk_03004C20.world - 1][1]) >> 3)
+                                                   * gBgInfo[2].hLength)];
+        } else {
+            temp_r0_1 = Call_CheckTileCollisionSloped(gEntityInfo[arg0].xPosBg2 + 8,
+                                                      gEntityInfo[arg0].yPosBg2 + gUnk_08116888[gUnk_03004C20.world - 1][1], 0x18);
+            if (temp_r0_1.unk0 != 0xFFFF) {
+                var_r3 = gUnk_03004654[0x1B];
+            } else {
+                var_r3 = gBgDataPtrs.pBufBg2Tilemap[(gEntityInfo[arg0].xPosBg2 >> 3)
+                                                    + (((gEntityInfo[arg0].yPosBg2 + gUnk_08116888[gUnk_03004C20.world - 1][1]) >> 3)
+                                                       * gBgInfo[2].hLength)];
+            }
+        }
+
+        if (gUnk_03004654[0x1B] <= var_r3) {
+            gEntityInfo[arg0].yPosBg2 = temp_sl & 0xFFF8;
+            gUnk_03005400.unk8_2 = 1;
+        } else {
+            gUnk_03005400.unk8_2 = 0;
+        }
+    }
+
+    var_r3 = 0;
+    if ((gUnk_03004C20.globalFrameCounter & arg1.unk1) == arg1.unk1) {
+        if (gEntityInfo[arg0].unkC_2 == 0) {
+            gUnk_03005400.unkF += gUnk_03005400.unk11;
+            if ((gUnk_03005400.unkF >> 4) > arg1.unk3) {
+                gUnk_03005400.unkF = arg1.unk3 << 4;
+            }
+            gEntityInfo[arg0].xPosBg2 += (gUnk_03005400.unkF >> 4);
+
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap[((gEntityInfo[arg0].xPosBg2 + gUnk_08116888[gUnk_03004C20.world - 1][0]) >> 3)
+                                                + (((gEntityInfo[arg0].yPosBg2 + gUnk_08116888[gUnk_03004C20.world - 1][1]) >> 3)
+                                                   * gBgInfo[2].hLength)];
+            if ((gEntityInfo[arg0].xPosBg2 > 0x158) && (gUnk_03004C20.world == 1)) {
+                var_r3 = gUnk_03004654[0x1B];
+            }
+        } else {
+            gUnk_03005400.unkF += gUnk_03005400.unk11;
+            if ((gUnk_03005400.unkF >> 4) > arg1.unk3) {
+                gUnk_03005400.unkF = arg1.unk3 << 4;
+            }
+            gEntityInfo[arg0].xPosBg2 -= (gUnk_03005400.unkF >> 4);
+
+            var_r3 = gBgDataPtrs.pBufBg2Tilemap[((gEntityInfo[arg0].xPosBg2 - gUnk_08116888[gUnk_03004C20.world - 1][0]) >> 3)
+                                                + (((gEntityInfo[arg0].yPosBg2 + gUnk_08116888[gUnk_03004C20.world - 1][1]) >> 3)
+                                                   * gBgInfo[2].hLength)];
+            if ((gEntityInfo[arg0].xPosBg2 <= 0x4FU) && (gUnk_03004C20.world == 1)) {
+                var_r3 = gUnk_03004654[0x1B];
+            }
+        }
+    }
+
+    if (gUnk_03004654[0x1B] <= var_r3) {
+        gEntityInfo[arg0].xPosBg2 = sp10;
+        gUnk_03005400.unk8_3 = 1;
+    } else {
+        gUnk_03005400.unk8_3 = 0;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerNormal);
 /**
  * SetupEntitySpawnTable: ported from kleod SetupEntitySpawnTable.
