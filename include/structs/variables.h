@@ -266,8 +266,17 @@ extern struct IntrTable gIntrTable;
 extern u16 gBgTilemapBufs[4][0x400];
 /* World-load progress / save-slot byte array (kleod-canonical, address 0x03004670). */
 struct Unk_03004670 {
-    u8 pad0[0x8 - 0x0];
-    u8 unk8[2][8];
+    u8 unk0;
+    u8 unk1;
+    u8 unk2;
+    u8 unk3;
+    u8 unk4;
+    u8 unk5;
+    u8 unk6;
+    u8 unk7;
+    u8 unk8[6][8];
+    s32 unk38;
+    u8 pad3C[0x40 - 0x3C];
 };
 extern struct Unk_03004670 *gUnk_03004670;
 /* Scratch decompression buffer pointer (kleod-canonical, address 0x03005290). */

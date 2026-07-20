@@ -2,6 +2,15 @@
 #include "globals.h"
 #include "include_asm.h"
 #include "structs/variables.h"
+extern struct EntityAnimationInfo gEntityAnimationInfo[];
+extern void SetupBG3WindowOverlay(void);
+extern void UpdateScrollPosition(void);
+#ifndef OAM_SIZE
+#define OAM_SIZE 0x400
+#endif
+#ifndef BLDCNT_TGT1_ALL
+#define BLDCNT_TGT1_ALL (BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_BG3 | BLDCNT_TGT1_OBJ | BLDCNT_TGT1_BD)
+#endif
 extern void VBlankCallback_Dialog(void);
 /* AUTOPORT-SYMS */
 void ReadKeyInput(void);
