@@ -500,6 +500,7 @@ __divsi3  = sub_080518A4;
 __modsi3  = sub_0805193C;
 __udivsi3 = sub_08051A0C;
 __umodsi3 = sub_08051A84;
+memcpy    = sub_08051B44;  /* newlib memcpy == our MemCopy */
 
 /* libgcc thumb-interwork call-via-rN thunks — agbcc emits `bl _call_via_rN`
  * when calling a function pointer held in rN.  Map them to the in-ROM
