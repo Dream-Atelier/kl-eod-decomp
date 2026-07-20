@@ -1612,7 +1612,63 @@ void InitGameplayState(void) {
         }
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdateOamSortOrder);
+/**
+ * UpdateOamSortOrder: level teardown/restore counterpart to InitGameplayState. Decrements entity priorities, renders the HUD, frees
+ * the BG3 buffers, restores the BG0/BG1 tiles+tilemap from the decompress buffers, and restores the saved display registers
+ * (BLDCNT/BGxCNT and blend) from gUnk_030051F0.
+ */
+void UpdateOamSortOrder(void) {
+    s32 var_r4;
+
+    for (var_r4 = 0; var_r4 < gUnk_03005428; var_r4++) {
+        gEntityInfo[var_r4].priority -= 1;
+    }
+
+    RenderHUDTop();
+
+    VBlankIntrWait();
+    REG_IE &= ~INTR_FLAG_VBLANK;
+    REG_DISPSTAT &= ~DISPSTAT_VBLANK_INTR;
+    m4aSoundVSyncOff();
+    m4aMPlayAllStop();
+
+    thunk_HeapFree(gBgDataPtrs.pBufBg3Tilemap);
+    thunk_HeapFree(gBgDataPtrs.pBufBg3Tiles);
+    if (gUnk_030034BC == 0) {
+        DmaCopy16(3, gBgDataPtrs.pBufBg0Tiles, gBgInfo[0].pTiles, gBgInfo[0].unk18 * gBgInfo[0].unk16);
+        DmaCopy16(3, gBgDataPtrs.pBufBg0Tilemap, &gBgTilemapBufs[0], 0x480);
+    } else {
+        DmaCopy16(3, gBgDataPtrs.pBufBg1Tiles, gBgInfo[1].pTiles, gBgInfo[1].unk18 * gBgInfo[1].unk16);
+        DmaCopy16(3, gBgDataPtrs.pBufBg1Tilemap, &gBgTilemapBufs[1], 0x480);
+    }
+
+    gBlendValue = gUnk_030051F0.unkE;
+    REG_BLDCNT = gUnk_030051F0.unk4;
+    REG_BG0CNT = gUnk_030051F0.unk6;
+    REG_BG1CNT = gUnk_030051F0.unk8;
+    REG_BG2CNT = gUnk_030051F0.unkA;
+    REG_BG3CNT = gUnk_030051F0.unkC;
+    gUnk_03004C20.sceneFrameCounter = gUnk_030051F0.unk0;
+
+    if ((gUnk_03004C20.world == 6) && ((gUnk_03004C20.level == 1) || (gUnk_03004C20.level == 3))) {
+        REG_WIN1H = WIN_RANGE(0xA0, 0xF0);
+        REG_WIN1V = WIN_RANGE(0, 0x10);
+        REG_WININ = WININ_WIN0_BG0 | WININ_WIN0_CLR | WININ_WIN1_BG0 | WININ_WIN1_CLR;
+        REG_WINOUT = WINOUT_WIN01_BG_ALL | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR;
+        REG_DISPCNT = DISPCNT_MODE_1 | DISPCNT_OBJ_1D_MAP | DISPCNT_BG0_ON | DISPCNT_BG1_ON | DISPCNT_BG2_ON | DISPCNT_OBJ_ON
+            | DISPCNT_WIN0_ON | DISPCNT_WIN1_ON;
+        UpdateHUDTimerAndLives();
+    }
+
+    DmaCopy16(3, &gBgTilemapBufs[gUnk_030034BC], gBgInfo[gUnk_030034BC].pTilemap, 0x800);
+
+    if (gUnk_03004C20.unk10 == 1) {
+        UpdateHUDTimerAndLives();
+    }
+
+    REG_IE |= INTR_FLAG_VBLANK;
+    REG_DISPSTAT |= DISPSTAT_VBLANK_INTR;
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", ProcessInputAndUpdateEntities);
 /**
  * SetupBG3WindowOverlay: allocates and decompresses the BG3 tiles/tilemap, fills the BG3 tilemap buffer (per-scanline stride), and
