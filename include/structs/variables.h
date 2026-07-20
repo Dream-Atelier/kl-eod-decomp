@@ -1043,6 +1043,7 @@ extern struct Unk_030034B0 gUnk_030034B0;
 extern u8 gUnk_030007C4;
 extern u16 gUnk_030052B8;
 extern u16 gUnk_08057C70;
+extern u16 gBlendModeTable[]; /* BLDCNT blend-config lookup table (0x08057B4C) */
 extern u8 gUnk_0805D9E8[0x200];
 extern u8 gUnk_0805DBE8[0x300];
 extern u8 gUnk_0805DEE8[0x200];
