@@ -2378,7 +2378,7 @@ extern void RenderMenuUI(void);
 extern void InitGameplayState(void);
 extern void ProcessInputAndUpdateEntities(void);
 extern void UpdateWorldMapInput(void);
-extern void sub_0803A8B8(void);
+extern void SetupBG3WindowOverlay(void);
 
 /**
  * AnimatePaletteEffects: per-frame screen-shake, affine wobble, and register flush.
@@ -2435,7 +2435,7 @@ void AnimatePaletteEffects(void) {
     if (gUnk_03004C20.world == 0x5 || gUnk_03004C20.world == 0x6) {
         if ((gCallbackQueue.current[1] == ProcessInputAndUpdateEntities) || (gCallbackQueue.current[0] == InitGameplayState)
             || (gCallbackQueue.current[1] == InitGameplayState) || (gCallbackQueue.current[1] == UpdateWorldMapInput)
-            || (gCallbackQueue.current[1] == sub_0803A8B8)) {
+            || (gCallbackQueue.current[1] == SetupBG3WindowOverlay)) {
             if (gUnk_030034BC == 0) {
                 var_sb = 0;
                 var_r8 = 1;

@@ -3,6 +3,9 @@
 #include "include_asm.h"
 #include "structs/variables.h"
 /* AUTOPORT-SYMS */
+void ReadKeyInput(void);
+void VBlankCallback_Gameplay(void);
+void AnimatePaletteEffects(void);
 void IntroScrollAnimation(void);
 extern u8 gUnk_03003790[][0x40];
 extern void *gUnk_030052AC;
@@ -1477,7 +1480,66 @@ void LoadLevel_BossArena(void) {
 INCLUDE_ASM("asm/nonmatchings/code_3", InitGameplayState);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateOamSortOrder);
 INCLUDE_ASM("asm/nonmatchings/code_3", ProcessInputAndUpdateEntities);
-INCLUDE_ASM("asm/nonmatchings/code_3", sub_0803A8B8);
+/**
+ * SetupBG3WindowOverlay: allocates and decompresses the BG3 tiles/tilemap, fills the BG3 tilemap buffer (per-scanline stride), and
+ * configures the WIN1 window registers for the level text/overlay layer.
+ */
+void SetupBG3WindowOverlay(void) {
+    s32 var_r5;
+    s32 var_r6;
+    s32 var_r7;
+
+    if (gUnk_030034BC == 0) {
+        var_r7 = gUnk_03000800;
+    } else {
+        var_r7 = 0;
+    }
+
+    REG_IE &= ~INTR_FLAG_VBLANK;
+    REG_DISPSTAT &= ~DISPSTAT_VBLANK_INTR;
+    m4aSoundVSyncOff();
+
+    gBgDataPtrs.pBufBg3Tiles = thunk_HeapAlloc(gUnk_082EC8F4 & 0x7FFFFFFF, 0);
+    gBgDataPtrs.pBufBg3Tilemap = thunk_HeapAlloc(gUnk_082ECD74 & 0x7FFFFFFF, 0);
+    Decompress(gBgDataPtrs.pBufBg3Tiles, &gUnk_082EC8F4);
+    Decompress(gBgDataPtrs.pBufBg3Tilemap, &gUnk_082ECD74);
+
+    for (var_r5 = 0, var_r6 = 0; var_r5 < 0x21C; var_r6++, var_r5++) {
+        if (((var_r5 % 30) == 0) && (var_r5 != 0)) {
+            var_r6 += 2;
+        }
+        gBgTilemapBufs[gUnk_030034BC][var_r6] = gBgDataPtrs.pBufBg3Tilemap[var_r5 + 2] + var_r7;
+    }
+
+    REG_WIN1H = WIN_RANGE(0, 0xF0);
+    REG_WIN1V = WIN_RANGE(0x1E, 0x90);
+
+    if (gUnk_030034BC == 0) {
+        REG_WININ = WININ_WIN0_BG0 | WININ_WIN0_CLR | WININ_WIN1_BG1 | WININ_WIN1_BG2 | WININ_WIN1_OBJ | WININ_WIN1_CLR;
+    } else {
+        REG_WININ = WININ_WIN0_BG0 | WININ_WIN0_CLR | WININ_WIN1_BG0 | WININ_WIN1_BG2 | WININ_WIN1_OBJ | WININ_WIN1_CLR;
+    }
+
+    if (gUnk_03004C20.level == 8) {
+        gCallbackQueue.next[2] = AnimatePaletteEffects;
+    } else {
+        gCallbackQueue.next[2] = VBlankCallback_Gameplay;
+    }
+    gCallbackQueue.next[0] = ReadKeyInput;
+    gCallbackQueue.next[1] = UpdateWorldMapInput;
+    gCallbackQueue.next[3] = NULL + 1;
+    gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+    gCallbackQueue.nextCount = 4;
+
+    DmaCopy16(3, gBgDataPtrs.pBufBg3Tiles + 4, gBgInfo[gUnk_030034BC].pTiles + (var_r7 << 5), 0xB80);
+
+    REG_DISPCNT |= DISPCNT_WIN1_ON;
+    REG_IE |= INTR_FLAG_VBLANK;
+    REG_DISPSTAT |= DISPSTAT_VBLANK_INTR;
+    m4aSoundVSyncOn();
+
+    gUnk_03004C20.sceneFrameCounter = 0;
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapInput);
 u8 CheckWorldCompletion(u8 arg0) {
     u32 var_r0;
