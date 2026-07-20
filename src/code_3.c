@@ -2,6 +2,7 @@
 #include "globals.h"
 #include "include_asm.h"
 #include "structs/variables.h"
+extern void VBlankCallback_Dialog(void);
 /* AUTOPORT-SYMS */
 void ReadKeyInput(void);
 void VBlankCallback_Gameplay(void);
@@ -1477,7 +1478,140 @@ void LoadLevel_BossArena(void) {
     gUnk_030034F4 = gVramWriteCursor;
     gUnk_030052AC = gPaletteVramCursor;
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", InitGameplayState);
+/**
+ * InitGameplayState: sets up a level for play — saves the current display registers into gUnk_030051F0, allocates and decompresses the
+ * BG3 tiles/tilemap, and installs the gameplay VBlank/main callbacks.
+ */
+void InitGameplayState(void) {
+    s32 var_r4;
+    s32 var_r4_2; // TODO: can be merged with var_r4
+    s32 var_r5;
+    s32 var_sl;
+
+    if (gUnk_030034BC == 0) {
+        var_sl = gUnk_03000800;
+    } else {
+        var_sl = 0;
+    }
+
+    REG_IE &= ~INTR_FLAG_VBLANK;
+    REG_DISPSTAT &= ~DISPSTAT_VBLANK_INTR;
+    m4aSoundVSyncOff();
+    m4aMPlayAllStop();
+
+    if (gUnk_03003410.unk4 != 0) {
+        if (gUnk_03004C20.level == 8) {
+            gUnk_030034C0 = 3;
+        } else if (gUnk_03004C20.level == 0) {
+            gUnk_030034C0 = 1;
+        } else if (gUnk_03004C20.world == 6) {
+            gUnk_030034C0 = 2;
+        } else {
+            gUnk_030034C0 = 0;
+        }
+    }
+
+    if (gUnk_030034C0 == 3) {
+        gBgDataPtrs.pBufBg3Tiles = thunk_HeapAlloc(gUnk_082EAF8C & 0x7FFFFFFF, 0);
+        gBgDataPtrs.pBufBg3Tilemap = thunk_HeapAlloc(gUnk_082EB488 & 0x7FFFFFFF, 0);
+        Decompress(gBgDataPtrs.pBufBg3Tiles, &gUnk_082EAF8C);
+        Decompress(gBgDataPtrs.pBufBg3Tilemap, &gUnk_082EB488);
+    } else if (gUnk_030034C0 == 0) {
+        gBgDataPtrs.pBufBg3Tiles = thunk_HeapAlloc(gUnk_082EB5B8 & 0x7FFFFFFF, 0);
+        gBgDataPtrs.pBufBg3Tilemap = thunk_HeapAlloc(gUnk_082EBB20 & 0x7FFFFFFF, 0);
+        Decompress(gBgDataPtrs.pBufBg3Tiles, &gUnk_082EB5B8);
+        Decompress(gBgDataPtrs.pBufBg3Tilemap, &gUnk_082EBB20);
+    } else if (gUnk_030034C0 == 2) {
+        gBgDataPtrs.pBufBg3Tiles = thunk_HeapAlloc(gUnk_082EBC68 & 0x7FFFFFFF, 0);
+        gBgDataPtrs.pBufBg3Tilemap = thunk_HeapAlloc(gUnk_082EC1A4 & 0x7FFFFFFF, 0);
+        Decompress(gBgDataPtrs.pBufBg3Tiles, &gUnk_082EBC68);
+        Decompress(gBgDataPtrs.pBufBg3Tilemap, &gUnk_082EC1A4);
+    } else {
+        gBgDataPtrs.pBufBg3Tiles = thunk_HeapAlloc(gUnk_082EC2E4 & 0x7FFFFFFF, 0);
+        gBgDataPtrs.pBufBg3Tilemap = thunk_HeapAlloc(gUnk_082EC7C8 & 0x7FFFFFFF, 0);
+        Decompress(gBgDataPtrs.pBufBg3Tiles, &gUnk_082EC2E4);
+        Decompress(gBgDataPtrs.pBufBg3Tilemap, &gUnk_082EC7C8);
+    }
+
+    REG_DISPSTAT &= 0xFF;
+
+    for (var_r4 = 0, var_r5 = 0; var_r4 <= 0x21B; var_r5++, var_r4++) {
+        if (((var_r4 % 30) == 0) && (var_r4 != 0)) {
+            var_r5 += 2;
+        }
+        gBgTilemapBufs[gUnk_030034BC][var_r5] = gBgDataPtrs.pBufBg3Tilemap[var_r4 + 2] + var_sl;
+    }
+
+    DmaCopy16(3, &gBgTilemapBufs[gUnk_030034BC], gBgInfo[gUnk_030034BC].pTilemap, 0x800);
+
+    REG_DISPCNT &= ~DISPCNT_WIN1_ON;
+
+    if (gUnk_03003410.unk4 != 0) {
+        gUnk_030051F0.unkE = gBlendValue;
+        gUnk_030051F0.unk4 = REG_BLDCNT;
+        gUnk_030051F0.unk6 = REG_BG0CNT;
+        gUnk_030051F0.unk8 = REG_BG1CNT;
+        gUnk_030051F0.unkA = REG_BG2CNT;
+        gUnk_030051F0.unkC = REG_BG3CNT;
+        gUnk_030051F0.unk0 = gUnk_03004C20.sceneFrameCounter;
+
+        for (var_r4_2 = 0; var_r4_2 < gUnk_03005428; var_r4_2++) {
+            gEntityInfo[var_r4_2].priority += 1;
+        }
+        gBgInfo[gUnk_030034BC].hOfs = 0;
+    }
+
+    gBlendValue = 9;
+    gUnk_03004658[0xC] = 0;
+    gCallbackQueue.next[0] = ReadKeyInput;
+    gCallbackQueue.next[1] = ProcessInputAndUpdateEntities;
+    gCallbackQueue.next[3] = NULL + 1;
+    if (gUnk_03004C20.level == 8) {
+        gCallbackQueue.next[2] = AnimatePaletteEffects;
+    } else if (gUnk_03004C20.level == 0) {
+        gCallbackQueue.next[2] = VBlankCallback_Dialog;
+    } else {
+        gCallbackQueue.next[2] = VBlankCallback_Gameplay;
+    }
+    gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+    gCallbackQueue.nextCount = 4;
+
+    if (gUnk_030034C0 == 1) {
+        DmaCopy16(3, gBgDataPtrs.pBufBg3Tiles + 4, BG_VRAM + (var_sl * 0x20), 0xB60);
+    } else if (gUnk_030034C0 == 2) {
+        DmaCopy16(3, gBgDataPtrs.pBufBg3Tiles + 4, gBgInfo[gUnk_030034BC].pTiles + (var_sl * 0x20), 0xC60);
+    } else {
+        DmaCopy16(3, gBgDataPtrs.pBufBg3Tiles + 4, gBgInfo[gUnk_030034BC].pTiles + (var_sl * 0x20), 0xCE0);
+    }
+
+    REG_IE |= INTR_FLAG_VBLANK;
+    REG_DISPSTAT |= DISPSTAT_VBLANK_INTR;
+    m4aSoundVSyncOn();
+    m4aSongNumStart(0x55);
+
+    if (gUnk_03004C20.level == 8) {
+        AnimatePaletteEffects();
+    } else if (gUnk_03004C20.level == 0) {
+        VBlankCallback_Dialog();
+    } else {
+        VBlankCallback_Gameplay();
+    }
+
+    if (gUnk_03003410.unk4 != 0) {
+        if (gUnk_030034BC == 0) {
+            REG_BG0CNT &= ~3; // set priority to 0
+            REG_BG0CNT += 0;
+            REG_BG1CNT += 1; // increment priority
+            REG_BG2CNT += 1; // increment priority
+            REG_BG3CNT += 1; // increment priority
+            REG_BLDCNT = BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_OBJ | BLDCNT_EFFECT_DARKEN;
+        } else {
+            REG_BG1CNT &= ~3; // set priority to 0
+            REG_BG1CNT += 0;
+            REG_BLDCNT = BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_OBJ | BLDCNT_EFFECT_DARKEN;
+        }
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateOamSortOrder);
 INCLUDE_ASM("asm/nonmatchings/code_3", ProcessInputAndUpdateEntities);
 /**

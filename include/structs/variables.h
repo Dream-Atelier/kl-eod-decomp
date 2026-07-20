@@ -812,7 +812,11 @@ extern void *gUnk_03004C10;
 /* sub_0800BFF4 family (kleod code_0800BFF4.c) state struct at 0x030051F0. */
 struct Unk_030051F0 {
     s32 unk0;
-    u8 pad4[0xE - 0x4];
+    u16 unk4;
+    u16 unk6;
+    u16 unk8;
+    u16 unkA;
+    u16 unkC;
     u8 unkE;
 };
 extern struct Unk_030051F0 gUnk_030051F0;
