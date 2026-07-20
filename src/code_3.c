@@ -340,7 +340,57 @@ void LoadLevel_World2_Vision1(void) {
     gVramWriteCursor += 0x20;
     gPaletteVramCursor += 0x80;
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World2_Vision2);
+/**
+ * LoadLevel_World2_Vision2: streams the tile and palette graphics data for World 2, Vision 2 from ROM into VRAM and palette RAM via
+ * DMA, advancing the gVramWriteCursor/gPaletteVramCursor write cursors.
+ */
+void LoadLevel_World2_Vision2(void) {
+    DmaCopy16Wait(3, &gUnk_0805FA08, gPaletteVramCursor, 0x100);
+    gPaletteVramCursor += 0x100;
+
+    DmaCopy16Wait(3, &gUnk_08078328, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805EEE8, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805EEE8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_08078348, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805F0E8, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805F0E8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805F0E8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_080783C8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805F488, gPaletteVramCursor, 0x80);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x80;
+
+    DmaCopy16Wait(3, &gUnk_08078568, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_08061A28, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_08078428, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805FB08, gPaletteVramCursor, 0x100);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x100;
+
+    DmaCopy16Wait(3, &gUnk_08078388, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805F368, gPaletteVramCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x20;
+    DmaCopy16Wait(3, &gUnk_0805F388, gPaletteVramCursor, 0x80);
+    gPaletteVramCursor += 0x80;
+
+    DmaCopy16Wait(3, &gUnk_080783A8, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805F408, gPaletteVramCursor, 0x80);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x80;
+}
 /**
  * LoadLevel_World3_Vision1: ported from kleod sub_08031E7C.
  */
