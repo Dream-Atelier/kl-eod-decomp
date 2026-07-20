@@ -3,6 +3,7 @@
 #include "include_asm.h"
 #include "structs/variables.h"
 /* AUTOPORT-SYMS */
+void IntroScrollAnimation(void);
 extern u8 gUnk_03003790[][0x40];
 extern void *gUnk_030052AC;
 extern void *gUnk_030034F4;
@@ -1124,7 +1125,86 @@ void LoadLevel_World9_Vision1(void) {
     gPaletteVramCursor += 0x80;
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World9_Vision2);
-INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_BossArena);
+/**
+ * LoadLevel_BossArena: streams the boss-arena tile and palette graphics data from ROM into VRAM and palette RAM via DMA, advancing the
+ * gVramWriteCursor/gPaletteVramCursor write cursors.
+ */
+void LoadLevel_BossArena(void) {
+    DmaCopy16Wait(3, &gUnk_08077E28, gVramWriteCursor, 0x20);
+    gVramWriteCursor += 0x20;
+    SetPaletteAnimEntry(0, 0);
+    gEntityInfo[0].unk10 = 1;
+    gPaletteVramCursor += 0x200;
+
+    DmaCopy16Wait(3, &gUnk_08077E48, gVramWriteCursor, 0x20);
+    DmaCopy16Wait(3, &gUnk_0805C6E8, gPaletteVramCursor, 0x200);
+    gVramWriteCursor += 0x20;
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805C6E8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805C6E8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805C6E8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805C6E8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805C6E8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805C6E8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805C6E8, gPaletteVramCursor, 0x200);
+    gPaletteVramCursor += 0x200;
+    DmaCopy16Wait(3, &gUnk_0805C8E8, gPaletteVramCursor, 0x80);
+    gPaletteVramCursor += 0x80;
+    DmaCopy16Wait(3, &gUnk_0805C968, gPaletteVramCursor, 0x80);
+    gPaletteVramCursor += 0x80;
+
+    if (gUnk_03004C20.level != 8) {
+        if (gUnk_03003410.unkA == 0) {
+            DmaCopy16Wait(3, &gUnk_0805C9E8, gPaletteVramCursor, 0x800);
+            gPaletteVramCursor += 0x800;
+
+            if (gUnk_03004C20.level != 0) {
+                if (gCallbackQueue.next[4] == IntroScrollAnimation) {
+                    gEntityInfo[0xB].unk10 = 1;
+                } else {
+                    gEntityInfo[0xB].unk10 = 0;
+                }
+            }
+        } else {
+            DmaCopy16Wait(3, &gUnk_080A5888, gPaletteVramCursor, 0x800);
+            gPaletteVramCursor += 0x800;
+
+            gEntityInfo[0xB].xPosScreen = 0x48;
+            gEntityInfo[0xB].yPosScreen = 0x20;
+            gEntityInfo[0xB].unk10 = 1;
+        }
+    } else {
+        gEntityInfo[0xB].yPosScreen = 0x50;
+
+        DmaCopy16Wait(3, &gUnk_080A4888, gPaletteVramCursor, 0x800);
+        gPaletteVramCursor += 0x800;
+
+        gEntityInfo[0xB].unk10 = 1;
+    }
+
+    if ((gUnk_03004C20.level - 1) >= 0 && (gUnk_03004C20.level - 1) <= 6) {
+        DmaCopy16Wait(3, gUnk_0818B800[gUnk_03004C20.world - 1][gUnk_03004C20.level - 1], gPaletteVramCursor, 0x800);
+        gPaletteVramCursor += 0x800;
+
+        if (gCallbackQueue.next[4] == IntroScrollAnimation) {
+            gEntityInfo[0xC].unk10 = 1;
+        } else {
+            gEntityInfo[0xC].unk10 = 0;
+        }
+    } else {
+        DmaCopy16Wait(3, &gUnk_0805D1E8, gPaletteVramCursor, 0x800);
+        gPaletteVramCursor += 0x800;
+    }
+
+    gUnk_030034F4 = gVramWriteCursor;
+    gUnk_030052AC = gPaletteVramCursor;
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", InitGameplayState);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateOamSortOrder);
 INCLUDE_ASM("asm/nonmatchings/code_3", ProcessInputAndUpdateEntities);
