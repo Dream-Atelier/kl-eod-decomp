@@ -1035,8 +1035,7 @@ void InitLevelFromROMTable(void) {
     } else {
         DmaFill16(3, 0, &gUnk_03003650, 0x1000);
         for (var_r6 = 0; var_r6 < 0x28; var_r6++) {
-            DmaCopy16Wait(3, &gUnk_03004790.pBufBg2Tilemap[var_r6 * gUnk_03003430.bg2MapWidth],
-                          (void *)((var_r6 << 6) + &gUnk_03003650), 0x1E * 2);
+            DmaCopy16Wait(3, &gUnk_03004790.pBufBg2Tilemap[var_r6 * gUnk_03003430.bg2MapWidth], &gUnk_03003650[var_r6], 0x1E * 2);
         }
         DmaCopy16Wait(3, &gUnk_03003650, gUnk_03003430.pVramBg2Tilemap, 0x1000);
     }

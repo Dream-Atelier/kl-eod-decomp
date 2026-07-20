@@ -638,7 +638,7 @@ extern u16 gUnk_08051EFE[6][9][3];
 /* ROM lookup table at gUnk_08051EFE + 0xEA = 0x08051FE8: per-(world, slot) row */
 extern u8 gLevelRoomData[6][8][0x1C];
 extern u8 gUnk_08052624[6][9];
-extern void gUnk_03003650;
+extern u8 gUnk_03003650[][0x40];
 
 /* Globals first referenced by sub_08001158 (InitLevelBG). */
 extern u32 *gUnk_08189034[6][9][3]; /* tile-size pointer table */
