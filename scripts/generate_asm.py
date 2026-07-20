@@ -69,6 +69,9 @@ INSIDE_C_FUNCTION_ADDRESSES = {
     # split it off as "RunWorldMapTransition", but kleod's sub_0803B378 is one
     # 648-byte function spanning through 0x0803B600; the C definition owns it.
     0x0803B3D2,
+    # _08041DF0: internal label of UpdatePlayerAlternate (0x08040F1C); luvdis split
+    # it as HandleSceneTransitionInput but kleod sub_08040F1C is one 3960-byte fn.
+    0x08041DF0,
 }
 
 # ---------------------------------------------------------------------------
