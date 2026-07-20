@@ -1092,7 +1092,7 @@ void RenderHUDTop(void) {
     }
 }
 INCLUDE_ASM("asm/nonmatchings/code_0", RenderMenuUI); /* RenderMenuUI */
-INCLUDE_ASM("asm/nonmatchings/code_0", RenderDialogBox); /* RenderDialogBox */
+INCLUDE_ASM("asm/nonmatchings/code_0", RenderDialogBox);
 void RenderDialogSprites(void) {
     s32 sp0;
     s32 sp4;

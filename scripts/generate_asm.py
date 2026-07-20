@@ -631,7 +631,47 @@ def _starts_with_prologue(lines: list[str]) -> bool:
     return False
 
 
-def _merge_fragments(func_entries):
+def _collect_c_implemented_addrs():
+    """ROM addresses of functions that have a C *definition* in ``src/*.c``.
+
+    Such a function's symbol is emitted by the compiled C.  If fragment
+    merging absorbs it into an asm ``.s`` (as a ``.global`` label), the
+    assembler sees the symbol defined twice — a hard build failure (e.g.
+    ``StreamCmd_SetRenderModeTiled`` was decompiled to C but a preceding asm
+    fragment whose literal pool decoded as instructions absorbed it).  These
+    addresses are therefore hard merge boundaries.  Keyed by address so the
+    guard is independent of whether renames have been applied yet.
+    """
+    src_dir = os.path.join(ROOT, "src")
+    renamed_to_old = {new: old for old, new in RENAMES.items()}
+    renamed_names = set(RENAMES.values())
+    broad = re.compile(r"^(?!extern\b)\w[\w\s\*]+\b(\w+)\s*\(")
+    names = set()
+    for fname in os.listdir(src_dir):
+        if not fname.endswith(".c"):
+            continue
+        with open(os.path.join(src_dir, fname)) as f:
+            for line in f:
+                if _INCLUDE_ASM_RE.search(line):
+                    continue  # still asm — safe to merge
+                m = _C_FUNC_DEF_RE.search(line)
+                if m:
+                    names.add(m.group(1))
+                    continue
+                m = broad.match(line)
+                if m and m.group(1) in renamed_names:
+                    names.add(m.group(1))
+
+    addrs = set()
+    for name in names:
+        old = renamed_to_old.get(name, name)
+        mm = re.match(r"sub_([0-9A-Fa-f]{6,8})$", old)
+        if mm:
+            addrs.add(int(mm.group(1), 16))
+    return addrs
+
+
+def _merge_fragments(func_entries, c_impl_addrs=frozenset()):
     """Merge consecutive fragment functions into complete units.
 
     A function is merged with the next when:
@@ -641,6 +681,8 @@ def _merge_fragments(func_entries):
     Merging **stops** before absorbing a function that:
       - starts with ``push {… lr}`` — a real function prologue
       - is branched/called from other functions — an independent entry point
+      - has a C definition in ``src/*.c`` (``c_impl_addrs``) — absorbing it
+        would define its symbol twice (asm ``.global`` + compiled C)
 
     Returns (merged_entries, merged_groups) where merged_groups maps
     each primary function name to all names in its group.
@@ -664,7 +706,20 @@ def _merge_fragments(func_entries):
             if not next_same_module:
                 break
             next_name = func_entries[j + 1][0]
+            next_addr = func_entries[j + 1][1]
             next_lines = func_entries[j + 1][3]
+            # Never absorb a function that is implemented in C — its symbol is
+            # emitted by the compiled C, so pulling it into an asm .s defines
+            # it twice.
+            if next_addr in c_impl_addrs:
+                break
+            # Never absorb into the handcrafted m4a0.s blob range: that code is
+            # already assembled from asm/m4a0.s, so pulling it into a luvdis
+            # nonmatchings .s duplicates it (and shifts m4a0.s's own branches
+            # out of range).  _filter_handcrafted_m4a0 drops these as separate
+            # entries, but only if the merge didn't swallow them first.
+            if HANDCRAFTED_M4A0_START <= next_addr < HANDCRAFTED_M4A0_END:
+                break
             # Never absorb a function that starts with push {lr}
             if _starts_with_prologue(next_lines):
                 break
@@ -2725,7 +2780,9 @@ def main():
     print("[4/9] Splitting, detecting sub-functions, merging fragments...")
     func_entries, libgcc_lines, pre_func = _parse_luvdis(luvdis_output)
     func_entries = _expand_sub_functions(func_entries)
-    merged_entries, merged_groups = _merge_fragments(func_entries)
+    merged_entries, merged_groups = _merge_fragments(
+        func_entries, _collect_c_implemented_addrs()
+    )
     merged_entries = _filter_handcrafted_m4a0(merged_entries)
     merged_entries = _fix_non_word_aligned_starts(merged_entries)
     module_funcs = _write_asm_files(merged_entries, libgcc_lines, pre_func)
