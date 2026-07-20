@@ -8,6 +8,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", InitGfxState);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateBGScrollRegisters);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateBGTileAnimation);
 void UpdateBGScrollRegisters(void);
+void ProcessFrameAnimation(void);
 void m4aSoundVSyncOff(void);
 void m4aMPlayAllStop(void);
 void UpdateSceneTransition(void);
@@ -520,7 +521,79 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitAngleMotion);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitOscillation);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitOscillationExt);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitStaticScroll);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitFrameAnimation);
+/**
+ * StreamCmd_InitFrameAnimation: initialize a frame-animation entry from stream data.
+ *
+ * Reads packed parameters from the command stream (bytes 3..6) into the
+ * GfxStreamEntry indexed by stream byte[2], installs ProcessFrameAnimation as
+ * the per-frame callback, sets the entry type nibble to 1, then advances the
+ * stream by 7 bytes.
+ */
+void StreamCmd_InitFrameAnimation(void) {
+    u8 **streamPP = &gStreamPtr;
+    u8 **basePP;
+    u8 *sp;
+    u8 idx;
+    u8 *base;
+    u32 offA;
+    u32 offB;
+    u8 *sp2;
+    u8 *base2;
+    u32 offC;
+    u32 offD;
+    u32 param6;
+    u32 offE;
+    u32 offF;
+    u8 *entryF;
+    u8 flags;
+    s32 mask;
+
+    sp = *streamPP;
+    idx = sp[2];
+    basePP = &gBuffer_52A4;
+    base = *basePP;
+    offA = (u32)(idx * 9) * 4;
+    offA += (u32)base;
+    *(u16 *)(offA + 0x04) = sp[3];
+
+    idx = sp[2];
+    offB = (u32)(idx * 9) * 4;
+    offB += (u32)base;
+    *(u8 *)(offB + 0x1E) = sp[4];
+    *(u16 *)(offB + 0x0C) = sp[4];
+
+    sp2 = *streamPP;
+    idx = sp2[2];
+    base2 = *basePP;
+    offC = (u32)(idx * 9) * 4;
+    offC += (u32)base2;
+    *(u8 *)(offC + 0x1F) = sp2[5];
+
+    sp = *streamPP;
+    idx = sp[2];
+    base = *basePP;
+    offD = (u32)(idx * 9) * 4;
+    offD += (u32)base;
+    param6 = sp[6];
+    *(u16 *)(offD + 0x08) = param6;
+    *(u16 *)(offD + 0x14) = param6;
+
+    idx = sp[2];
+    offE = (u32)(idx * 9) * 4;
+    offE += (u32)base;
+    *(u32 *)(offE + 0x20) = (u32)ProcessFrameAnimation;
+
+    idx = sp[2];
+    offF = (u32)(idx * 9) * 4;
+    offF += (u32)base;
+    entryF = (u8 *)offF;
+    flags = entryF[0];
+    mask = -8;
+    mask &= flags;
+    entryF[0] = mask | 1;
+
+    *streamPP += 7;
+}
 /**
  * ProcessHBlankWait: process HBlank wait timer for a stream entry.
  *
