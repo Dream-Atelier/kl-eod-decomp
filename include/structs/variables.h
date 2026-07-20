@@ -239,6 +239,7 @@ struct Unk_03003410 {
     u8 unk9;
     u8 unkA;
     u8 unkB;
+    u8 unkC;
 };
 extern struct Unk_03003410 gUnk_03003410;
 
@@ -381,10 +382,20 @@ extern struct Unk_03005400 gUnk_03005400;
 
 /* Affine reference points at 0x03005440. */
 struct Unk_03005440 {
-    u16 unk0;
-    u16 unk2;
-    u16 unk4;
-    u16 unk6;
+    /* 0x00 */ u16 unk0;
+    /* 0x02 */ u16 unk2;
+    /* 0x04 */ u16 unk4;
+    /* 0x06 */ u16 unk6;
+    /* 0x08 */ u8 pad8[0xC - 0x8];
+    /* 0x0C */ u16 unkC;
+    /* 0x0E */ u16 unkE;
+    /* 0x10 */ u16 unk10;
+    /* 0x12 */ u16 unk12;
+    /* 0x14 */ u8 pad14[0x18 - 0x14];
+    /* 0x18 */ u16 unk18;
+    /* 0x1A */ u16 unk1A;
+    /* 0x1C */ u16 unk1C;
+    /* 0x1E */ u16 unk1E;
 };
 extern struct Unk_03005440 gUnk_03005440;
 
@@ -726,6 +737,7 @@ struct Unk_0800BEF0 {
     u16 unk4;
     u16 unk6;
     s8 unk8;
+    s8 unk9;
 };
 
 /* sub_08003DC0 (SetupOAMSprite) — sprite-bookkeeping table at 0x080E2B64
