@@ -3,8 +3,8 @@
 #include "globals.h"
 #include "include_asm.h"
 #include "structs/variables.h"
-/* AUTOPORT-SYMS */
-extern u16 gUnk_030052B8;
+/* Cross-module function prototypes referenced by the decompiled functions below.
+ * (ROM data symbols live in structs/variables.h.) */
 extern void AnimatePaletteEffects();
 extern void CameraModeSwitchHandler();
 extern void IntroSequenceUpdate();
@@ -21,8 +21,6 @@ extern void ResetVideoRegisters();
 extern void InitLevelBG();
 extern void TransitionFadeInRestoreWindows();
 extern void UpdateAllEntities();
-#define BLEND_MAX       16
-#define BLDCNT_TGT1_ALL (BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_BG3 | BLDCNT_TGT1_OBJ | BLDCNT_TGT1_BD)
 extern u8 gBlendValue;
 extern u8 gSoundVolume;
 extern struct MP2KPlayerState gMPlayInfo_0, gMPlayInfo_1, gMPlayInfo_2, gMPlayInfo_3;
@@ -34,14 +32,6 @@ void m4aSongNumContinue(u16);
 void m4aSoundVSyncOff(void);
 void m4aSoundVSyncOn(void);
 #define PLTT ((void *)0x05000000)
-extern u8 *gUnk_03004658;
-extern u8 gUnk_030007C4;
-extern u8 gUnk_080A5088[0x800];
-extern struct Unk_030034B0 gUnk_030034B0;
-extern u16 gUnk_08057C70;
-extern struct Unk_03005294_03005418 *gUnk_03005418;
-extern u8 gUnk_03004D9C;
-extern struct Unk_03005294_03005418 *gUnk_03005294;
 
 #ifndef MAX
 #define MAX(a, b) (((a) >= (b)) ? (a) : (b))
@@ -59,7 +49,6 @@ void SpawnEntityAtPosition(u16, u16, u8, u8);
 void EntityHitReaction(u8);
 void SetPaletteAnimEntry(s32, u8);
 void CopyBGScrollTiles(void);
-void m4aSongNumStart(u16);
 
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityUpdateDispatch);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerMainUpdate);
@@ -438,7 +427,6 @@ typedef struct EntityDeathStruct {
 extern void SpawnEntityAtPosition(u16 x, u16 y, u8 type, u8 slot);
 extern u8 sub_08051A0C(u8 a, u8 b);
 extern u8 sub_08051A84(u8 a, u8 b);
-extern void m4aSongNumStart(u16 n);
 extern void LoadSpriteFrame(u8 frame, u8 tilesetIdx);
 
 /**
@@ -1256,153 +1244,6 @@ void UpdateHUDCollectibleCountAlt(void) {
 INCLUDE_ASM("asm/nonmatchings/code_1", UpdateHUDTimerAndLives);
 INCLUDE_ASM("asm/nonmatchings/code_1", IntroScrollAnimation);
 INCLUDE_ASM("asm/nonmatchings/code_1", IntroSequenceUpdate);
-/* Per-level animated-tile pointer table (kleod-canonical), indexed
- * [world-1][level]; the ->unk3C etc members point at frame data streamed
- * into OBJ VRAM by some level loaders. */
-struct Unk_08189A24 {
-    u8 pad0[0x3C - 0x0];
-    void ***unk3C;
-    u8 pad40[0x60 - 0x40];
-    void ***unk60;
-    u8 pad64[0x6C - 0x64];
-    void ***unk6C;
-    u8 pad70[0x78 - 0x70];
-    void ***unk78;
-    u8 pad7C[0x90 - 0x7C];
-    void ***unk90;
-};
-extern struct Unk_08189A24 *gUnk_08189A24[6][9];
-/* Per-level sprite tile graphics (0x200 bytes each) and OBJ palettes (0x20
- * bytes each) in ROM, streamed by the VBlankDMA_Level* loaders. */
-extern u8 gUnk_0805EAE8[0x200];
-extern u8 gUnk_08077EE8[0x20];
-extern u8 gUnk_08077F88[0x20];
-extern u8 gUnk_08077FA8[0x20];
-extern u8 gUnk_08077FC8[0x20];
-extern u8 gUnk_08077FE8[0x20];
-extern u8 gUnk_08078008[0x20];
-extern u8 gUnk_08078028[0x20];
-extern u8 gUnk_08060808[0x200];
-extern u8 gUnk_08060A08[0x80];
-extern u8 gUnk_08060A88[0x600];
-extern u8 gUnk_08061088[0x800];
-extern u8 gUnk_08061888[0x100];
-extern u8 gUnk_08061988[0x80];
-extern u8 gUnk_08061A08[0x20];
-extern u8 gUnk_08062848[0x80];
-extern u8 gUnk_08062CE8[0x200];
-extern u8 gUnk_08063168[0x200];
-extern u8 gUnk_08078488[0x20];
-extern u8 gUnk_080784A8[0x20];
-extern u8 gUnk_080784C8[0x20];
-extern u8 gUnk_080784E8[0x20];
-extern u8 gUnk_08078508[0x20];
-extern u8 gUnk_08078528[0x20];
-extern u8 gUnk_08078548[0x20];
-extern u8 gUnk_080785E8[0x20];
-extern u8 gUnk_08078608[0x20];
-extern u8 gUnk_08078628[0x20];
-extern u8 gUnk_08078648[0x20];
-extern u8 gUnk_08078668[0x20];
-extern u8 gUnk_08078688[0x20];
-extern u8 gUnk_0805D9E8[0x200];
-extern u8 gUnk_0805DBE8[0x300];
-extern u8 gUnk_0805DEE8[0x200];
-extern u8 gUnk_0805E0E8[0x200];
-extern u8 gUnk_0805E2E8[0x400];
-extern u8 gUnk_0805E6E8[0x400];
-extern u8 gUnk_08077E68[0x20];
-extern u8 gUnk_08077E88[0x20];
-extern u8 gUnk_08077EA8[0x20];
-extern u8 gUnk_08077EC8[0x20];
-extern u8 gUnk_08077F08[0x20];
-extern u8 gUnk_08077F28[0x20];
-extern u8 gUnk_08077F48[0x20];
-extern u8 gUnk_08077F68[0x20];
-extern u8 gUnk_08078128[0x20];
-extern u8 gUnk_08078148[0x20];
-extern u8 gUnk_08078168[0x20];
-extern u8 gUnk_08078188[0x20];
-extern u8 gUnk_080781A8[0x20];
-extern u8 gUnk_080781C8[0x20];
-extern u8 gUnk_080781E8[0x20];
-extern u8 gUnk_08078208[0x20];
-extern u8 gUnk_08078228[0x20];
-extern u8 gUnk_08078248[0x20];
-extern u8 gUnk_08078268[0x20];
-extern u8 gUnk_08078288[0x20];
-extern u8 gUnk_080782A8[0x20];
-extern u8 gUnk_080782C8[0x20];
-extern u8 gUnk_080782E8[0x20];
-extern u8 gUnk_0805ECE8[0x200];
-extern u8 gUnk_0805EEE8[0x200];
-extern u8 gUnk_0805F0E8[0x200];
-extern u8 gUnk_0805F2E8[0x80];
-extern u8 gUnk_0805F368[0x20];
-extern u8 gUnk_0805F388[0x80];
-extern u8 gUnk_0805F408[0x80];
-extern u8 gUnk_0805F488[0x80];
-extern u8 gUnk_0805F508[0x200];
-extern u8 gUnk_0805F708[0x80];
-extern u8 gUnk_0805F788[0x80];
-extern u8 gUnk_0805F808[0x200];
-extern u8 gUnk_0805FA08[0x100];
-extern u8 gUnk_0805FB08[0x100];
-extern u8 gUnk_0805FC08[0x200];
-extern u8 gUnk_0805FE08[0x800];
-extern u8 gUnk_08060608[0x100];
-extern u8 gUnk_08060708[0x100];
-extern u8 gUnk_08061A28[0x200];
-extern u8 gUnk_08061C28[0x100];
-extern u8 gUnk_08061D28[0x20];
-extern u8 gUnk_08061D48[0x20];
-extern u8 gUnk_08061D68[0x20];
-extern u8 gUnk_08061D88[0x20];
-extern u8 gUnk_08061DA8[0x20];
-extern u8 gUnk_08061DC8[0x200];
-extern u8 gUnk_08061FC8[0x80];
-extern u8 gUnk_08062048[0x100];
-extern u8 gUnk_08062148[0x100];
-extern u8 gUnk_08062248[0x100];
-extern u8 gUnk_08062348[0x80];
-extern u8 gUnk_080623C8[0x400];
-extern u8 gUnk_080627C8[0x80];
-extern u8 gUnk_080628C8[0x200];
-extern u8 gUnk_08062AC8[0x20];
-extern u8 gUnk_08062AE8[0x200];
-extern u8 gUnk_08062EE8[0x200];
-extern u8 gUnk_080630E8[0x80];
-extern u8 gUnk_08063368[0x80];
-extern u8 gUnk_080633E8[0x200];
-extern u8 gUnk_080635E8[0x80];
-extern u8 gUnk_08063668[0x200];
-extern u8 gUnk_08078048[0x20];
-extern u8 gUnk_08078068[0x20];
-extern u8 gUnk_08078088[0x20];
-extern u8 gUnk_080780A8[0x20];
-extern u8 gUnk_080780C8[0x20];
-extern u8 gUnk_080780E8[0x20];
-extern u8 gUnk_08078108[0x20];
-extern u8 gUnk_08078308[0x20];
-extern u8 gUnk_08078328[0x20];
-extern u8 gUnk_08078348[0x20];
-extern u8 gUnk_08078368[0x20];
-extern u8 gUnk_08078388[0x20];
-extern u8 gUnk_080783A8[0x20];
-extern u8 gUnk_080783C8[0x20];
-extern u8 gUnk_080783E8[0x20];
-extern u8 gUnk_08078408[0x20];
-extern u8 gUnk_08078428[0x20];
-extern u8 gUnk_08078448[0x20];
-extern u8 gUnk_08078468[0x20];
-extern u8 gUnk_08078568[0x20];
-extern u8 gUnk_08078588[0x20];
-extern u8 gUnk_080785A8[0x20];
-extern u8 gUnk_080785C8[0x20];
-extern u8 gUnk_080786A8[0x20];
-extern u8 gUnk_080786C8[0x20];
-extern u8 gUnk_080786E8[0x20];
-extern u8 gUnk_08078708[0x20];
 
 /**
  * VBlankDMA_Level2: streams the OBJ palette and sprite tile graphics for

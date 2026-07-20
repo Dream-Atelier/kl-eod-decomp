@@ -17,6 +17,13 @@
 #define OAM                        0x07000000
 #define ROM                        0x08000000
 
+/* kleod-canonical aliases used by decompiled DMA/palette code. */
+#define BG_PLTT                    ((void *)BG_PAL_RAM)
+#define OBJ_PLTT                   ((void *)OBJ_PAL_RAM)
+#define BG_VRAM                    ((void *)VRAM)
+#define BG_PLTT_SIZE               0x200
+#define OAM_SIZE                   0x400
+
 /* ── Display dimensions ── */
 #define DISPLAY_WIDTH              240
 #define DISPLAY_HEIGHT             160

@@ -11,14 +11,9 @@ extern s16 MultiplyQ8(s16, s16);
 extern s16 ReciprocalQ8(s16);
 extern u8 thunk_sub_080002A0();
 extern u8 thunk_sub_080002D0();
-#ifndef OAM_SIZE
-#define OAM_SIZE 0x400
-#endif
-#ifndef BLDCNT_TGT1_ALL
-#define BLDCNT_TGT1_ALL (BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_BG3 | BLDCNT_TGT1_OBJ | BLDCNT_TGT1_BD)
-#endif
 extern void VBlankCallback_Dialog(void);
-/* AUTOPORT-SYMS */
+/* Cross-module function prototypes referenced by the decompiled functions below.
+ * (ROM data symbols live in structs/variables.h.) */
 void HBlankScrollUpdate(void);
 s32 Abs(s32 n);
 void IntroSequenceUpdate(void);
@@ -32,166 +27,17 @@ void UpdatePlayerFinalBoss(u8 arg0);
 void UpdatePlayerAlternate(u8 arg0);
 void UpdatePlayerMinigame(u8 arg0);
 void VBlankHandler_ModeB(void);
-#define BG_PLTT_SIZE 0x200
 void ReadKeyInput(void);
 void VBlankCallback_Gameplay(void);
 void AnimatePaletteEffects(void);
 void IntroScrollAnimation(void);
-extern u8 gUnk_03003790[][0x40];
-extern void *gUnk_030052AC;
-extern void *gUnk_030034F4;
-extern u8 gUnk_0805D1E8[0x800];
-extern void *gUnk_0818B800[6][7];
-extern u8 gUnk_080A4888[0x800];
-extern u8 gUnk_080A5888[0x800];
-extern u8 gUnk_0805C9E8[0x800];
-extern u8 gUnk_0805C968[0x80];
-extern u8 gUnk_0805C8E8[0x80];
-extern u8 gUnk_0805C6E8[0x200];
-extern u8 gUnk_08077E48[0x20];
-extern u8 gUnk_08077E28[0x20];
-extern u8 gUnk_08078A68[0x20];
-extern u8 gUnk_080657A8[0x20];
-extern u8 gUnk_08065788[0x20];
-extern u8 gUnk_08065768[0x20];
-extern u8 gUnk_08078A48[0x20];
-extern u8 gUnk_08078A28[0x20];
-extern u8 gUnk_080789E8[0x20];
-extern u8 gUnk_08078608[0x20];
-extern u8 gUnk_080789A8[0x20];
-extern u8 gUnk_08078988[0x20];
-extern u8 gUnk_08078968[0x20];
-extern u8 gUnk_08078948[0x20];
-extern u8 gUnk_08065568[0x200];
-extern u8 gUnk_08078908[0x20];
-extern u8 gUnk_080635E8[0x80];
-extern u8 gUnk_08062148[0x100];
-extern u8 gUnk_080623C8[0x400];
-extern u8 gUnk_080785C8[0x20];
-extern u8 gUnk_08062348[0x80];
-extern u8 gUnk_08065368[0x200];
-extern u8 gUnk_08065168[0x200];
-extern u8 gUnk_08064F68[0x200];
-extern u8 gUnk_080788E8[0x20];
-extern u8 gUnk_08064E68[0x100];
-extern u8 gUnk_08064C68[0x200];
-extern u8 gUnk_080788C8[0x20];
-extern u8 gUnk_080788A8[0x20];
-extern u8 gUnk_08061DA8[0x20];
-extern u8 gUnk_08061D88[0x20];
-extern u8 gUnk_08061D68[0x20];
-extern u8 gUnk_08061D48[0x20];
-extern u8 gUnk_08061D28[0x20];
-extern u8 gUnk_080630E8[0x80];
-extern u8 gUnk_08062848[0x80];
-extern u8 gUnk_08064468[0x400];
-extern u8 gUnk_08061C28[0x100];
-extern u8 gUnk_08078868[0x20];
-extern u8 gUnk_08062248[0x100];
-extern u8 gUnk_08060608[0x100];
-extern u8 gUnk_08060708[0x100];
-extern u8 gUnk_08060808[0x200];
-extern u8 gUnk_08078488[0x20];
-extern u8 gUnk_0805FE08[0x800];
-extern u8 gUnk_08078468[0x20];
-extern u8 gUnk_0805F788[0x80];
-extern u8 gUnk_08078848[0x20];
-extern u8 gUnk_08062AE8[0x200];
-extern u8 gUnk_080787E8[0x20];
-extern u8 gUnk_08062AC8[0x20];
-extern u8 gUnk_08062CE8[0x200];
-extern u8 gUnk_080628C8[0x200];
-extern u8 gUnk_080786A8[0x20];
-extern u8 gUnk_08063168[0x200];
-extern u8 gUnk_08062EE8[0x200];
-extern u8 gUnk_0805FB08[0x100];
-extern u8 gUnk_08078428[0x20];
-extern u8 gUnk_0805FA08[0x100];
-extern u8 gUnk_08062048[0x100];
-extern u8 gUnk_08061FC8[0x80];
-extern u8 gUnk_08064A68[0x200];
-extern u8 gUnk_080633E8[0x200];
-extern u8 gUnk_08063368[0x80];
-extern u8 gUnk_0805F488[0x80];
-extern u8 gUnk_080783C8[0x20];
-extern u8 gUnk_08061DC8[0x200];
-extern u8 gUnk_08078588[0x20];
-extern u8 gUnk_0805F388[0x80];
-extern u8 gUnk_0805F368[0x20];
-extern u8 gUnk_08078388[0x20];
-extern u8 gUnk_0805F2E8[0x80];
-extern u8 gUnk_08078368[0x20];
-extern u8 gUnk_0805F808[0x200];
-extern u8 gUnk_0805F708[0x80];
-extern u8 gUnk_08078408[0x20];
-extern u8 gUnk_080627C8[0x80];
-extern u8 gUnk_08064068[0x400];
-extern u8 gUnk_08078888[0x20];
-extern u8 gUnk_08063FE8[0x80];
-extern u8 gUnk_08063BE8[0x400];
-extern u8 gUnk_08063AE8[0x100];
-extern u8 gUnk_080787C8[0x20];
-extern u8 gUnk_0805F508[0x200];
-extern u8 gUnk_080783E8[0x20];
-extern u8 gUnk_08063A68[0x80];
-extern u8 gUnk_08063868[0x200];
-extern u8 gUnk_080787A8[0x20];
-extern u8 gUnk_0805FC08[0x200];
-extern u8 gUnk_08078448[0x20];
-extern u8 gUnk_08061A28[0x200];
-extern u8 gUnk_08078568[0x20];
-extern u8 gUnk_0805EEE8[0x200];
-extern u8 gUnk_08078328[0x20];
-extern u8 gUnk_0805ECE8[0x200];
-extern u8 gUnk_08078308[0x20];
-extern u8 gUnk_0805F408[0x80];
-extern u8 gUnk_080783A8[0x20];
-extern u8 gUnk_08078788[0x20];
-extern u8 gUnk_08078748[0x20];
-extern u8 gUnk_0805F0E8[0x200];
-extern u8 gUnk_08078348[0x20];
-struct Unk_08189A24 {
-    u8 pad0[0x3C - 0x0];
-    void ***unk3C;
-    u8 pad40[0x60 - 0x40];
-    void ***unk60;
-    u8 pad64[0x6C - 0x64];
-    void ***unk6C;
-    u8 pad70[0x78 - 0x70];
-    void ***unk78;
-    u8 pad7C[0x90 - 0x7C];
-    void ***unk90;
-};
-extern struct Unk_08189A24 *gUnk_08189A24[6][9];
-extern u8 gUnk_08061088[0x800];
-extern u8 gUnk_080784E8[0x20];
-extern u8 gUnk_08060A88[0x600];
-extern u8 gUnk_080784C8[0x20];
-extern u8 gUnk_08060A08[0x80];
-extern u8 gUnk_080784A8[0x20];
 
 /* ── kleod code_08039D8C.c shared scaffolding ─────────────────────────────
- * ROM data tables, common globals, cross-module externs, and forward decls
- * for the logic functions ported from kleod's code_08039D8C.c. */
-#define BLEND_MAX 16
-#define OBJ_PLTT  ((void *)0x05000200)
-#define BG_VRAM   ((void *)0x06000000)
-#define BG_PLTT   ((void *)0x05000000)
+ * Common globals, cross-module externs, and helper inlines for the logic
+ * functions ported from kleod's code_08039D8C.c. */
 
 extern struct BgDataPtrs gBgDataPtrs; /* 0x03004790 */
 extern u8 gBlendValue; /* 0x03005498 */
-extern struct Unk_03004C08 gUnk_03004C08;
-extern u8 *gUnk_03004658;
-extern struct Unk_0803D4AC gUnk_081168E8[];
-extern u8 gUnk_03004D9C;
-extern struct Unk_0803D4AC gUnk_03003620;
-extern u8 gUnk_030034C0;
-extern struct Unk_030034B0 gUnk_030034B0;
-extern u8 gUnk_030007CC;
-extern u8 gUnk_03003D16[][8];
-extern u8 gUnk_03003DD6[][8];
-extern u8 gUnk_03003E96[][8];
-extern u8 gUnk_03003F56[][8];
 
 /* Tile-collision query result (kleod CheckTileCollisionSloped). */
 struct Unk_08014184 {
@@ -209,52 +55,6 @@ static inline struct Unk_08014184 Call_CheckTileCollisionSloped(u16 arg1, u16 ar
 }
 extern void PlayerRespawnOrDeath(s32);
 extern void SpawnEntityAtPosition(u16, u16, u8, u8);
-
-/* ROM data tables. */
-extern u8 gUnk_08064868[0x200];
-extern const u8 gUnk_08078508[0x20];
-extern u8 gUnk_08078628[0x20];
-extern u8 gUnk_08078728[0x20];
-extern u8 gUnk_08078768[0x20];
-extern u8 gUnk_080789C8[0x20];
-extern u8 gUnk_080B9468[0x200];
-extern u8 gUnk_080D8C30[6][0x40];
-extern const u8 gUnk_081166F8[4][4];
-extern const u16 gUnk_08116728[8][2];
-extern const u8 gUnk_08116780[8][0x20];
-extern const s8 gUnk_08116888[6][2];
-extern const u8 gUnk_081168DC[6];
-extern const u8 gUnk_081168E2[4];
-extern const u8 gUnk_081169F9[3][3];
-extern const u8 gUnk_08116A02[4][5];
-extern u8 gUnk_08116A46[4][2];
-extern u16 gUnk_08116A4E[4][4];
-extern const u8 gUnk_08116A6E[4][6];
-extern const u8 gUnk_08116A86[5][6];
-extern const u8 gUnk_08116AA4[3];
-extern const u8 gUnk_08116AA7[3];
-extern const u8 gUnk_0811710A[6];
-extern u16 gUnk_08117110[8];
-extern const void *gUnk_0818B9F8[];
-extern u32 gUnk_082EAF8C;
-extern u32 gUnk_082EB488;
-extern u32 gUnk_082EB5B8;
-extern u32 gUnk_082EBB20;
-extern u32 gUnk_082EBC68;
-extern u32 gUnk_082EC1A4;
-extern u32 gUnk_082EC2E4;
-extern u32 gUnk_082EC7C8;
-extern u32 gUnk_082EC8F4;
-extern u32 gUnk_082ECD74;
-extern u32 gUnk_083128F8;
-extern u32 gUnk_08312A58;
-extern u32 gUnk_08312B70;
-extern u32 gUnk_08312BD8;
-extern u32 gUnk_08313C34;
-extern u32 gUnk_08313F24;
-extern u32 gUnk_083141F0;
-extern u32 gUnk_083142EC;
-extern u32 gUnk_083155C4;
 
 /* Forward decls (code_08039D8C.c cluster). */
 void InitGameplayState(void);
@@ -283,21 +83,6 @@ void TransitionLevelVariant(u8 arg0);
 void UpdateLevelProgression(void);
 void SetEntityVisibility(u8 arg0);
 void UpdatePlayerSpecial(u8 arg0);
-
-/* World-map node/tile ROM lookup tables (kleod-canonical). */
-extern const u8 gUnk_08116708[8][4];
-extern const u8 gUnk_08116748[7][8];
-extern const u8 gUnk_08116880[8];
-
-/* Forward decls for world-map cluster + callbacks referenced across definitions. */
-u8 CheckWorldCompletion(u8);
-void CopyWorldMapTiles(u8);
-void SetWorldMapTilePalette(u8, u8);
-void UpdateWorldMapNodeTile(u8);
-void CountCollectedGems(void);
-void UpdateWorldMapNodeAnim(void);
-void GameplayMainLoop(void);
-void InitGameplayState(void);
 
 /**
  * LoadLevel_World1_Vision1: streams the tile and palette graphics data for World 1, Vision 1 from ROM into VRAM and palette RAM via
