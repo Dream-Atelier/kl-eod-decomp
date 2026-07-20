@@ -13,6 +13,12 @@ extern void UpdateScrollPosition(void);
 #endif
 extern void VBlankCallback_Dialog(void);
 /* AUTOPORT-SYMS */
+void TransitionReturnToWorldMap(void);
+void TransitionClearAndRestart(void);
+void TransitionSoftReset(void);
+void TransitionToGameplayScreen(void);
+void TransitionGameOver(void);
+void TransitionFadeOutFull(void);
 void UpdatePlayerFinalBoss(u8 arg0);
 void UpdatePlayerAlternate(u8 arg0);
 void UpdatePlayerMinigame(u8 arg0);
@@ -1683,7 +1689,146 @@ void UpdateOamSortOrder(void) {
     REG_IE |= INTR_FLAG_VBLANK;
     REG_DISPSTAT |= DISPSTAT_VBLANK_INTR;
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", ProcessInputAndUpdateEntities);
+/**
+ * ProcessInputAndUpdateEntities: reads the pause/confirm/D-pad input on the pause or vision-select overlay, updating the menu cursor
+ * tilemap and dispatching the selected action (resume, restart, quit).
+ */
+void ProcessInputAndUpdateEntities(void) {
+    u8 sp4;
+    u32 var_r1;
+    u8 var_r4;
+    u8 var_r5;
+
+    sp4 = (gNewKeys & (START_BUTTON | B_BUTTON)) != 0;
+    if (gNewKeys & A_BUTTON) {
+        sp4 = gUnk_03004658[0xC] + 1;
+    }
+
+    if (gNewKeys & (DPAD_DOWN | DPAD_UP)) {
+        for (var_r5 = 0; var_r5 < 2; var_r5++) {
+            DmaFill16(3, 0, &gBgTilemapBufs[gUnk_030034BC][((var_r5 + (gUnk_03004658[0xC] * 3)) << 5) + 0xA5], 0x4);
+            DmaFill16(3, 0, &gBgTilemapBufs[gUnk_030034BC][((var_r5 + (gUnk_03004658[0xC] * 3)) << 5) + 0xB7], 0x4);
+        }
+
+        if ((gUnk_030034C0 == 0) || (gUnk_030034C0 == 2)) {
+            if (gNewKeys & DPAD_DOWN) {
+                m4aSongNumStart(0x51);
+                gUnk_03004658[0xC] += 1;
+                if (gUnk_03004658[0xC] > 3) {
+                    gUnk_03004658[0xC] = 0;
+                }
+            }
+
+            if (gNewKeys & DPAD_UP) {
+                m4aSongNumStart(0x51);
+                gUnk_03004658[0xC] -= 1;
+                if (gUnk_03004658[0xC] & 0x80) {
+                    gUnk_03004658[0xC] = 3;
+                }
+            }
+        } else {
+            if (gNewKeys & DPAD_DOWN) {
+                m4aSongNumStart(0x51);
+                gUnk_03004658[0xC] += 1;
+                if (gUnk_03004658[0xC] > 2) {
+                    gUnk_03004658[0xC] = 0;
+                }
+            }
+
+            if (gNewKeys & DPAD_UP) {
+                m4aSongNumStart(0x51);
+                gUnk_03004658[0xC] -= 1;
+                if (gUnk_03004658[0xC] & 0x80) {
+                    gUnk_03004658[0xC] = 2;
+                }
+            }
+        }
+
+        for (var_r5 = 0; var_r5 < 2; var_r5++) {
+            for (var_r4 = 0; var_r4 < 2; var_r4++) {
+                if (gUnk_030034BC == 0) {
+                    gBgTilemapBufs[gUnk_030034BC][((var_r5 + (gUnk_03004658[0xC] * 3)) << 5) + 0xA5 + var_r4]
+                        = gBgDataPtrs.pBufBg3Tilemap[(var_r5 * 0x1E) + 0x9D + var_r4] + gUnk_03000800;
+                    gBgTilemapBufs[gUnk_030034BC][((var_r5 + (gUnk_03004658[0xC] * 3)) << 5) + 0xB7 + var_r4]
+                        = gBgDataPtrs.pBufBg3Tilemap[(var_r5 * 0x1E) + 0xAF + var_r4] + gUnk_03000800;
+                } else {
+                    gBgTilemapBufs[gUnk_030034BC][((var_r5 + (gUnk_03004658[0xC] * 3)) << 5) + 0xA5 + var_r4]
+                        = gBgDataPtrs.pBufBg3Tilemap[(var_r5 * 0x1E) + 0x9D + var_r4];
+                    gBgTilemapBufs[gUnk_030034BC][((var_r5 + (gUnk_03004658[0xC] * 3)) << 5) + 0xB7 + var_r4]
+                        = gBgDataPtrs.pBufBg3Tilemap[(var_r5 * 0x1E) + 0xAF + var_r4];
+                }
+            }
+        }
+    }
+
+    if (sp4 > 0) {
+        sp4 = gUnk_081166F8[gUnk_030034C0][sp4 - 1];
+    }
+
+    switch (sp4 - 1) {
+        case 0:
+            gCallbackQueue.next[0] = ReadKeyInput;
+            for (var_r1 = 0; var_r1 < 10; var_r1++) {
+                gCallbackQueue.next[var_r1] = gCallbackQueue.previous[var_r1];
+            }
+            gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+            gCallbackQueue.nextCount = gCallbackQueue.previousCount;
+
+            UpdateOamSortOrder();
+            m4aSoundVSyncOn();
+            m4aMPlayAllContinue();
+            break;
+
+        case 1:
+            UpdateOamSortOrder();
+            gCallbackQueue.current[1] = TransitionFadeOutFull;
+            gUnk_03005220.unk4 = gUnk_03005284->unk18;
+            gUnk_03005220.lives = gUnk_03005284->unk0;
+            gUnk_03005220.hearts = gUnk_03005284->unk8_0;
+            REG_BLDCNT = 0;
+            gBlendValue = 0;
+            break;
+
+        case 2:
+            gUnk_03005284->unk0 = gUnk_03005220.lives = gUnk_03005284->unk1E;
+            UpdateOamSortOrder();
+            gBlendValue = 0;
+            if (gUnk_03004C20.world == 6 && gUnk_03004C20.level == 8) {
+                gUnk_03004C20.world = 5;
+            }
+            gUnk_030034B0.unk6_4 = gUnk_03004C20.level;
+            gUnk_03004C20.level = 0;
+            gCallbackQueue.current[1] = TransitionGameOver;
+            break;
+
+        case 3:
+            gCallbackQueue.current[1] = SetupBG3WindowOverlay;
+            thunk_HeapFree(gBgDataPtrs.pBufBg3Tilemap);
+            thunk_HeapFree(gBgDataPtrs.pBufBg3Tiles);
+            break;
+
+        case 4:
+            if (gUnk_03004C20.level != 0) {
+                gUnk_03005284->unk0 = gUnk_03005220.lives = gUnk_03005284->unk1E;
+            }
+            UpdateOamSortOrder();
+            REG_BLDCNT = 0;
+            gBlendValue = 0;
+            FreeAllDecompBuffers();
+            gCallbackQueue.current[1] = TransitionToGameplayScreen;
+            break;
+
+        case 5:
+            gBlendValue = 0;
+            gUnk_03004C20.level = 9;
+            gUnk_03004D9C = 0;
+            InitOamEntries();
+            gCallbackQueue.current[1] = TransitionSoftReset;
+            thunk_HeapFree(gBgDataPtrs.pBufBg3Tilemap);
+            thunk_HeapFree(gBgDataPtrs.pBufBg3Tiles);
+            break;
+    }
+}
 /**
  * SetupBG3WindowOverlay: allocates and decompresses the BG3 tiles/tilemap, fills the BG3 tilemap buffer (per-scanline stride), and
  * configures the WIN1 window registers for the level text/overlay layer.
@@ -2278,7 +2423,287 @@ void UpdateAllEntities(void) {
     m4aSoundVSyncOn();
     m4aSongNumStart(3);
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", GameplayMainLoop);
+/**
+ * GameplayMainLoop: top-level per-frame gameplay tick — advances the fade blend, runs palette animations, updates the camera/scroll
+ * from the player position, and steps all entity behaviors unless the scene is paused.
+ */
+void GameplayMainLoop(void) {
+    struct Unk_0800BEF0 sp0;
+    u32 spC;
+    u8 var_r4;
+
+    if (gUnk_030034E4 == 1) {
+        return;
+    }
+
+    if ((gBlendValue < BLEND_MAX) && ((gUnk_03004C20.sceneFrameCounter % 2) != 0)) {
+        gBlendValue += 1;
+    }
+
+    UpdatePaletteAnimations();
+
+    if (gUnk_03004C08.unk1 == 0) {
+        if (gUnk_03004C08.unk0_4 > 4) {
+            if (gBgInfo[0].vOfs != 0) {
+                gBgInfo[0].vOfs -= 0x80;
+            }
+        } else if (gBgInfo[0].vOfs < 0x400) {
+            gBgInfo[0].vOfs += 0x80;
+        }
+
+        if (gNewKeys & (START_BUTTON | A_BUTTON)) {
+            gBlendValue = 0;
+            gUnk_03004C20.world = gUnk_03004C08.unk0_4 + 1;
+            gUnk_03004C20.level = 0;
+            gUnk_030034B0.unk6_4 = 1;
+            m4aSongNumStart(0x52);
+            gUnk_03005284->unk1E = gUnk_03005284->unk0 = gUnk_03005220.lives;
+
+            if (gUnk_03004C08.unk0_4 > 4) {
+                gUnk_03004C20.room = 0;
+                if (gUnk_03004C08.unk0_4 == 5) {
+                    gUnk_03004C20.world = 6;
+                    gUnk_03004C20.level = 1;
+                } else if (gUnk_03004C08.unk0_4 == 6) {
+                    gUnk_03004C20.world = 6;
+                    gUnk_03004C20.level = 2;
+                } else if (gUnk_03004C08.unk0_4 == 7) {
+                    gUnk_03004C20.world = 6;
+                    gUnk_03004C20.level = 3;
+                }
+                gCallbackQueue.current[1] = TransitionClearAndRestart;
+            } else {
+                gUnk_03005284->unk4 = (gUnk_03004C20.world * 3) - 1;
+                gUnk_03003410.unkC = 0;
+                gCallbackQueue.current[1] = TransitionReturnToWorldMap;
+            }
+            return;
+        }
+
+        switch (gUnk_03004C08.unk0_4) {
+            case 0:
+                if ((gHeldKeys & (DPAD_DOWN | DPAD_RIGHT)) && (CheckWorldCompletion(gUnk_03004C08.unk0_4) != 0)) {
+                    gUnk_03004C08.unk1 = 1;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 1);
+                }
+
+                if ((gHeldKeys & DPAD_UP) && (CheckWorldCompletion(6) != 0)) {
+                    gUnk_03004C08.unk1 = 7;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 0x25);
+
+                    gBgTilemapBufs[0][0x4C] = 0xA00C;
+                    gBgTilemapBufs[0][0x4D] = 0xA00D;
+                    gBgTilemapBufs[0][0x4E] = 0xA00E;
+                    gBgTilemapBufs[0][0x4F] = 0xA00F;
+                    gBgTilemapBufs[0][0x50] = 0xA010;
+
+                    gBgTilemapBufs[0][0x6D] = 0xA000 | ((gUnk_03004670->unk4 / 10) + 1);
+                    gBgTilemapBufs[0][0x6E] = 0xA000 | ((gUnk_03004670->unk4 % 10) + 1);
+                    gBgTilemapBufs[0][0x6F] = 0xA00B;
+                    gBgTilemapBufs[0][0x70] = 0xA000 | ((gUnk_03004670->unk5 / 10) + 1);
+                    gBgTilemapBufs[0][0x71] = 0xA000 | ((gUnk_03004670->unk5 % 10) + 1);
+                    gBgTilemapBufs[0][0x72] = 0xA00B;
+                    gBgTilemapBufs[0][0x73] = 0xA000 | ((gUnk_03004670->unk6 / 10) + 1);
+                    gBgTilemapBufs[0][0x74] = 0xA000 | ((gUnk_03004670->unk6 % 10) + 1);
+
+                    gBgTilemapBufs[0][0x2C] = 0xA000;
+                    gBgTilemapBufs[0][0x30] = 0xA000;
+                    gBgTilemapBufs[0][0x31] = 0xA000;
+                    gBgTilemapBufs[0][0x32] = 0xA000;
+
+                    gBgTilemapBufs[0][0x2E] = 0xA000;
+                    gBgTilemapBufs[0][0x2F] = 0xA000;
+                }
+                break;
+
+            case 1:
+                if ((gHeldKeys & DPAD_UP) && (CheckWorldCompletion(gUnk_03004C08.unk0_4) != 0)) {
+                    gUnk_03004C08.unk1 = 1;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 0x25);
+                }
+
+                if (gHeldKeys & DPAD_LEFT) {
+                    gUnk_03004C08.unk1 = 0xFF;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 1);
+                }
+                break;
+
+            case 2:
+                if ((gHeldKeys & DPAD_RIGHT) && (CheckWorldCompletion(gUnk_03004C08.unk0_4) != 0)) {
+                    gUnk_03004C08.unk1 = 1;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 1);
+                }
+
+                if (gHeldKeys & DPAD_DOWN) {
+                    gUnk_03004C08.unk1 = 0xFF;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 0x24);
+                }
+                break;
+
+            case 3:
+                if ((gHeldKeys & (DPAD_DOWN | DPAD_RIGHT)) && (CheckWorldCompletion(gUnk_03004C08.unk0_4) != 0)) {
+                    gUnk_03004C08.unk1 = 1;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 1);
+                }
+
+                if (gHeldKeys & DPAD_LEFT) {
+                    gUnk_03004C08.unk1 = 0xFF;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 1);
+                }
+                break;
+
+            case 4:
+                if ((gHeldKeys & DPAD_UP) && (CheckWorldCompletion(gUnk_03004C08.unk0_4 + 1) != 0)) {
+                    gUnk_03004C08.unk1 = 2;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 0x25);
+
+                    gBgTilemapBufs[0][0x4C] = 0xA000;
+                    gBgTilemapBufs[0][0x4D] = 0xA000;
+                    gBgTilemapBufs[0][0x4E] = 0xA000;
+                    gBgTilemapBufs[0][0x4F] = 0xA000;
+                    gBgTilemapBufs[0][0x50] = 0xA000;
+
+                    gBgTilemapBufs[0][0x6D] = 0xA000;
+                    gBgTilemapBufs[0][0x6E] = 0xA000;
+                    gBgTilemapBufs[0][0x6F] = 0xA000;
+                    gBgTilemapBufs[0][0x70] = 0xA000;
+                    gBgTilemapBufs[0][0x71] = 0xA000;
+                    gBgTilemapBufs[0][0x72] = 0xA000;
+                    gBgTilemapBufs[0][0x73] = 0xA000;
+                    gBgTilemapBufs[0][0x74] = 0xA000;
+
+                    gBgTilemapBufs[0][0x2C] = 0xA011;
+                    gBgTilemapBufs[0][0x30] = 0xA010;
+                    gBgTilemapBufs[0][0x31] = 0xA004;
+                    gBgTilemapBufs[0][0x32] = 0xA001;
+
+                    gBgTilemapBufs[0][0x2E] = 0xA000 | (((gUnk_03004670->unk8[5][1] & 0x7F) / 10) + 1);
+                    gBgTilemapBufs[0][0x2F] = 0xA000 | (((gUnk_03004670->unk8[5][1] & 0x7F) % 10) + 1);
+                }
+
+                if ((gHeldKeys & DPAD_DOWN) && (CheckWorldCompletion(gUnk_03004C08.unk0_4) != 0)) {
+                    gUnk_03004C08.unk1 = 1;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 0x24);
+
+                    gBgTilemapBufs[0][0x4C] = 0xA00C;
+                    gBgTilemapBufs[0][0x4D] = 0xA00D;
+                    gBgTilemapBufs[0][0x4E] = 0xA00E;
+                    gBgTilemapBufs[0][0x4F] = 0xA00F;
+                    gBgTilemapBufs[0][0x50] = 0xA010;
+
+                    gBgTilemapBufs[0][0x6D] = 0xA000 | ((gUnk_03004670->unk1 / 10) + 1);
+                    gBgTilemapBufs[0][0x6E] = 0xA000 | ((gUnk_03004670->unk1 % 10) + 1);
+                    gBgTilemapBufs[0][0x6F] = 0xA00B;
+                    gBgTilemapBufs[0][0x70] = 0xA000 | ((gUnk_03004670->unk2 / 10) + 1);
+                    gBgTilemapBufs[0][0x71] = 0xA000 | ((gUnk_03004670->unk2 % 10) + 1);
+                    gBgTilemapBufs[0][0x72] = 0xA00B;
+                    gBgTilemapBufs[0][0x73] = 0xA000 | ((gUnk_03004670->unk3 / 10) + 1);
+                    gBgTilemapBufs[0][0x74] = 0xA000 | ((gUnk_03004670->unk3 % 10) + 1);
+
+                    gBgTilemapBufs[0][0x2C] = 0xA011;
+                    gBgTilemapBufs[0][0x30] = 0xA010;
+                    gBgTilemapBufs[0][0x31] = 0xA004;
+                    gBgTilemapBufs[0][0x32] = 0xA001;
+
+                    gBgTilemapBufs[0][0x2E] = 0xA000 | (((gUnk_03004670->unk8[5][0] & 0x7F) / 10) + 1);
+                    gBgTilemapBufs[0][0x2F] = 0xA000 | (((gUnk_03004670->unk8[5][0] & 0x7F) % 10) + 1);
+                }
+
+                if (gHeldKeys & DPAD_LEFT) {
+                    gUnk_03004C08.unk1 = 0xFF;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 1);
+                }
+                break;
+
+            case 5:
+                if (gHeldKeys & (DPAD_UP | DPAD_RIGHT)) {
+                    gUnk_03004C08.unk1 = 0xFF;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 0x25);
+                }
+                break;
+
+            case 6:
+                if (gHeldKeys & DPAD_DOWN) {
+                    gUnk_03004C08.unk1 = 0xFE;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 0x24);
+                }
+                break;
+
+            case 7:
+                if (gHeldKeys & DPAD_DOWN) {
+                    gUnk_03004C08.unk1 = 0xF9;
+                    m4aSongNumStart(0x51);
+                    SetPaletteAnimEntry(0, 0x24);
+                }
+                break;
+        }
+
+        if (gUnk_03004C08.unk1 != 0) {
+            if (gUnk_08116708[gUnk_03004C08.unk0_4][0] >= gUnk_08116708[gUnk_03004C08.unk0_4 + gUnk_03004C08.unk1][0]) {
+                gEntityInfo[0].unkC_2 = 1;
+            } else {
+                gEntityInfo[0].unkC_2 = 0;
+            }
+            gUnk_030034DC = 0;
+        }
+    } else {
+        sp0.unk0 = gEntityInfo[0].xPosBg2;
+        sp0.unk2 = gEntityInfo[0].yPosBg2;
+        sp0.unk4 = gUnk_08116708[gUnk_03004C08.unk0_4 + gUnk_03004C08.unk1][0];
+        sp0.unk6 = gUnk_08116708[gUnk_03004C08.unk0_4 + gUnk_03004C08.unk1][1];
+        sp0.unk8 = sp0.unk9 = 2;
+        UpdateTextScroll(&spC, sp0);
+        gEntityInfo[0].xPosBg2 = spC;
+        gEntityInfo[0].yPosBg2 = spC >> 0x10;
+
+        if ((gUnk_03004C08.unk0_4 + gUnk_03004C08.unk1) > 4) {
+            if (gBgInfo[0].vOfs != 0) {
+                gBgInfo[0].vOfs -= 0x80;
+            }
+        } else if (gBgInfo[0].vOfs < 0x400) {
+            gBgInfo[0].vOfs += 0x80;
+        }
+
+        if ((gEntityInfo[0].xPosBg2 == gUnk_08116708[gUnk_03004C08.unk0_4 + gUnk_03004C08.unk1][0])
+            && (gEntityInfo[0].yPosBg2 == gUnk_08116708[gUnk_03004C08.unk0_4 + gUnk_03004C08.unk1][1])) {
+            gUnk_03004C08.unk0_4 += gUnk_03004C08.unk1;
+            gUnk_03004C08.unk1 = 0;
+            if (gEntityAnimationInfo[0].state == 1) {
+                SetPaletteAnimEntry(0, 0);
+            }
+            if (gEntityAnimationInfo[0].state == 0x25) {
+                SetPaletteAnimEntry(0, 0x23);
+            }
+            if (gEntityAnimationInfo[0].state == 0x24) {
+                SetPaletteAnimEntry(0, 0x22);
+            }
+        }
+
+        for (var_r4 = 0; var_r4 < 8; var_r4++) {
+            if ((gEntityInfo[0].xPosBg2 >= (gUnk_08116708[var_r4][0] - 0x10))
+                && (gEntityInfo[0].xPosBg2 <= (gUnk_08116708[var_r4][0] + 0x10))
+                && (gEntityInfo[0].yPosBg2 >= (gUnk_08116708[var_r4][1] - 0x10))
+                && (gEntityInfo[0].yPosBg2 <= (gUnk_08116708[var_r4][1] + 0x10))) {
+                REG_WIN0H = gUnk_08116728[var_r4][0];
+                REG_WIN0V = gUnk_08116728[var_r4][1];
+                break;
+            }
+        }
+    }
+}
 /**
  * InitLevelState: resets the per-level game state at level start — clears the gUnk_03005400 status flags, initializes the world/level
  * lookup pointers, and seeds the level-config counters (gUnk_03005440) for the current world/level.
