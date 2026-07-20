@@ -674,7 +674,18 @@ void StreamCmd_SetWindowRegs(void) {
     *reg = stream[4] | (stream[5] << 8);
     *streamPtrAddr = stream + 6;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_EnableScrollMode);
+/**
+ * StreamCmd_EnableScrollMode: sets the scroll-enable bits in the gfx buffer
+ * control byte at gGfxBufferPtr. Masks off the top bits and sets bit 6
+ * (0x40), then sets the render mode to 2 (mask ~3 | 2). Advances stream by 2.
+ *   no parameters (reads from global data stream pointer at 0x03004D84)
+ *   no return value
+ */
+void StreamCmd_EnableScrollMode(void) {
+    *(s8 *)gGfxBufferPtr = (*(s8 *)gGfxBufferPtr & 0x3F) | 0x40;
+    *(s8 *)gGfxBufferPtr = (*(s8 *)gGfxBufferPtr & ~3) | 2;
+    gStreamPtr += 2;
+}
 /**
  * StreamCmd_StopMusic: stream command to halt all music playback.
  * Calls m4aMPlayAllStop, advances stream by 2.
