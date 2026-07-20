@@ -53,8 +53,8 @@ extern struct Unk_03003430 gUnk_03003430;
 
 /* Scene/level state (counters, world/level/room). Address: 0x03004C20. */
 struct Unk_03004C20 {
-    /* 0x00 */ s32 sceneFrameCounter; /* per-scene; reset to 0 on scene entry */
-    /* 0x04 */ s32 globalFrameCounter; /* free-running since boot; never resets */
+    /* 0x00 */ u32 sceneFrameCounter; /* per-scene; reset to 0 on scene entry */
+    /* 0x04 */ u32 globalFrameCounter; /* free-running since boot; never resets */
     /* 0x08 */ u16 unk8;
     /* 0x0A */ u8 unkA;
     /* 0x0B */ u8 unkB;
@@ -416,8 +416,8 @@ struct Unk_03005220 {
     /* 0x24 */ u16 unk24;
     /* 0x26 */ s16 unk26;
     /* 0x28 */ s16 unk28;
-    /* 0x2A */ u16 unk2A;
-    /* 0x2C */ u16 unk2C;
+    /* 0x2A */ s16 unk2A;
+    /* 0x2C */ s16 unk2C;
     /* 0x2E */ u8 unk2E;
     /* 0x2F */ s8 unk2F;
     /* 0x30 */ u8 unk30;
@@ -451,7 +451,7 @@ struct Unk_03005220 {
     /* 0x49 */ u8 unk49;
     /* 0x4A */ u8 unk4A;
     /* 0x4B */ u8 unk4B;
-    /* 0x4C */ u8 lives; /* lives count (HUD "x N") */
+    /* 0x4C */ s8 lives; /* lives count (HUD "x N") */
     /* 0x4D */ u8 unk4D;
     /* 0x4E */ u8 unk4E;
     /* 0x4F */ u8 unk4F;
