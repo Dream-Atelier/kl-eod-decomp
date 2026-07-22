@@ -23,3 +23,28 @@ tools:
 
       arm-none-eabi-as -mcpu=arm7tdmi -mthumb-interwork \
         "$ASM_FILE" -o "{{outputPath}}"
+
+  # Used by `asmlift <fn.s> --score-against <target.o>`.
+  asmlift:
+    # the built ELF — asmlift's symbol source (names from .symtab, shapes from the
+    # linked-in DWARF types-sidecar; see the Makefile ctx.o rule)
+    elf: klonoa-eod.elf
+    compiler: |
+      ASM_DIR="$(dirname "{{outputPath}}")"
+      BASENAME="$(basename "{{outputPath}}" .o)"
+      PRE_FILE="$ASM_DIR/$BASENAME.i"
+      ASM_FILE="$ASM_DIR/$BASENAME.s"
+
+      arm-none-eabi-cpp \
+        -nostdinc -I tools/agbcc/include -iquote include \
+        "{{inputPath}}" -o "$PRE_FILE"
+
+      ./tools/agbcc/bin/agbcc \
+        "$PRE_FILE" -o "$ASM_FILE" \
+        -mthumb-interwork -Wimplicit -Wparentheses \
+        -O2 -fhex-asm -fprologue-bugfix -fno-fold-addr
+
+      printf ".text\n\t.align\t2, 0\n" >> "$ASM_FILE"
+
+      arm-none-eabi-as -mcpu=arm7tdmi -mthumb-interwork \
+        "$ASM_FILE" -o "{{outputPath}}"

@@ -21,6 +21,7 @@ SHA1   := $(shell { command -v sha1sum || command -v shasum; } 2>/dev/null) -c
 ### TOOLCHAIN ###
 
 PREFIX  := arm-none-eabi-
+CC      := $(PREFIX)gcc
 CC1     := tools/agbcc/bin/agbcc$(EXE)
 CC1_OLD := tools/agbcc/bin/old_agbcc$(EXE)
 CPP     := $(PREFIX)cpp
@@ -55,7 +56,13 @@ C_OBJS := $(patsubst $(C_SUBDIR)/%.c,$(C_BUILDDIR)/%.o,$(C_SRCS))
 DATA_SRCS := $(wildcard $(DATA_SUBDIR)/*.s)
 DATA_OBJS := $(patsubst $(DATA_SUBDIR)/%.s,$(DATA_BUILDDIR)/%.o,$(DATA_SRCS))
 
-OBJS     := $(C_OBJS) $(ASM_OBJS) $(DATA_OBJS)
+# The DWARF types-sidecar: ctx.c (a generated #include list over every project header)
+# compiled by MODERN gcc with full unused-declaration debug info, linked into the ELF as
+# non-alloc .debug_* sections only — the ROM bytes are untouched (the SHA compare proves it
+# on every build). asmlift reads names from .symtab and declaration shapes from this DWARF.
+CTX_OBJ := $(OBJ_DIR)/ctx.o
+
+OBJS     := $(C_OBJS) $(ASM_OBJS) $(DATA_OBJS) $(CTX_OBJ)
 OBJS_REL := $(patsubst $(OBJ_DIR)/%,%,$(OBJS))
 
 ### FLAGS ###
@@ -84,7 +91,6 @@ FORMAT_SRCS := $(shell find src include -name "*.c" -o -name "*.h")
 ### CONTEXT ###
 
 C_HEADERS := $(shell find include -name "*.h" -not -name "include_asm.h")
-CONTEXT_FLAGS := -DM2C -DPLATFORM_GBA=1 -Dsize_t=int
 
 ### TARGETS ###
 
@@ -148,18 +154,17 @@ $(DATA_BUILDDIR)/%.o: $(DATA_SUBDIR)/%.s
 	@echo "$(AS) <flags> -o $@ $<"
 	@$(AS) $(ASFLAGS) -o $@ $<
 
+# ctx.c: a table of contents — one #include per project header, verbatim (no preprocessing,
+# no attribute stripping: the compiler must see exactly the text the real build compiles).
 ctx.c: $(C_HEADERS)
-	@for header in $(C_HEADERS); do echo "#include \"$$header\""; done > ctx.h
-	@gcc -P -E -dD -undef -I tools/agbcc/include -I include $(CONTEXT_FLAGS) ctx.h \
-		| sed '/#undef/d' \
-		| sed '/typedef unsigned long int int;/d' \
-		| sed 's/__attribute__((.*))//' \
-		| sed '/^#define __STDC/d' \
-		| sed '/^#define __GCC/d' \
-		| sed '/^#define GUARD_/d' \
-		> ctx.c
-	@rm ctx.h
+	@for header in $(C_HEADERS); do echo "#include \"$$header\""; done > $@
 	@echo "Generated ctx.c ($$(wc -l < ctx.c) lines)"
+
+# declarations-only, never in the ROM; -fno-eliminate-unused-debug-types emits a typed DIE for
+# EVERY declared global/struct, used or not — the coverage the sidecar exists for.
+$(CTX_OBJ): ctx.c
+	@echo "$(CC) -g <types-sidecar> -o $@"
+	@$(CC) $(CPPFLAGS) -g -fno-eliminate-unused-debug-types -c $< -o $@
 
 ctx: ctx.c
 
