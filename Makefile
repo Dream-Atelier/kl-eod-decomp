@@ -57,9 +57,7 @@ DATA_SRCS := $(wildcard $(DATA_SUBDIR)/*.s)
 DATA_OBJS := $(patsubst $(DATA_SUBDIR)/%.s,$(DATA_BUILDDIR)/%.o,$(DATA_SRCS))
 
 # The DWARF types-sidecar: ctx.c (a generated #include list over every project header)
-# compiled by MODERN gcc with full unused-declaration debug info, linked into the ELF as
-# non-alloc .debug_* sections only — the ROM bytes are untouched (the SHA compare proves it
-# on every build). asmlift reads names from .symtab and declaration shapes from this DWARF.
+# compiled by modern gcc with full debug info, linked into an ELF read by asmlift
 CTX_OBJ := $(OBJ_DIR)/ctx.o
 
 OBJS     := $(C_OBJS) $(ASM_OBJS) $(DATA_OBJS) $(CTX_OBJ)
@@ -154,14 +152,11 @@ $(DATA_BUILDDIR)/%.o: $(DATA_SUBDIR)/%.s
 	@echo "$(AS) <flags> -o $@ $<"
 	@$(AS) $(ASFLAGS) -o $@ $<
 
-# ctx.c: a table of contents — one #include per project header, verbatim (no preprocessing,
-# no attribute stripping: the compiler must see exactly the text the real build compiles).
+# ctx.c
 ctx.c: $(C_HEADERS)
 	@for header in $(C_HEADERS); do echo "#include \"$$header\""; done > $@
 	@echo "Generated ctx.c ($$(wc -l < ctx.c) lines)"
 
-# declarations-only, never in the ROM; -fno-eliminate-unused-debug-types emits a typed DIE for
-# EVERY declared global/struct, used or not — the coverage the sidecar exists for.
 $(CTX_OBJ): ctx.c
 	@echo "$(CC) -g <types-sidecar> -o $@"
 	@$(CC) $(CPPFLAGS) -g -fno-eliminate-unused-debug-types -c $< -o $@
