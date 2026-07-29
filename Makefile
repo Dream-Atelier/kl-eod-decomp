@@ -57,10 +57,16 @@ DATA_SRCS := $(wildcard $(DATA_SUBDIR)/*.s)
 DATA_OBJS := $(patsubst $(DATA_SUBDIR)/%.s,$(DATA_BUILDDIR)/%.o,$(DATA_SRCS))
 
 # The DWARF types-sidecar: ctx.c (a generated #include list over every project header)
-# compiled by modern gcc with full debug info, linked into an ELF read by asmlift
-CTX_OBJ := $(OBJ_DIR)/ctx.o
+# compiled by modern gcc with full debug info. It is NOT linked into the game ELF:
+# it is built with -mabi=apcs-gnu (agbcc follows the old APCS, which rounds every struct
+# up to a word multiple — modern AAPCS does not), and ld refuses to mix APCS/AAPCS EABI
+# objects. Instead `make asmlift-elf` derives $(SYMS_ELF), a copy of the built ELF with
+# the sidecar's debug sections merged in via objcopy (names from .symtab, declaration
+# shapes from the DWARF). Consumed via decomp.yaml tools.asmlift.elf.
+CTX_OBJ  := $(OBJ_DIR)/ctx.o
+SYMS_ELF := $(BUILD_NAME)-syms.elf
 
-OBJS     := $(C_OBJS) $(ASM_OBJS) $(DATA_OBJS) $(CTX_OBJ)
+OBJS     := $(C_OBJS) $(ASM_OBJS) $(DATA_OBJS)
 OBJS_REL := $(patsubst $(OBJ_DIR)/%,%,$(OBJS))
 
 ### FLAGS ###
@@ -92,7 +98,7 @@ C_HEADERS := $(shell find include -name "*.h" -not -name "include_asm.h")
 
 ### TARGETS ###
 
-.PHONY: all rom compare clean tidy format check_format ctx
+.PHONY: all rom compare clean tidy format check_format ctx asmlift-elf
 
 $(shell mkdir -p $(ASM_BUILDDIR) $(C_BUILDDIR) $(DATA_BUILDDIR))
 
@@ -159,9 +165,24 @@ ctx.c: $(C_HEADERS)
 
 $(CTX_OBJ): ctx.c
 	@echo "$(CC) -g <types-sidecar> -o $@"
-	@$(CC) $(CPPFLAGS) -g -fno-eliminate-unused-debug-types -c $< -o $@
+	@$(CC) $(CPPFLAGS) -mabi=apcs-gnu -g -fno-eliminate-unused-debug-types -c $< -o $@
 
 ctx: ctx.c
+
+# Derive the asmlift symbol-source ELF: the built ELF plus the sidecar's DWARF.
+# Debug sections are non-alloc; objcopy -O binary dumps only alloc sections, so flag
+# each one alloc first, then graft it onto the copy.
+$(SYMS_ELF): $(ELF) $(CTX_OBJ)
+	@cp $(ELF) $@
+	@for sec in .debug_info .debug_abbrev .debug_str .debug_line .debug_aranges; do \
+		$(OBJCOPY) -O binary --only-section=$$sec \
+			--set-section-flags $$sec=alloc $(CTX_OBJ) $(OBJ_DIR)/ctx$$sec.bin; \
+		$(OBJCOPY) --add-section $$sec=$(OBJ_DIR)/ctx$$sec.bin $@; \
+		rm -f $(OBJ_DIR)/ctx$$sec.bin; \
+	done
+	@echo "built $@"
+
+asmlift-elf: $(SYMS_ELF)
 
 format:
 	$(FORMAT) -i -style=file $(FORMAT_SRCS)
@@ -173,4 +194,4 @@ clean: tidy
 
 tidy:
 	$(RM) -r build
-	$(RM) $(BUILD_NAME).gba $(BUILD_NAME).elf $(BUILD_NAME).map
+	$(RM) $(BUILD_NAME).gba $(BUILD_NAME).elf $(BUILD_NAME).map $(SYMS_ELF)

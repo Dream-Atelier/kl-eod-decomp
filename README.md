@@ -2,15 +2,17 @@
 
 This branch exists to make the [asmlift](https://github.com/macabeus/asmlift) decompiler
 benchmark reproducible: it is the tree at the exact commit the benchmark's functions were
-vendored from. The integration rides the normal `make` — `ctx.c` (a generated `#include`
+vendored from. The integration is `make asmlift-elf` — `ctx.c` (a generated `#include`
 list over every project header) is compiled by the host `arm-none-eabi-gcc` with full
-debug info and linked into `klonoa-eod.elf` as non-alloc `.debug_*` sections only (a DWARF
+debug info and `-mabi=apcs-gnu` (agbcc follows the old APCS, which rounds every struct
+size up to a word multiple — modern AAPCS does not), and its `.debug_*` sections are
+merged via `objcopy` into `klonoa-eod-syms.elf`, a derived copy of the built ELF (a DWARF
 *types-sidecar*: names from `.symtab`, declaration shapes from the DWARF). No Docker is
 needed, the ROM bytes are unchanged, and the SHA is verified on every build. `decomp.yaml`
-points asmlift at the ELF (`tools.asmlift.elf`).
+points asmlift at the derived ELF (`tools.asmlift.elf`).
 
-To reproduce the benchmark rows: run `make` (the SHA check must pass), then follow the
-per-function scripts published in the benchmark report.
+To reproduce the benchmark rows: run `make` (the SHA check must pass) and
+`make asmlift-elf`, then follow the per-function scripts published in the benchmark report.
 
 ---
 
