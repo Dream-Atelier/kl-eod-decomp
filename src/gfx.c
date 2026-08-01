@@ -786,7 +786,25 @@ void StreamCmd_ClearRenderMode(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleDisplayFlag);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleFadeDirection);
+/**
+ * StreamCmd_ToggleFadeDirection: flips GfxControlFlags.blendRampDown (byte 0x1C,
+ * bit 5) of the graphics control block, then advances the stream pointer by 2.
+ *
+ * The flag reverses the scene-transition cross-fade: ProcessSceneTransitionOut
+ * ramps gBlendValue down instead of up, and on underflow switches BG2 off and
+ * clears the flag again. Proved at runtime in
+ * docs/dynamic-analysis/scripts/prove-gfx-flag-1C-bit5.mjs — the name
+ * "ToggleLayerFlag" predates that evidence and is a misnomer.
+ *
+ * The `lsl #26 / lsr #31` bit extraction plus the `~0x20` read-modify-write is
+ * agbcc's canonical 1-bit bitfield toggle, so spelling the flag as a bitfield
+ * (rather than hand-written shifts and masks) reproduces the register schedule.
+ */
+void StreamCmd_ToggleFadeDirection(void) {
+    struct GfxControlFlags *ctl = (struct GfxControlFlags *)gGfxBufferPtr;
+    ctl->blendRampDown ^= 1;
+    gStreamPtr += 2;
+}
 /**
  * StreamCmd_SetBlendMode: set the hardware blend control (BLDCNT) from stream data.
  *
