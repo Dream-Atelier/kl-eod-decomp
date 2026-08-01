@@ -688,7 +688,42 @@ void StreamCmd_InitOscillationExt(void) {
     }
     gStreamPtr += 9;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitStaticScroll);
+/**
+ * StreamCmd_InitStaticScroll: initialize a static BG-scroll entry from stream data.
+ *
+ * Reads the entry index from stream byte[2], stores the per-frame X/Y scroll steps
+ * from bytes[4]/[5] into the GfxStreamEntry, selects which BG layer to scroll from
+ * byte[3] (the 4-bit targetIndex into gBGLayerState), clears the packed 8-bit param
+ * field so ProcessStaticBGScroll's gate is open, installs ProcessStaticBGScroll as the
+ * per-frame callback, sets the entry type to 1 (active), then advances the stream by
+ * 6 bytes.
+ */
+void StreamCmd_InitStaticScroll(void) {
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+        struct GfxStreamEntry *entry;
+        u8 target;
+
+        entries[idx].unk_08 = cmd[4];
+        entries[cmd[2]].unk_0A = cmd[5];
+
+        entry = (struct GfxStreamEntry *)(cmd[2] * sizeof(struct GfxStreamEntry) + (u32)entries);
+        target = cmd[3];
+        entry->targetIndex = target;
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].param = 0;
+        entries[cmd[2]].callback = (u32)ProcessStaticBGScroll;
+        entries[cmd[2]].type = 1;
+    }
+    gStreamPtr += 6;
+}
 /**
  * StreamCmd_InitFrameAnimation: initialize a frame-animation entry from stream data.
  *
