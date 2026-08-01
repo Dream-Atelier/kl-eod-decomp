@@ -66,7 +66,7 @@ extern u8 gGameFlagsPtr[];
 
 /* 0x03004680 is the OBJ affine-matrix shadow table — use the typed
  * `gOamAffineMatrix[]` (struct OamAffineMatrix, structs/variables.h) instead of
- * this untyped halfword view. Kept only so old references still compile. */
+ * this untyped halfword view. Currently has no users. */
 #define gOamSourceTable   ((u16 *)0x03004680)
 
 /* Status byte lookup table. */

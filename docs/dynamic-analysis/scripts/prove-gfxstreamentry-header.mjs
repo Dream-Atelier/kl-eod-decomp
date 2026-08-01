@@ -41,11 +41,11 @@ const eng = rt.engine,
 const F = {
   type: di.structMember('GfxStreamEntry', 'type'),
   param: di.structMember('GfxStreamEntry', 'param'),
-  // The field under test. It was originally guessed to be `speed`; this script
-  // refuted that and it is now named `bgLayer` — try both so the script keeps
-  // running against either revision of the header.
+  // The field under test. It was first guessed to be `speed`, then `bgLayer`;
+  // this script refuted both and it is now `targetIndex`.
   field: di.structMember('GfxStreamEntry', 'targetIndex'),
-  dir: di.structMember('GfxStreamEntry', 'objIndex_lo'),
+  // Bits 15-21 of the header word: the +13-biased gUnk_03002920 object index.
+  objIndex: di.structMember('GfxStreamEntry', 'objIndex'),
   stepX: di.structMember('GfxStreamEntry', 'unk_08'),
   stepY: di.structMember('GfxStreamEntry', 'unk_0A'),
   cb: di.structMember('GfxStreamEntry', 'callback'),
@@ -56,8 +56,8 @@ const LAYER_STRIDE = 28; // sizeof(struct BGLayerState)
 const HANDLER = (di.symbolToAddress('ProcessStaticBGScroll') | 1) >>> 0; // thumb bit
 const ENTRY_STRIDE = 36; // sizeof(struct GfxStreamEntry)
 
-console.log('DWARF-resolved layout of the GfxStreamEntry header halfword:');
-for (const k of ['type', 'param', 'field', 'dir'])
+console.log('DWARF-resolved layout of the GfxStreamEntry header word:');
+for (const k of ['type', 'param', 'field', 'objIndex'])
   console.log(`  ${k.padEnd(6)} byte+${F[k].offset}  bits ${F[k].bitOffset}..${F[k].bitOffset + F[k].bitWidth - 1}  (width ${F[k].bitWidth})`);
 console.log(`  ProcessStaticBGScroll = 0x${HANDLER.toString(16)}   gBGLayerState = 0x${LAYERS.toString(16)} (stride ${LAYER_STRIDE})\n`);
 

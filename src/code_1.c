@@ -896,13 +896,13 @@ void TransitionGameOver(void) {
         gMosaicSize += 1;
     }
 }
-#define ENDING_VCOUNT_SPLIT        143
-#define ENDING_MUSIC_FADE_STEP     16
-#define ENDING_AUTO_ADVANCE_FRAMES 250
-#define SONG_ENDING_THEME          0x78
+#define VCOUNT_SPLIT_LINE   143
+#define MUSIC_FADE_STEP     16
+#define AUTO_ADVANCE_FRAMES 250
+#define SONG_ID_78          0x78
 
 /**
- * GameplayFrameInit: one frame of the ending/credits hand-off step.
+ * sub_08024D84: one frame of the ending/credits hand-off step.
  *
  * Installed as gCallbackQueue.next[1] by VBlankCallback_Credits (code_0), and run
  * once per frame while gUnk_030034E4 (transition-busy) is held at 1.
@@ -927,7 +927,7 @@ void TransitionGameOver(void) {
  *  - `gBlendValue = gMosaicSize = 0;` (chained) emits both address loads before the
  *    two stores, which two separate statements do not.
  */
-void GameplayFrameInit(void) {
+void sub_08024D84(void) {
     u32 i;
     s32 dispStat;
 
@@ -943,14 +943,14 @@ void GameplayFrameInit(void) {
         if ((gUnk_03004C20.globalFrameCounter & 7) != 0) {
             goto checkAdvance;
         }
-        if (gBlendValue > BLEND_MAX - 1) {
+        if (gBlendValue >= BLEND_MAX) {
             goto checkAdvance;
         }
     }
 
     if (gBlendValue == 1) {
         dispStat = REG_DISPSTAT & 0xFF;
-        REG_DISPSTAT = dispStat | (ENDING_VCOUNT_SPLIT << 8);
+        REG_DISPSTAT = dispStat | (VCOUNT_SPLIT_LINE << 8);
         gIntrTable.vCount = WaitVBlankAndClearMosaic;
         REG_IE |= INTR_FLAG_VCOUNT;
         REG_DISPSTAT |= DISPSTAT_VCOUNT_INTR;
@@ -962,17 +962,17 @@ void GameplayFrameInit(void) {
         }
     }
 
-    gUnk_03005210 -= ENDING_MUSIC_FADE_STEP;
-    if (gUnk_03005210 > ENDING_MUSIC_FADE_STEP) {
+    gUnk_03005210 -= MUSIC_FADE_STEP;
+    if (gUnk_03005210 > MUSIC_FADE_STEP) {
         m4aMPlayVolumeControl(&gMPlayInfo_0, 0xFF, gUnk_03005210);
         m4aMPlayVolumeControl(&gMPlayInfo_1, 0xFF, gUnk_03005210);
         m4aMPlayVolumeControl(&gMPlayInfo_2, 0xFF, gUnk_03005210);
         m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, gUnk_03005210);
     } else {
-        m4aMPlayVolumeControl(&gMPlayInfo_0, 0xFF, ENDING_MUSIC_FADE_STEP);
-        m4aMPlayVolumeControl(&gMPlayInfo_1, 0xFF, ENDING_MUSIC_FADE_STEP);
-        m4aMPlayVolumeControl(&gMPlayInfo_2, 0xFF, ENDING_MUSIC_FADE_STEP);
-        m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, ENDING_MUSIC_FADE_STEP);
+        m4aMPlayVolumeControl(&gMPlayInfo_0, 0xFF, MUSIC_FADE_STEP);
+        m4aMPlayVolumeControl(&gMPlayInfo_1, 0xFF, MUSIC_FADE_STEP);
+        m4aMPlayVolumeControl(&gMPlayInfo_2, 0xFF, MUSIC_FADE_STEP);
+        m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, MUSIC_FADE_STEP);
     }
 
     gBlendValue++;
@@ -983,33 +983,31 @@ void GameplayFrameInit(void) {
         m4aMPlayVolumeControl(&gMPlayInfo_1, 0xFF, gUnk_03005210);
         m4aMPlayVolumeControl(&gMPlayInfo_2, 0xFF, gUnk_03005210);
         m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, gUnk_03005210);
-        m4aSongNumStart(SONG_ENDING_THEME);
+        m4aSongNumStart(SONG_ID_78);
         UpdateHUDCollectibleCount();
     } else if (gBlendValue == 9) {
         gUnk_03002920[0].priority = 0;
     }
 
 checkAdvance:
-    if (((gNewKeys & (A_BUTTON | START_BUTTON)) != 0) || (gUnk_03003410.unk0 > ENDING_AUTO_ADVANCE_FRAMES)) {
-        if (gUnk_03003410.unk0 != 0) {
-            gUnk_03005220.hearts = 3;
-            m4aMPlayAllStop();
-            VBlankIntrWait();
-            if (gUnk_03004C20.world == 6) {
-                if ((gUnk_03004C20.level == 1) || (gUnk_03004C20.level == 3)) {
-                    REG_WININ = WININ_WIN0_BG0 | WININ_WIN0_CLR | WININ_WIN1_BG0 | WININ_WIN1_CLR;
-                }
+    if ((((gNewKeys & (A_BUTTON | START_BUTTON)) != 0) || (gUnk_03003410.unk0 > AUTO_ADVANCE_FRAMES)) && (gUnk_03003410.unk0 != 0)) {
+        gUnk_03005220.hearts = 3;
+        m4aMPlayAllStop();
+        VBlankIntrWait();
+        if (gUnk_03004C20.world == 6) {
+            if ((gUnk_03004C20.level == 1) || (gUnk_03004C20.level == 3)) {
+                REG_WININ = WININ_WIN0_BG0 | WININ_WIN0_CLR | WININ_WIN1_BG0 | WININ_WIN1_CLR;
             }
-            REG_WINOUT = WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR;
-            gUnk_03005210 = 0x100;
-            m4aMPlayVolumeControl(&gMPlayInfo_0, 0xFF, gUnk_03005210);
-            m4aMPlayVolumeControl(&gMPlayInfo_1, 0xFF, gUnk_03005210);
-            m4aMPlayVolumeControl(&gMPlayInfo_2, 0xFF, gUnk_03005210);
-            m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, gUnk_03005210);
-            gCallbackQueue.current[1] = TransitionFadeOutFull;
-            gBlendValue = gMosaicSize = 0;
-            return;
         }
+        REG_WINOUT = WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR;
+        gUnk_03005210 = 0x100;
+        m4aMPlayVolumeControl(&gMPlayInfo_0, 0xFF, gUnk_03005210);
+        m4aMPlayVolumeControl(&gMPlayInfo_1, 0xFF, gUnk_03005210);
+        m4aMPlayVolumeControl(&gMPlayInfo_2, 0xFF, gUnk_03005210);
+        m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, gUnk_03005210);
+        gCallbackQueue.current[1] = TransitionFadeOutFull;
+        gBlendValue = gMosaicSize = 0;
+        return;
     }
     gUnk_03003410.unk0++;
 }

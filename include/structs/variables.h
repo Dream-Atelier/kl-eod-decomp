@@ -228,7 +228,7 @@ extern u8 gUnk_03005428;
 
 /* Arming flag for the player avatar of the hidden boot-menu minigame (0x0300549C).
  * ConfigureInterruptsForGameplay stores IsDpadUpHeld() here on the single frame the
- * minigame loop starts; UpdatePlayerEntity's Select handler only spawns the avatar
+ * minigame loop starts; UpdateBootMinigame's Select handler only spawns the avatar
  * when it is 1.  Proven at runtime by
  * docs/dynamic-analysis/scripts/prove-minigame-player-armed.mjs. */
 extern u8 gMinigamePlayerArmed;
@@ -509,7 +509,7 @@ struct Unk_030034B0 {
     /* 0x00_0 */ u8 unk0_0 : 1;
     /* 0x00_1 */ u8 unk0_1 : 3;
     /* 0x00_4 */ u8 visionStartPending : 1; /* latched high for the ~30-frame confirm-jingle
-                                             * delay in InitPauseMenu and cleared when the scene
+                                             * delay in RunVisionStartConfirmDelay and cleared when the scene
                                              * fade-out is queued. The latch itself is proven at
                                              * runtime (docs/dynamic-analysis/scripts/prove-vision-start-pending.mjs);
                                              * the "vision start" reading rests on that single

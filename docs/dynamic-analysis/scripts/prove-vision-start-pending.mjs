@@ -1,18 +1,19 @@
-// PROOF: gUnk_030034B0.visionStartPending (byte 0x030034B0, bit 4) is the one-shot latch for the
-// "vision start confirmed" delay — NOT a pause flag.
+// PROOF: gUnk_030034B0.visionStartPending (byte 0x030034B0, bit 4) is the one-shot latch of a
+// ~31-frame confirm delay — NOT a pause flag.
 //
-// The bit is written by exactly one function, InitPauseMenu, which despite its (legacy, wrong) name
-// is the confirm delay between picking a vision on the vision-select map and loading it:
+// The bit is written by exactly one function, RunVisionStartConfirmDelay (0x0804539A, formerly and
+// wrongly called InitPauseMenu), the confirm delay between picking a vision and loading it:
 //     first frame  -> play confirm jingle (song 0x26), latch the bit, restart the scene counter
 //     30 frames on -> queue TransitionGameOver (the generic fade-out) and drop the latch
 //
 // Two experiments:
 //   A. REFUTATION of "isPaused": open the pause menu with START and show the bit stays 0 and the
 //      byte is never written at all, while the PAUSE screen is demonstrably on-screen.
-//   B. PROOF of the real meaning: replay a long run that enters three visions; the bit goes high
-//      exactly when gCallbackQueue.current[1] becomes InitPauseMenu (scene counter 0) and low
-//      exactly 31 frames later when it becomes TransitionGameOver — three times, and never else.
-//      Screenshots show the vision-select map during the window and the loaded vision after it.
+//   B. CAUSAL PROOF of the real meaning, as an A/B intervention: from one savestate, run the game
+//      twice for 60 frames changing exactly one thing — the CONTROL run is left alone, the other has
+//      RunVisionStartConfirmDelay written into gCallbackQueue.current[1] by hand. Only the poked run
+//      raises the latch, it holds it ~31 frames, and it drops it as the callback becomes
+//      TransitionGameOver. Every write to the byte is source-annotated from DWARF line info.
 //
 // Dogfoods @gba-kit/debug-info: `readVariable('gUnk_030034B0.visionStartPending')` decodes the
 // packed bitfield straight from the decomp's DWARF (no hand-written >>4 & 1), `addressToSymbol`
@@ -55,82 +56,68 @@ const srcOf = (h) =>
     console.log('   writes to byte 0x030034B0 across the whole pause/unpause:', writes.length === 0 ? 'NONE' : writes.join(', '));
 }
 
-// ─── B. what actually raises it ──────────────────────────────────────────────
-// The input sequence is the project's established run (docs/dynamic-analysis/scripts/find-lives.mjs):
-// boot -> title -> world map -> three visions entered and played.
-const SRC = new URL('./find-lives.mjs', import.meta.url).pathname;
-const txt = readFileSync(SRC, 'utf8');
-const SEQ = eval(txt.slice(txt.indexOf('const SEQ = [') + 'const SEQ = '.length, txt.indexOf('];', txt.indexOf('const SEQ = [')) + 1));
-
-console.log('\nB. WHAT ACTUALLY RAISES IT  (replaying the three-vision run)');
-
-// B-pass 1: replay the sequence verbatim and tabulate every transition + every writer.
+// ─── B. CAUSAL: install the function, change nothing else ──────────────────
 {
-    const [eng, bus] = await boot();
-    const QUEUE = eng.symbolToAddress('gCallbackQueue');
-    const pending = () => eng.readVariable('gUnk_030034B0.visionStartPending');
-    const cbName = () => {
-        const v = bus.read32(QUEUE + 4) >>> 0; // gCallbackQueue.current[1]
-        const s = v && eng.addressToSymbol(v & ~1);
-        return s ? s.name : '0x' + v.toString(16);
-    };
+    console.log('\nB. CAUSAL A/B — install RunVisionStartConfirmDelay by hand, change nothing else');
+    const runs = {};
+    for (const poke of [false, true]) {
+        const [eng, bus] = await boot();
+        await eng.loadState(`${SAVES}/savestate-fresh-gameplay.json`);
+        await eng.pressSequence([[null, 30]]);
 
-    const writers = new Map();
-    eng.watchMemory({
-        address: BYTE,
-        length: 1,
-        filter: (h) => {
-            const k = srcOf(h);
-            const e = writers.get(k) || { n: 0, vals: new Set() };
-            e.n++;
-            e.vals.add('0x' + bus.read8(BYTE).toString(16));
-            writers.set(k, e);
-            return false;
-        },
-    });
+        const QUEUE = eng.symbolToAddress('gCallbackQueue');
+        const FN = eng.symbolToAddress('RunVisionStartConfirmDelay');
+        if (QUEUE == null || FN == null) throw new Error('gCallbackQueue / RunVisionStartConfirmDelay missing from the ELF');
+        const pending = () => eng.readVariable('gUnk_030034B0.visionStartPending');
+        const cbName = () => {
+            const v = bus.read32(QUEUE + 4) >>> 0; // gCallbackQueue.current[1]
+            const s = v && eng.addressToSymbol(v & ~1);
+            return s ? s.name : '0x' + v.toString(16);
+        };
 
-    let last = null;
-    const flips = [];
-    eng.onFrame((f) => {
-        const b = pending();
-        if (b !== last) {
-            flips.push({ f, from: last, to: b, cb: cbName(), scene: bus.read32(0x03004c20) >>> 0 });
-            last = b;
+        const writers = new Map();
+        eng.watchMemory({
+            address: BYTE,
+            length: 1,
+            filter: (h) => {
+                const k = srcOf(h);
+                const e = writers.get(k) || { n: 0, vals: new Set() };
+                e.n++;
+                e.vals.add('0x' + bus.read8(BYTE).toString(16));
+                writers.set(k, e);
+                return false;
+            },
+        });
+
+        const label = poke ? 'POKED  ' : 'CONTROL';
+        console.log(`\n   ${label} before: cb=${cbName()} visionStartPending=${pending()} byte=0x${bus.read8(BYTE).toString(16)}`);
+        if (poke) bus.write32(QUEUE + 4, (FN | 1) >>> 0); // the ONE difference between the runs
+
+        const series = [];
+        let highFor = 0;
+        for (let f = 0; f < 60; f++) {
+            await eng.pressSequence([[null, 1]]);
+            const b = pending();
+            series.push(b);
+            if (b === 1) highFor++;
+            if (f === 4) await eng.takeScreenshot({ name: `B-${poke ? 'poked' : 'control'}-f5` });
         }
-    });
-    for (let i = 0; i < SEQ.length; i += 40) await eng.pressSequence(SEQ.slice(i, i + 40));
-    eng.onFrame(null);
-
-    console.log('\n   every visionStartPending transition in the run:');
-    for (const t of flips)
-        console.log(`     frame ${String(t.f).padStart(6)}  ${t.from}->${t.to}   gCallbackQueue.current[1]=${t.cb}   sceneFrameCounter=${t.scene}`);
-    console.log('\n   every writer of byte 0x030034B0 (source-annotated):');
-    for (const [k, e] of writers) console.log(`     ${String(e.n).padStart(4)}x  ${k}   byte values: ${[...e.vals].join(',')}`);
-}
-
-// B-pass 2: a separate run that stops at the first rise so the window can be screenshotted.
-// (Stepping frame-by-frame shifts the input timing, so this must NOT share pass 1's run.)
-{
-    const [eng, bus] = await boot();
-    const QUEUE = eng.symbolToAddress('gCallbackQueue');
-    const pending = () => eng.readVariable('gUnk_030034B0.visionStartPending');
-    const cbName = () => {
-        const v = bus.read32(QUEUE + 4) >>> 0;
-        const s = v && eng.addressToSymbol(v & ~1);
-        return s ? s.name : '0x' + v.toString(16);
-    };
-    let i = 0;
-    while (i < SEQ.length && pending() === 0) await eng.pressSequence([SEQ[i++]]);
-    console.log('\n   latch HIGH: gCallbackQueue.current[1] =', cbName(), ' sceneFrameCounter =', bus.read32(0x03004c20) >>> 0);
-    await eng.takeScreenshot({ name: 'B1-latch-high-vision-select-map' }); // vision-select map, HUD "VISION 1-x"
-    let held = 0;
-    while (pending() === 1 && held < 200) {
-        await eng.pressSequence([[null, 1]]);
-        held++;
+        console.log(`   ${label} latch per frame: ${series.join('')}`);
+        console.log(`   ${label} frames high: ${highFor}   cb afterwards: ${cbName()}`);
+        console.log(`   ${label} writers of 0x030034B0:`,
+            writers.size ? [...writers].map(([k, e]) => `${e.n}x ${k} -> ${[...e.vals].join(',')}`).join(' | ') : 'NONE');
+        runs[poke ? 'poked' : 'control'] = { series, highFor, cb: cbName(), writers };
     }
-    console.log('   latch LOW after', held, 'more frames: gCallbackQueue.current[1] =', cbName(), ' sceneFrameCounter =', bus.read32(0x03004c20) >>> 0);
-    await eng.takeScreenshot({ name: 'B2-latch-low-fade-starts' });
-    await eng.pressSequence([[null, 120]]);
-    await eng.takeScreenshot({ name: 'B3-vision-loaded' }); // the "VISION 1-2" title card
-    console.log('   120 frames later: gCallbackQueue.current[1] =', cbName(), '(the vision is loaded)');
+
+    const c = runs.control, p = runs.poked;
+    console.log('\n=== VERDICT ===');
+    const v1 = c.highFor === 0 && p.highFor > 0;
+    console.log(`   only the poked run raises the latch (control ${c.highFor} frames, poked ${p.highFor}): ${v1 ? 'CONFIRMED' : 'REFUTED'}`);
+    const v2 = p.highFor >= 28 && p.highFor <= 34;
+    console.log(`   it stays high for the ~31-frame confirm delay (${p.highFor}): ${v2 ? 'CONFIRMED' : 'REFUTED'}`);
+    const v3 = p.series[p.series.length - 1] === 0;
+    console.log(`   it drops again once the delay is spent (cb afterwards = ${p.cb}): ${v3 ? 'CONFIRMED' : 'REFUTED'}`);
+    const own = [...p.writers.keys()].filter((k) => k.includes('RunVisionStartConfirmDelay'));
+    console.log(`   RunVisionStartConfirmDelay is among the writers: ${own.length ? 'CONFIRMED' : 'REFUTED'}  (${own.join(', ') || 'none'})`);
+    if (!(v1 && v2 && v3 && own.length)) throw new Error('visionStartPending semantics did not reproduce');
 }

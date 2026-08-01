@@ -7,7 +7,8 @@
  *  Struct Definitions
  * ══════════════════════════════════════════════════════════════════════ */
 
-/* BGLayerState: per-layer BG configuration (28 bytes, 3 entries at gBGLayerState).
+/* BGLayerState: per-layer BG configuration (28 bytes, >=4 entries at gBGLayerState;
+ * gBgInfo[4] aliases the same memory and prove-gfxstream-motion-fields drives layer 3).
  * Controls VRAM destinations, scroll positions, tilemap dimensions, and DMA params. */
 struct BGLayerState {
     u32 tileVramDest; /* +0x00: VRAM charblock address for tile DMA */
@@ -29,39 +30,39 @@ struct BGLayerState {
  * (36 bytes, 32 entries at gBuffer_52A4).
  * Controls animations, motion paths, and timed events driven by the stream. */
 struct GfxStreamEntry {
-    /* +0x00: packed 16-bit header. Bit numbers below are within the little-endian
-     * u16 at +0x00, so the last two fields live in the byte at +0x01. The motion
-     * handlers also read bytes 0..3 as one word; two packed fields inside that
-     * word are proven at runtime by
-     * docs/dynamic-analysis/scripts/prove-oscillation-fields.mjs (E5, E6):
-     *   bits 3..10  = target selector read by ProcessMotionStep — 0 selects a
-     *                 gBGLayerState scroll pair, 2 selects a gUnk_03002920
-     *                 object, 4 selects the gGfxBufferPtr window bounds.
-     *   bits 15..21 = which gUnk_03002920 object, biased by +13. Only its low
-     *                 bit falls inside this halfword (see objIndex_lo). */
-    u16 type : 3; /* bits 0-2: entry type; 1 = active, dispatch `callback` */
+    /* +0x00: packed 32-bit header. The motion handlers read bytes 0..3 as one
+     * word, and two of the packed fields below straddle a byte boundary, so the
+     * whole header is one u32 bitfield; agbcc still narrows each access to the
+     * byte or halfword the original uses. Bit numbers are within the
+     * little-endian word at +0x00. Proven at runtime by
+     * docs/dynamic-analysis/scripts/prove-oscillation-fields.mjs (E5, E6). */
+    u32 type : 3; /* bits 0-2: entry type; 1 = active, dispatch `callback` */
     /* bits 3-10: per-handler parameter — the word-level "target selector" above.
      * For the static-scroll handler it gates the effect: ProcessStaticBGScroll
      * returns early unless this is 0. Handlers read it differently, so the name
      * stays generic. */
-    u16 param : 8;
+    u32 param : 8;
     /* bits 11-14: index of the object this entry drives. Every consumer that
      * reads byte 1 (ProcessMotionStep, ProcessMotionStepExtended,
-     * ProcessStaticBGScroll, ProcessStarfieldEffect) extracts exactly these bits
+     * ProcessStaticBGScroll) extracts exactly these bits
      * and uses them only as an index: in the default target mode it selects
      * gBGLayerState[targetIndex] (gUnk_03003430, stride 0x1C) whose scrollX/scrollY
-     * it advances; in affine mode bits 1 and 0 pick the affine scroll slot in
-     * gGfxBufferPtr. Observed values 0, 1, 2. Proven at runtime — see
+     * it advances; in the other mode bits 1 and 0 pick a window-clip edge pair in
+     * gGfxBufferPtr (+0x08/+0x0C/+0x10/+0x14), which UpdateAffineRegisters pushes
+     * to REG_WIN0H/WIN1H/WIN0V/WIN1V — despite its name it writes no affine
+     * register at all. Observed values 0, 1, 2. Proven at runtime — see
      * prove-gfxstream-motion-fields.mjs and prove-gfxstreamentry-header.mjs
      * (sweeping it with the scroll step held constant moves a DIFFERENT layer by
      * the SAME distance). Named for the index, not "bgLayer", because the
      * window-bounds and affine readers do not treat it as a BG layer. */
-    u16 targetIndex : 4;
-    /* bit 15: low bit of the 7-bit gUnk_03002920 object index at word bits 15..21
-     * documented above — NOT an independent flag. */
-    u16 objIndex_lo : 1;
-    u8 unk_02; /* +0x02: secondary flags */
-    u8 unk_03; /* +0x03: bit 7 = sign flag (set from timer sign) */
+    u32 targetIndex : 4;
+    /* bits 15-21: which gUnk_03002920 object this entry drives, biased by +13.
+     * StreamCmd_InitOscillationExt loads it straight from the command stream. */
+    u32 objIndex : 7;
+    /* bits 22-31: the rest of the header (the old unk_02 / unk_03 bytes). Bit 31,
+     * i.e. bit 7 of the byte at +0x03, is the timer-sign latch that
+     * StreamCmd_InitHBlankWait writes and ProcessHBlankWait reads. */
+    u32 headerHigh : 10;
     u16 unk_04; /* +0x04: tile/frame base index */
     u16 unk_06; /* +0x06: tile count / allocation size */
     /* +0x08 and +0x0A are mode-dependent, so they keep `unk` names on purpose:
@@ -76,16 +77,14 @@ struct GfxStreamEntry {
     u16 unk_0E; /* +0x0E: unknown */
     u16 unk_10; /* +0x10: unknown */
     u16 unk_12; /* +0x12: unknown */
-    /* +0x14: per-entry frame counter, read as s16. Most entry callbacks
-     * (ProcessMotionStep, ProcessFrameAnimation, ProcessHBlankWait) decrement it
-     * once per dispatch and retire or reload the entry when it is spent — wait-type
-     * entries finish on the tick it goes negative. ProcessButtonWait and
-     * ProcessSpriteOscillation instead read it as a limit (compared against unk_0E)
-     * without decrementing, and ProcessMotionStep also uses it as the oscillation
-     * phase: angle = (timer * unk_1E) & 0xFF. StreamCmd_InitHBlankWait latches its
-     * sign into bit 7 of unk_03. Proven at runtime by prove-oscillation-fields.mjs
-     * (E4) and prove-button-wait.mjs (3a: an installed wait ticks 4->3->2->1->0->-1
-     * and deactivates on the -1 tick). */
+    /* +0x14: per-entry frame counter, read as s16. ProcessMotionStep,
+     * ProcessFrameAnimation, ProcessHBlankWait and ProcessButtonWait all decrement
+     * it once per dispatch and finish on the tick it goes negative.
+     * ProcessSpriteOscillation is the exception: it compares it against unk_0E as a
+     * limit and never decrements it. ProcessMotionStep also uses it as the
+     * oscillation phase: angle = (timer * unk_1E) & 0xFF. StreamCmd_InitHBlankWait
+     * latches its sign into bit 7 of unk_03. Runtime: prove-oscillation-fields.mjs
+     * (E4) and prove-button-wait.mjs (3a: a wait ticks 4->3->2->1->0->-1). */
     u16 timer;
     u16 unk_16; /* +0x16: unknown */
     u16 unk_18; /* +0x18: unknown */
@@ -167,7 +166,8 @@ struct GfxControlFlags {
     u8 flag_1C_3 : 1;
     u8 flag_1C_4 : 1;
     /* 0x1C bit 5 — direction of the scene-transition cross-fade run by
-     * ProcessSceneTransitionOut. Clear: ramp gBlendValue (REG_BLDALPHA's EVA) UP
+     * ProcessSceneTransitionOut. Clear: ramp gBlendValue (written to both REG_BLDALPHA's EVA and REG_BLDY; under
+     * BLDCNT darken it is the BLDY level that shows) UP
      * to 16, then tear the scene down. Set: ramp it DOWN instead, and on
      * underflow clear REG_DISPCNT bit 10 (BG2 off) and clear this bit — it is
      * one-shot and self-clearing. */
@@ -206,6 +206,12 @@ struct GfxStreamAlloc {
 
 /* Buffer freed by FreeBuffer_52A4. */
 #define gBuffer_52A4             (*(u32 *)0x030052A4)
+
+/* The 32-entry GfxStreamEntry table gBuffer_52A4 points at. Written as a macro
+ * over the global rather than cached in a local on purpose: the stream commands
+ * only match when every statement re-reads gBuffer_52A4 and lets agbcc's CSE
+ * decide which of those reloads survive. */
+#define gGfxStreamEntries        ((struct GfxStreamEntry *)gBuffer_52A4)
 
 /* 0x030007D8 is NOT a BLDY fade level -- it is the 4-bit MOSAIC size, declared as
  * `extern u8 gMosaicSize` in structs/variables.h. Proven at runtime by
@@ -444,7 +450,7 @@ extern s16 gUnk_030034F8;
 /* ── Scene / Transition State ── */
 
 /* Scene fade/blend counter: decremented by 0x10 each frame during transitions.
- * Used by TransitionInitLevelMusic, TransitionFadeOut*, GameplayFrameInit. */
+ * Used by TransitionInitLevelMusic, TransitionFadeOut*, sub_08024D84. */
 #define gSceneFadeCounter (*(u16 *)0x03005210)
 
 /* Scene/gfx state struct: used by InitGfxState, InitFadeTransition,

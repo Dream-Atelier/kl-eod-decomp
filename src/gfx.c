@@ -11,6 +11,8 @@ void UpdateBGScrollRegisters(void);
 void ProcessFrameAnimation(void);
 u32 ProcessMotionStep(u32 idx);
 void ProcessStaticBGScroll(void);
+extern s16 ReciprocalQ8(s16 a);
+extern s16 MultiplyQ8(s16 a, s16 b);
 void m4aSoundVSyncOff(void);
 void m4aMPlayAllStop(void);
 void UpdateSceneTransition(void);
@@ -316,16 +318,18 @@ void InitGfxStreamState(void) {
  */
 void ResetGfxStreamEntries(void) {
     struct GfxStreamAlloc *entry;
-    u32 base;
     s32 i;
 
     for (i = 32; i > 0; i--) {
-        base = gGfxStreamBuffer;
-        entry = (struct GfxStreamAlloc *)((i << 3) + base - 8);
+        u32 base = gGfxStreamBuffer;
+
+        entry = (struct GfxStreamAlloc *)(i * sizeof(struct GfxStreamAlloc) + base) - 1;
         if (entry->tileCount != 0) {
             thunk_HeapFree(entry->pTiles - 4);
-            base = (i << 3) + gGfxStreamBuffer;
-            base -= 8;
+            /* The call forces gGfxStreamBuffer to be re-read, so the original
+             * recomputes the slot address here instead of reusing `entry`. */
+            base = i * sizeof(struct GfxStreamAlloc) + gGfxStreamBuffer;
+            base -= sizeof(struct GfxStreamAlloc);
             entry = (struct GfxStreamAlloc *)base;
             entry->tileCount = 0;
             entry->pTiles = 0;
@@ -414,9 +418,6 @@ void ProcessStreamCommand_C218(void) {
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ConfigureSprite);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetupOAMSpriteGroup);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetEntityFlags);
-extern s16 ReciprocalQ8(s16 a);
-extern s16 MultiplyQ8(s16 a, s16 b);
-
 /**
  * StreamCmd_SetEntityTransform: point an entity at an OBJ affine matrix and
  * load that matrix with a uniform scale.
@@ -578,6 +579,26 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitLinearMotionExt);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitRotationMotion);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitMotionWithPalette);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitAngleMotion);
+/*
+ * Shape shared by the StreamCmd_Init* handlers below (agbcc 2.95 matching notes).
+ * StreamCmd_InitFrameAnimation and StreamCmd_InitHBlankWait predate it and still
+ * carry the raw offA/offB form; they want the same treatment.
+ *
+ * The originals re-read gStreamPtr and gBuffer_52A4 once per short run of stores
+ * instead of caching them, so each run gets its own scope with a fresh
+ * `cmd`/`entries` pair. Hoisting a single pair to the top of the function makes
+ * agbcc park them in callee-saved registers and changes the prologue.
+ *
+ * Inside a run, `idx` exists only to order the first `ldrb [cmd, #2]` ahead of the
+ * gBuffer_52A4 load; the later stores index with `cmd[2]` directly, which re-reads
+ * the byte exactly like the original (the intervening stores kill the cached load
+ * anyway).
+ *
+ * One exception: a bitfield store whose value comes straight from the command
+ * stream (`targetIndex = cmd[3]`) has to have its entry address computed in a
+ * separate statement, scaled index first. Written as one expression, agbcc
+ * schedules the `cmd[3]` load before the address arithmetic instead of after it.
+ */
 /**
  * StreamCmd_InitOscillation: initialize a sprite-oscillation entry from stream data.
  *
@@ -600,98 +621,46 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitAngleMotion);
  * see docs/dynamic-analysis/scripts/prove-gfxstream-motion-fields.mjs.
  */
 void StreamCmd_InitOscillation(void) {
-    u8 **streamPP = &gStreamPtr;
-    u8 **basePP;
-    u8 *sp1;
-    u8 idx1;
-    u8 *base1;
-    u32 offA;
-    u8 *entryA;
-    u32 targetIndex;
-    u8 *sp2;
-    u8 idx2;
-    u8 *base2;
-    u32 offB;
-    u32 offC;
-    s16 amplitude;
-    u8 *sp3;
-    u8 idx3;
-    u8 *base3;
-    u32 offD;
-    u32 offE;
-    u8 *sp4;
-    u8 idx4;
-    u8 *base4;
-    u32 offF;
-    u32 modeBits;
-    s32 modeMask;
-    u32 offG;
-    u32 offH;
-    u8 *entryH;
-    u8 flagsH;
-    s32 maskH;
+    s16 duration;
 
-    sp1 = *streamPP;
-    idx1 = sp1[2];
-    basePP = &gBuffer_52A4;
-    base1 = *basePP;
-    offA = (u32)(idx1 * 9) * 4;
-    offA += (u32)base1;
-    entryA = (u8 *)offA;
-    targetIndex = sp1[3];
-    ((struct GfxStreamEntry *)entryA)->targetIndex = targetIndex;
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+        struct GfxStreamEntry *entry;
+        u8 target;
 
-    sp2 = *streamPP;
-    idx2 = sp2[2];
-    base2 = *basePP;
-    offB = (u32)(idx2 * 9) * 4;
-    offB += (u32)base2;
-    *(u16 *)(offB + 0x08) = sp2[4];
+        entry = (struct GfxStreamEntry *)(idx * sizeof(struct GfxStreamEntry) + (u32)entries);
+        target = cmd[3];
+        entry->targetIndex = target;
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
 
-    idx2 = sp2[2];
-    offC = (u32)(idx2 * 9) * 4;
-    offC += (u32)base2;
-    *(u16 *)(offC + 0x0A) = sp2[5];
+        entries[idx].unk_08 = cmd[4];
+        entries[cmd[2]].unk_0A = cmd[5];
+        duration = ReadUnalignedS16(cmd + 6);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
 
-    amplitude = ReadUnalignedS16(sp2 + 6);
+        entries[idx].timer = duration;
+        entries[cmd[2]].unk_1E = cmd[8];
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
 
-    sp3 = *streamPP;
-    idx3 = sp3[2];
-    base3 = *basePP;
-    offD = (u32)(idx3 * 9) * 4;
-    offD += (u32)base3;
-    *(u16 *)(offD + 0x14) = amplitude;
-
-    idx3 = sp3[2];
-    offE = (u32)(idx3 * 9) * 4;
-    offE += (u32)base3;
-    *(u8 *)(offE + 0x1E) = sp3[8];
-
-    sp4 = *streamPP;
-    idx4 = sp4[2];
-    base4 = *basePP;
-    offF = (u32)(idx4 * 9) * 4;
-    offF += (u32)base4;
-    modeBits = *(u16 *)offF;
-    modeMask = -0x7F9;
-    modeMask &= modeBits;
-    *(u16 *)offF = modeMask;
-
-    idx4 = sp4[2];
-    offG = (u32)(idx4 * 9) * 4;
-    offG += (u32)base4;
-    *(u32 *)(offG + 0x20) = (u32)ProcessMotionStep;
-
-    idx4 = sp4[2];
-    offH = (u32)(idx4 * 9) * 4;
-    offH += (u32)base4;
-    entryH = (u8 *)offH;
-    flagsH = entryH[0];
-    maskH = -8;
-    maskH &= flagsH;
-    entryH[0] = maskH | 1;
-
-    *streamPP += 9;
+        entries[idx].param = 0;
+        entries[cmd[2]].callback = (u32)ProcessMotionStep;
+        entries[cmd[2]].type = 1;
+    }
+    gStreamPtr += 9;
 }
 /**
  * StreamCmd_InitOscillationExt: start a sine oscillation on a gfx-stream target.
@@ -716,95 +685,36 @@ void StreamCmd_InitOscillation(void) {
  * docs/dynamic-analysis/scripts/prove-oscillation-fields.mjs.
  */
 void StreamCmd_InitOscillationExt(void) {
-    u8 **streamPP = &gStreamPtr;
-    u8 **entriesPP;
-    u8 *stream1;
-    u8 idx;
-    u8 *entries1;
-    u32 entA;
-    u32 entB;
-    u32 entC;
-    u32 targetIndexBits;
-    u32 word0;
-    s16 durationFrames;
-    u8 *stream2;
-    u8 *entries2;
-    u32 entD;
-    u32 entE;
-    u8 *stream3;
-    u8 *entries3;
-    u32 entF;
-    u32 entG;
-    u32 entH;
-    u32 selectorWord;
-    s32 selectorMask;
-    u8 *entry;
-    u8 status;
-    s32 statusMask;
+    s16 duration;
 
-    stream1 = *streamPP;
-    idx = stream1[2];
-    entriesPP = &gBuffer_52A4;
-    entries1 = *entriesPP;
-    entA = (u32)(idx * 9) * 4;
-    entA += (u32)entries1;
-    targetIndexBits = stream1[3];
-    targetIndexBits &= 0x7F;
-    targetIndexBits <<= 15;
-    word0 = *(u32 *)entA;
-    word0 &= ~0x3F8000;
-    word0 |= targetIndexBits;
-    *(u32 *)entA = word0;
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
 
-    idx = stream1[2];
-    entB = (u32)(idx * 9) * 4;
-    entB += (u32)entries1;
-    *(u16 *)(entB + 0x08) = stream1[4];
+        entries[idx].objIndex = cmd[3];
+        entries[cmd[2]].unk_08 = cmd[4];
+        entries[cmd[2]].unk_0A = cmd[5];
+        duration = ReadUnalignedS16(cmd + 6);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
 
-    idx = stream1[2];
-    entC = (u32)(idx * 9) * 4;
-    entC += (u32)entries1;
-    *(u16 *)(entC + 0x0A) = stream1[5];
+        entries[idx].timer = duration;
+        entries[cmd[2]].unk_1E = cmd[8];
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
 
-    durationFrames = ReadUnalignedS16(stream1 + 6);
-
-    stream2 = *streamPP;
-    idx = stream2[2];
-    entries2 = *entriesPP;
-    entD = (u32)(idx * 9) * 4;
-    entD += (u32)entries2;
-    *(s16 *)(entD + 0x14) = durationFrames;
-
-    idx = stream2[2];
-    entE = (u32)(idx * 9) * 4;
-    entE += (u32)entries2;
-    *(u8 *)(entE + 0x1E) = stream2[8];
-
-    stream3 = *streamPP;
-    idx = stream3[2];
-    entries3 = *entriesPP;
-    entF = (u32)(idx * 9) * 4;
-    entF += (u32)entries3;
-    selectorWord = *(u16 *)entF;
-    selectorMask = ~0x7F8;
-    selectorMask &= selectorWord;
-    *(u16 *)entF = selectorMask | 0x10;
-
-    idx = stream3[2];
-    entG = (u32)(idx * 9) * 4;
-    entG += (u32)entries3;
-    *(u32 *)(entG + 0x20) = (u32)ProcessMotionStep;
-
-    idx = stream3[2];
-    entH = (u32)(idx * 9) * 4;
-    entH += (u32)entries3;
-    entry = (u8 *)entH;
-    status = entry[0];
-    statusMask = -8;
-    statusMask &= status;
-    entry[0] = statusMask | 1;
-
-    *streamPP += 9;
+        entries[idx].param = 2;
+        entries[cmd[2]].callback = (u32)ProcessMotionStep;
+        entries[cmd[2]].type = 1;
+    }
+    gStreamPtr += 9;
 }
 /**
  * StreamCmd_InitStaticScroll: initialize a static BG-scroll entry from stream data.
@@ -817,66 +727,30 @@ void StreamCmd_InitOscillationExt(void) {
  * 6 bytes.
  */
 void StreamCmd_InitStaticScroll(void) {
-    u8 **streamPP = &gStreamPtr;
-    u32 *basePP;
-    u8 *sp;
-    u8 idx;
-    u32 base;
-    u32 offA;
-    u32 offB;
-    u32 offC;
-    u8 targetIndex;
-    struct GfxStreamEntry *entryC;
-    u8 *sp2;
-    u32 base2;
-    u32 offD;
-    u32 offE;
-    u32 offF;
-    struct GfxStreamEntry *entryD;
-    struct GfxStreamEntry *entryF;
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+        struct GfxStreamEntry *entry;
+        u8 target;
 
-    sp = *streamPP;
-    idx = sp[2];
-    basePP = &gBuffer_52A4;
-    base = *basePP;
+        entries[idx].unk_08 = cmd[4];
+        entries[cmd[2]].unk_0A = cmd[5];
 
-    offA = (u32)(idx * 9) * 4;
-    offA += base;
-    *(u16 *)(offA + 0x08) = sp[4];
+        entry = (struct GfxStreamEntry *)(cmd[2] * sizeof(struct GfxStreamEntry) + (u32)entries);
+        target = cmd[3];
+        entry->targetIndex = target;
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
 
-    idx = sp[2];
-    offB = (u32)(idx * 9) * 4;
-    offB += base;
-    *(u16 *)(offB + 0x0A) = sp[5];
-
-    idx = sp[2];
-    offC = (u32)(idx * 9) * 4;
-    offC += base;
-    entryC = (struct GfxStreamEntry *)offC;
-    targetIndex = sp[3];
-    entryC->targetIndex = targetIndex;
-
-    sp2 = *streamPP;
-    idx = sp2[2];
-    base2 = *basePP;
-
-    offD = (u32)(idx * 9) * 4;
-    offD += base2;
-    entryD = (struct GfxStreamEntry *)offD;
-    entryD->param = 0;
-
-    idx = sp2[2];
-    offE = (u32)(idx * 9) * 4;
-    offE += base2;
-    *(u32 *)(offE + 0x20) = (u32)ProcessStaticBGScroll;
-
-    idx = sp2[2];
-    offF = (u32)(idx * 9) * 4;
-    offF += base2;
-    entryF = (struct GfxStreamEntry *)offF;
-    entryF->type = 1;
-
-    *streamPP += 6;
+        entries[idx].param = 0;
+        entries[cmd[2]].callback = (u32)ProcessStaticBGScroll;
+        entries[cmd[2]].type = 1;
+    }
+    gStreamPtr += 6;
 }
 /**
  * StreamCmd_InitFrameAnimation: initialize a frame-animation entry from stream data.
@@ -1076,63 +950,29 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitSpriteWave);
  * docs/dynamic-analysis/scripts/prove-button-wait.mjs
  */
 void StreamCmd_InitButtonWait(void) {
-    s16 timerVal;
-    u8 **streamPP = &gStreamPtr;
-    u8 **basePP;
-    u8 *sp1;
-    u8 idx1;
-    u8 *base1;
-    u32 offA;
-    u32 offB;
-    u8 *entryB;
-    u8 *sp2;
-    u8 idx2;
-    u8 *base2;
-    u32 offC;
-    u32 offD;
-    u8 *entryD;
-    u8 flags;
-    s32 mask;
-    s8 *gp;
+    s16 timeout = ReadUnalignedS16(gStreamPtr + 3);
 
-    timerVal = ReadUnalignedS16(*streamPP + 3);
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
 
-    sp1 = *streamPP;
-    idx1 = sp1[2];
-    basePP = &gBuffer_52A4;
-    base1 = *basePP;
+        entries[idx].timer = timeout;
+        entries[cmd[2]].unk_1E = entries[cmd[2]].timer >> 15;
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
 
-    offA = (u32)(idx1 * 9) * 4;
-    offA += (u32)base1;
-    *(s16 *)(offA + 0x14) = timerVal;
-
-    idx1 = sp1[2];
-    offB = (u32)(idx1 * 9) * 4;
-    offB += (u32)base1;
-    entryB = (u8 *)offB;
-    entryB[0x1E] = *(u16 *)(entryB + 0x14) >> 15;
-
-    sp2 = *streamPP;
-    idx2 = sp2[2];
-    base2 = *basePP;
-
-    offC = (u32)(idx2 * 9) * 4;
-    offC += (u32)base2;
-    *(u32 *)(offC + 0x20) = (u32)ProcessButtonWait;
-
-    idx2 = sp2[2];
-    offD = (u32)(idx2 * 9) * 4;
-    offD += (u32)base2;
-    entryD = (u8 *)offD;
-    flags = entryD[0];
-    mask = -8;
-    mask &= flags;
-    entryD[0] = mask | 1;
-
-    gp = (s8 *)gGfxBufferPtr;
-    *gp = (*gp & ~3) | 2;
-
-    *streamPP += 5;
+        entries[idx].callback = (u32)ProcessButtonWait;
+        entries[cmd[2]].type = 1;
+    }
+    {
+        s8 *renderMode = (s8 *)gGfxBufferPtr;
+        *renderMode = (*renderMode & ~3) | 2;
+    }
+    gStreamPtr += 5;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_StopMotion);
 /**
@@ -1192,7 +1032,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ProcessSceneTransitionOut);
  * them may alias it.
  */
 void StreamCmd_BeginSceneExit(void) {
-    *(s8 *)gGfxBufferPtr &= -4;
+    *(s8 *)gGfxBufferPtr &= ~3;
     gStreamPtr += 2;
     ((s8 *)gGfxBufferPtr)[2] = (((s8 *)gGfxBufferPtr)[2] & ~(GFX_SCENE_EXITING | GFX_SCENE_SKIPPABLE)) | GFX_SCENE_EXITING;
 }
@@ -1217,7 +1057,7 @@ void StreamCmd_ClearRenderMode(void) {
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleDisplayFlag);
 /**
- * StreamCmd_ToggleLayerFlag: flips GfxControlFlags.blendRampDown (byte 0x1C,
+ * StreamCmd_ToggleFadeDirection: flips GfxControlFlags.blendRampDown (byte 0x1C,
  * bit 5) of the graphics control block, then advances the stream pointer by 2.
  *
  * The flag reverses the scene-transition cross-fade: ProcessSceneTransitionOut
@@ -1230,7 +1070,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleDisplayFlag);
  * agbcc's canonical 1-bit bitfield toggle, so spelling the flag as a bitfield
  * (rather than hand-written shifts and masks) reproduces the register schedule.
  */
-void StreamCmd_ToggleLayerFlag(void) {
+void StreamCmd_ToggleFadeDirection(void) {
     struct GfxControlFlags *ctl = (struct GfxControlFlags *)gGfxBufferPtr;
     ctl->blendRampDown ^= 1;
     gStreamPtr += 2;

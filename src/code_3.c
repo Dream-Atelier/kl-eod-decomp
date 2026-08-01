@@ -6361,7 +6361,7 @@ INCLUDE_ASM("asm/nonmatchings/code_3", DecompressAndLoadLevel); /* DecompressLZ7
 INCLUDE_ASM("asm/nonmatchings/code_3", CheckTileCollisionRect);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateScrollPosition);
 /**
- * InitPauseMenu: the confirm delay between picking a vision and loading it.
+ * RunVisionStartConfirmDelay: the confirm delay between picking a vision and loading it.
  *
  * NOTE: the name is a legacy misnomer — this has nothing to do with the pause menu (that is
  * HandlePauseMenuInput). It is installed as gCallbackQueue.current[1] by UpdatePlayerInput when A is
@@ -6378,14 +6378,11 @@ INCLUDE_ASM("asm/nonmatchings/code_3", UpdateScrollPosition);
  *   no parameters
  *   no return value
  */
-void InitPauseMenu(void) {
-    u8 pending;
-
-    pending = *(u8 *)&gUnk_030034B0 & 0x10;
-    if (pending == 0) {
+void RunVisionStartConfirmDelay(void) {
+    if (gUnk_030034B0.visionStartPending == 0) {
         m4aSongNumStart(0x26);
         gUnk_030034B0.visionStartPending = 1;
-        gUnk_03004C20.sceneFrameCounter = pending;
+        gUnk_03004C20.sceneFrameCounter = 0;
     } else if (gUnk_03004C20.sceneFrameCounter > 30) {
         gCallbackQueue.current[1] = TransitionGameOver;
         gUnk_030034B0.visionStartPending = 0;
@@ -6413,6 +6410,18 @@ INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerInput); /* UpdatePhysics */
 INCLUDE_ASM("asm/nonmatchings/code_3", InitPlayerCollision); /* UpdateCollision */
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapCursor); /* UpdateCamera */
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateVisionStarIcons);
+/* The world-map node record the selected vision lives on, and the BG2 rotation
+ * angle at which that node faces the camera (byte 1 of the record, stored
+ * negated). A macro rather than a local because the original recomputes the
+ * lookup in every branch below; agbcc CSEs the shared address arithmetic on its
+ * own, so hoisting it by hand only changes the register schedule. */
+#define SELECTED_VISION_NODE                                                                                                          \
+    gWorldMapNodes[gUnk_03004C20.world - 1][gWorldMapVisionNode[gUnk_03004C20.world - 1][gUnk_030034B0.selectedVision - 1]]
+#define SELECTED_VISION_ANGLE    (-SELECTED_VISION_NODE[1])
+
+/* The player's progress byte for the selected vision. */
+#define SELECTED_VISION_PROGRESS gUnk_03004670->unk8[gUnk_03004C20.world - 1][gUnk_030034B0.selectedVision - 1]
+
 /*
  * UpdateWorldMapNodeState: drives the world-map globe toward the currently
  * selected vision node.
@@ -6437,31 +6446,23 @@ void UpdateWorldMapNodeState(void) {
         gUnk_030034B0.visionArrivalTimer--;
     }
 
-    if (gBg2Alpha
-        == (u8)-gWorldMapNodes[gUnk_03004C20.world - 1][gWorldMapVisionNode[gUnk_03004C20.world - 1][gUnk_030034B0.selectedVision - 1]]
-                              [1]) {
+    if (gBg2Alpha == (u8)SELECTED_VISION_ANGLE) {
+        /* Aligned: hold both shoulder buttons so the globe stops turning. */
         gHeldKeys = L_BUTTON | R_BUTTON;
         if (gUnk_030034B0.visionArrivalTimer == 0) {
             gUnk_030034B0.visionArrivalTimer = 0x80;
         }
         if (gUnk_030034B0.visionArrivalTimer == 0x40) {
             m4aSongNumStart(0x8B);
-            gUnk_03004670->unk8[gUnk_03004C20.world - 1][gUnk_030034B0.selectedVision - 1]
-                = gUnk_03004670->unk8[gUnk_03004C20.world - 1][gUnk_030034B0.selectedVision - 1] & 0x80;
+            SELECTED_VISION_PROGRESS &= 0x80;
             UpdateVisionStarIcons();
         }
         if (gUnk_030034B0.visionArrivalTimer == 1) {
             gUnk_030034B0.selectedVision = FindNextUnlockedVision();
         }
-    } else if ((s8)(-gWorldMapNodes[gUnk_03004C20.world - 1]
-                                   [gWorldMapVisionNode[gUnk_03004C20.world - 1][gUnk_030034B0.selectedVision - 1]][1]
-                    - gBg2Alpha)
-               < 0) {
+    } else if ((s8)(SELECTED_VISION_ANGLE - gBg2Alpha) < 0) {
         gHeldKeys = L_BUTTON;
-    } else if ((s8)(-gWorldMapNodes[gUnk_03004C20.world - 1]
-                                   [gWorldMapVisionNode[gUnk_03004C20.world - 1][gUnk_030034B0.selectedVision - 1]][1]
-                    - gBg2Alpha)
-               > 0) {
+    } else if ((s8)(SELECTED_VISION_ANGLE - gBg2Alpha) > 0) {
         gHeldKeys = R_BUTTON;
     }
 }
@@ -6486,7 +6487,7 @@ u32 IsDpadUpHeld(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", ConfigureInterruptsForGameplay);
 /**
- * UpdatePlayerEntity: per-frame update of the hidden boot-menu minigame.
+ * UpdateBootMinigame: per-frame update of the hidden boot-menu minigame.
  *
  * Reached only through AgbMain's boot code (A+B+RIGHT+L+R held on frame 0), which
  * swaps callback slot 1 for MainGameFrameLoop; that loop calls this every frame on
@@ -6498,40 +6499,35 @@ INCLUDE_ASM("asm/nonmatchings/code_3", ConfigureInterruptsForGameplay);
  * animation 0x0C, which locks the controls until it ends.
  * See docs/dynamic-analysis/scripts/prove-minigame-player-armed.mjs.
  */
-void UpdatePlayerEntity(void) {
+void UpdateBootMinigame(void) {
     u32 i;
 
-    if (gNewKeys & SELECT_BUTTON) {
-        if (gMinigamePlayerArmed == 1) {
-            gEntityInfo[0].unk10 = gMinigamePlayerArmed;
-            gEntityInfo[0].xPosBg2 = 0x78;
-            gEntityInfo[0].yPosBg2 = 0x9C;
-            SetPaletteAnimEntry(0, 0x22);
-        }
+    if ((gNewKeys & SELECT_BUTTON) && (gMinigamePlayerArmed == 1)) {
+        gEntityInfo[0].unk10 = 1;
+        gEntityInfo[0].xPosBg2 = 0x78;
+        gEntityInfo[0].yPosBg2 = 0x9C;
+        SetPaletteAnimEntry(0, 0x22);
     }
-    if (gEntityInfo[0].unk10 == 1) {
-        if (gEntityAnimationInfo[0].state != 0xC) {
-            if (gHeldKeys & R_BUTTON) {
-                gEntityInfo[0].unkC_2 = 0;
-                if (gEntityAnimationInfo[0].state != 1) {
-                    SetPaletteAnimEntry(0, 1);
-                }
-                if (gEntityInfo[0].xPosBg2 <= 0xDF) {
-                    gEntityInfo[0].xPosBg2 += 2;
-                }
-            } else if (gHeldKeys & L_BUTTON) {
-                gEntityInfo[0].unkC_2 = 1;
-                if (gEntityAnimationInfo[0].state != 1) {
-                    SetPaletteAnimEntry(0, 1);
-                }
-                if (gEntityInfo[0].xPosBg2 > 0x10) {
-                    gEntityInfo[0].xPosBg2 -= 2;
-                }
-            } else {
-                if (gEntityAnimationInfo[0].state != 0x22) {
-                    SetPaletteAnimEntry(0, 0x22);
-                }
+    /* state 0xC is the hit animation; it locks the controls until it ends. */
+    if ((gEntityInfo[0].unk10 == 1) && (gEntityAnimationInfo[0].state != 0xC)) {
+        if (gHeldKeys & R_BUTTON) {
+            gEntityInfo[0].unkC_2 = 0;
+            if (gEntityAnimationInfo[0].state != 1) {
+                SetPaletteAnimEntry(0, 1);
             }
+            if (gEntityInfo[0].xPosBg2 <= 0xDF) {
+                gEntityInfo[0].xPosBg2 += 2;
+            }
+        } else if (gHeldKeys & L_BUTTON) {
+            gEntityInfo[0].unkC_2 = 1;
+            if (gEntityAnimationInfo[0].state != 1) {
+                SetPaletteAnimEntry(0, 1);
+            }
+            if (gEntityInfo[0].xPosBg2 > 0x10) {
+                gEntityInfo[0].xPosBg2 -= 2;
+            }
+        } else if (gEntityAnimationInfo[0].state != 0x22) {
+            SetPaletteAnimEntry(0, 0x22);
         }
     }
 
