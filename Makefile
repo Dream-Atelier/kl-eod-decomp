@@ -74,6 +74,11 @@ OBJS_REL := $(patsubst $(OBJ_DIR)/%,%,$(OBJS))
 ASFLAGS  := -mcpu=arm7tdmi -mthumb-interwork
 CPPFLAGS := -nostdinc -I tools/agbcc/include -iquote include
 CC1FLAGS := -mthumb-interwork -Wimplicit -Wparentheses -O2 -fhex-asm -fprologue-bugfix
+# -g: agbcc records each compiled function's DWARF — declaration shapes for the globals it
+# sees and a signature for every function it compiles. Byte-neutral (debug sections are
+# non-alloc; the ROM sha1 is unchanged), and it is what lets asmlift's symbol map carry
+# CALLEE signatures for the functions already decompiled here.
+CC1FLAGS += -g
 # Agent-oriented instrumentation: comments-only / stderr-only, never alters
 # emitted bytes. Opt-out with AGENT_INSTRUMENT=0.
 AGENT_INSTRUMENT ?= 1
@@ -163,18 +168,28 @@ ctx.c: $(C_HEADERS)
 	@for header in $(C_HEADERS); do echo "#include \"$$header\""; done > $@
 	@echo "Generated ctx.c ($$(wc -l < ctx.c) lines)"
 
+# The sidecar's ONE remaining job is macro names: agbcc's own -g DWARF (above) carries the
+# types and signatures, but agbcc cannot emit macro info at all, and this project names many
+# fixed RAM cells with address-cast macros rather than externs.
+#   -g3            record macro definitions
+#   -gdwarf-2 -gstrict-dwarf  emit .debug_macinfo (inline strings, ONE self-contained section)
+#                  rather than DWARF-5 .debug_macro, which splits across COMDAT groups and
+#                  references .debug_str — neither of which survives a section graft.
 $(CTX_OBJ): ctx.c
-	@echo "$(CC) -g <types-sidecar> -o $@"
-	@$(CC) $(CPPFLAGS) -mabi=apcs-gnu -g -fno-eliminate-unused-debug-types -c $< -o $@
+	@echo "$(CC) -g3 <macro-sidecar> -o $@"
+	@$(CC) $(CPPFLAGS) -mabi=apcs-gnu -gdwarf-2 -g3 -gstrict-dwarf -fno-eliminate-unused-debug-types -c $< -o $@
 
 ctx: ctx.c
 
-# Derive the asmlift symbol-source ELF: the built ELF plus the sidecar's DWARF.
+# Derive the asmlift symbol-source ELF: the built ELF (which already carries agbcc's own
+# -g DWARF: types AND per-function signatures) plus ONLY the sidecar's macro table.
+# Grafting the sidecar's .debug_info/.debug_str here would duplicate section names the built
+# ELF now owns, and a reader takes the first — silently shadowing the richer agbcc DWARF.
 # Debug sections are non-alloc; objcopy -O binary dumps only alloc sections, so flag
 # each one alloc first, then graft it onto the copy.
 $(SYMS_ELF): $(ELF) $(CTX_OBJ)
 	@cp $(ELF) $@
-	@for sec in .debug_info .debug_abbrev .debug_str .debug_line .debug_aranges; do \
+	@for sec in .debug_macinfo; do \
 		$(OBJCOPY) -O binary --only-section=$$sec \
 			--set-section-flags $$sec=alloc $(CTX_OBJ) $(OBJ_DIR)/ctx$$sec.bin; \
 		$(OBJCOPY) --add-section $$sec=$(OBJ_DIR)/ctx$$sec.bin $@; \
