@@ -6437,7 +6437,35 @@ INCLUDE_ASM("asm/nonmatchings/code_3", UpdateVisionStarIcons);
  * both (L|R), runs a 0x80-frame arrival sequence (jingle + progress flag clear
  * at frame 0x40) and finally hands the selection to FindNextUnlockedVision.
  */
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapNodeState);
+void UpdateWorldMapNodeState(void) {
+    if (gUnk_030034B0.selectedVision == 0) {
+        return;
+    }
+
+    if (gUnk_030034B0.visionArrivalTimer != 0) {
+        gUnk_030034B0.visionArrivalTimer--;
+    }
+
+    if (gBg2Alpha == (u8)SELECTED_VISION_ANGLE) {
+        /* Aligned: hold both shoulder buttons so the globe stops turning. */
+        gHeldKeys = L_BUTTON | R_BUTTON;
+        if (gUnk_030034B0.visionArrivalTimer == 0) {
+            gUnk_030034B0.visionArrivalTimer = 0x80;
+        }
+        if (gUnk_030034B0.visionArrivalTimer == 0x40) {
+            m4aSongNumStart(0x8B);
+            SELECTED_VISION_PROGRESS &= 0x80;
+            UpdateVisionStarIcons();
+        }
+        if (gUnk_030034B0.visionArrivalTimer == 1) {
+            gUnk_030034B0.selectedVision = FindNextUnlockedVision();
+        }
+    } else if ((s8)(SELECTED_VISION_ANGLE - gBg2Alpha) < 0) {
+        gHeldKeys = L_BUTTON;
+    } else if ((s8)(SELECTED_VISION_ANGLE - gBg2Alpha) > 0) {
+        gHeldKeys = R_BUTTON;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", FindNextUnlockedVision);
 INCLUDE_ASM("asm/nonmatchings/code_3", SortEntityDrawOrder);
 INCLUDE_ASM("asm/nonmatchings/code_3", SaveGameToSRAM);
