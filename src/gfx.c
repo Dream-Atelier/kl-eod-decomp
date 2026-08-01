@@ -903,7 +903,49 @@ void StreamCmd_InitHBlankWait(void) {
     *streamPP += 5;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitSpriteWave);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitButtonWait);
+/**
+ * StreamCmd_InitButtonWait: initialize a button-wait entry from stream data.
+ *
+ * Same shape as StreamCmd_InitHBlankWait: reads the s16 timeout from stream
+ * bytes[3-4] into the GfxStreamEntry indexed by stream byte[2] (field `timer`),
+ * then latches the timeout's sign bit into entry byte 0x1E — so a NEGATIVE
+ * timeout means "ignore the timer, wait for the button however long it takes".
+ * Installs ProcessButtonWait as the per-frame callback, sets the entry type
+ * nibble to 1 (which is what makes ProcessAnimationSteps dispatch the entry),
+ * switches the level-state render mode to 2, and advances the stream by 5.
+ *
+ * ProcessButtonWait ends the wait on a fresh A press (gNewKeys bit 0). It has no
+ * thumb_func_start of its own — luvdis merged it into the tail of
+ * asm/nonmatchings/gfx/ProcessSpriteOscillation.s at 0x0804D074 — so it is linked
+ * through the ldscript.in.txt symbol instead of as a C function.
+ * Both the name and the field meanings are backed by runtime evidence:
+ * docs/dynamic-analysis/scripts/prove-button-wait.mjs
+ */
+void StreamCmd_InitButtonWait(void) {
+    s16 timeout = ReadUnalignedS16(gStreamPtr + 3);
+
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].timer = timeout;
+        entries[cmd[2]].unk_1E = entries[cmd[2]].timer >> 15;
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].callback = (u32)ProcessButtonWait;
+        entries[cmd[2]].type = 1;
+    }
+    {
+        s8 *renderMode = (s8 *)gGfxBufferPtr;
+        *renderMode = (*renderMode & ~3) | 2;
+    }
+    gStreamPtr += 5;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_StopMotion);
 /**
  * ProcessScreenFade: step the active screen fade one frame toward its target.
