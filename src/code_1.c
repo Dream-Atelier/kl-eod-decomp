@@ -896,7 +896,123 @@ void TransitionGameOver(void) {
         gMosaicSize += 1;
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_1", GameplayFrameInit);
+#define ENDING_VCOUNT_SPLIT        143
+#define ENDING_MUSIC_FADE_STEP     16
+#define ENDING_AUTO_ADVANCE_FRAMES 250
+#define SONG_ENDING_THEME          0x78
+
+/**
+ * GameplayFrameInit: one frame of the ending/credits hand-off step.
+ *
+ * Installed as gCallbackQueue.next[1] by VBlankCallback_Credits (code_0), and run
+ * once per frame while gUnk_030034E4 (transition-busy) is held at 1.
+ *
+ * Two independent jobs:
+ *  1. A 16-step BLDY darken fade driven by gBlendValue. On step 0 it parks every
+ *     entity but the player (unkF = 0x1C, onScreen = 0) and marks entity 0 visible.
+ *     On step 1 it arms a VCount=143 raster split (WaitVBlankAndClearMosaic on the
+ *     VCount IRQ) and switches BLDCNT to darken. Every step ramps the m4a master
+ *     volume down by 16; on step 16 it stops all players, restores full volume,
+ *     starts song 0x78 and refreshes the HUD collectible count. Steps 2..15 only
+ *     run on every 8th global frame (globalFrameCounter & 7).
+ *  2. An auto-advance: A/START, or ~250 frames of gUnk_03003410.unk0, restores the
+ *     player to 3 hearts, silences and re-arms the mixer, opens the windows and
+ *     queues TransitionFadeOutFull, clearing the blend and mosaic levels.
+ *
+ * Matching notes (agbcc 2.95):
+ *  - the `goto checkAdvance` is load-bearing: the same shape written as
+ *    do { ... break; ... } while (0) makes agbcc re-order the whole prologue.
+ *  - `dispStat` must be a separate statement; folding it into one expression makes
+ *    agbcc narrow 0xFFFF8F00 to a `movs #143; lsls #8` pair instead of a pool word.
+ *  - `gBlendValue = gMosaicSize = 0;` (chained) emits both address loads before the
+ *    two stores, which two separate statements do not.
+ */
+void GameplayFrameInit(void) {
+    u32 i;
+    s32 dispStat;
+
+    gUnk_030034E4 = 1;
+
+    if (gBlendValue == 0) {
+        for (i = 1; i < gUnk_03005428; i++) {
+            gUnk_03002920[i].onScreen = 0;
+            gUnk_03002920[i].unkF = 0x1C;
+        }
+        gUnk_03002920[0].onScreen = 1;
+    } else {
+        if ((gUnk_03004C20.globalFrameCounter & 7) != 0) {
+            goto checkAdvance;
+        }
+        if (gBlendValue > BLEND_MAX - 1) {
+            goto checkAdvance;
+        }
+    }
+
+    if (gBlendValue == 1) {
+        dispStat = REG_DISPSTAT & 0xFF;
+        REG_DISPSTAT = dispStat | (ENDING_VCOUNT_SPLIT << 8);
+        gIntrTable.vCount = WaitVBlankAndClearMosaic;
+        REG_IE |= INTR_FLAG_VCOUNT;
+        REG_DISPSTAT |= DISPSTAT_VCOUNT_INTR;
+        REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_BD;
+        if (gUnk_03004C20.world == 6) {
+            if ((gUnk_03004C20.level == 1) || (gUnk_03004C20.level == 3)) {
+                REG_WININ = WININ_WIN0_BG0 | WININ_WIN0_CLR | WININ_WIN1_BG0;
+            }
+        }
+    }
+
+    gUnk_03005210 -= ENDING_MUSIC_FADE_STEP;
+    if (gUnk_03005210 > ENDING_MUSIC_FADE_STEP) {
+        m4aMPlayVolumeControl(&gMPlayInfo_0, 0xFF, gUnk_03005210);
+        m4aMPlayVolumeControl(&gMPlayInfo_1, 0xFF, gUnk_03005210);
+        m4aMPlayVolumeControl(&gMPlayInfo_2, 0xFF, gUnk_03005210);
+        m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, gUnk_03005210);
+    } else {
+        m4aMPlayVolumeControl(&gMPlayInfo_0, 0xFF, ENDING_MUSIC_FADE_STEP);
+        m4aMPlayVolumeControl(&gMPlayInfo_1, 0xFF, ENDING_MUSIC_FADE_STEP);
+        m4aMPlayVolumeControl(&gMPlayInfo_2, 0xFF, ENDING_MUSIC_FADE_STEP);
+        m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, ENDING_MUSIC_FADE_STEP);
+    }
+
+    gBlendValue++;
+    if (gBlendValue == BLEND_MAX) {
+        m4aMPlayAllStop();
+        gUnk_03005210 = 0x100;
+        m4aMPlayVolumeControl(&gMPlayInfo_0, 0xFF, gUnk_03005210);
+        m4aMPlayVolumeControl(&gMPlayInfo_1, 0xFF, gUnk_03005210);
+        m4aMPlayVolumeControl(&gMPlayInfo_2, 0xFF, gUnk_03005210);
+        m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, gUnk_03005210);
+        m4aSongNumStart(SONG_ENDING_THEME);
+        UpdateHUDCollectibleCount();
+    } else if (gBlendValue == 9) {
+        gUnk_03002920[0].priority = 0;
+    }
+
+checkAdvance:
+    if (((gNewKeys & (A_BUTTON | START_BUTTON)) != 0) || (gUnk_03003410.unk0 > ENDING_AUTO_ADVANCE_FRAMES)) {
+        if (gUnk_03003410.unk0 != 0) {
+            gUnk_03005220.hearts = 3;
+            m4aMPlayAllStop();
+            VBlankIntrWait();
+            if (gUnk_03004C20.world == 6) {
+                if ((gUnk_03004C20.level == 1) || (gUnk_03004C20.level == 3)) {
+                    REG_WININ = WININ_WIN0_BG0 | WININ_WIN0_CLR | WININ_WIN1_BG0 | WININ_WIN1_CLR;
+                }
+            }
+            REG_WINOUT = WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR;
+            gUnk_03005210 = 0x100;
+            m4aMPlayVolumeControl(&gMPlayInfo_0, 0xFF, gUnk_03005210);
+            m4aMPlayVolumeControl(&gMPlayInfo_1, 0xFF, gUnk_03005210);
+            m4aMPlayVolumeControl(&gMPlayInfo_2, 0xFF, gUnk_03005210);
+            m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, gUnk_03005210);
+            gCallbackQueue.current[1] = TransitionFadeOutFull;
+            gBlendValue = gMosaicSize = 0;
+            return;
+        }
+    }
+    gUnk_03003410.unk0++;
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutFull);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionReturnToWorldMap);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutMusicAndReset);
@@ -996,7 +1112,7 @@ void TransitionSoftReset(void) {
         return;
     }
 
-    gBldyFadeLevel += 1;
+    gMosaicSize += 1;
 }
 /**
  * TransitionSelfRemoveFadeIn: kleod TransitionSelfRemoveFadeIn.

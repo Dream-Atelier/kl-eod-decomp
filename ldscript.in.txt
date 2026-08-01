@@ -1,3 +1,11 @@
+/* Function symbols for routines that are still raw thumb blobs with no
+ * thumb_func_start of their own (luvdis merged them into a neighbour's .s file),
+ * so C cannot link against them by name. Values carry the thumb bit.
+ * ProcessButtonWait: the gfx-stream callback installed by StreamCmd_InitButtonWait;
+ * it lives at 0x0804D074 inside asm/nonmatchings/gfx/ProcessSpriteOscillation.s.
+ * Named from runtime evidence — docs/dynamic-analysis/scripts/prove-button-wait.mjs */
+ProcessButtonWait = 0x0804D075;
+
 /* Data symbols: extern declarations in globals.h resolve to these addresses. */
 gUnk_03000000 = 0x03000000;
 gUnk_03000001 = 0x03000001;
@@ -48,7 +56,14 @@ gUnk_03004660 = 0x03004660;
 gUnk_030007E0 = 0x030007E0;
 gUnk_03005400 = 0x03005400;
 gUnk_03005440 = 0x03005440;
-gUnk_03004680 = 0x03004680;
+gOamAffineMatrix = 0x03004680;
+/* Graphics/music command-stream cursor. Declared as a real extern object
+ * rather than a literal-address macro: only then does agbcc's alias analysis
+ * know that a halfword store through a typed global array cannot clobber it,
+ * which is what lets StreamCmd_SetEntityTransform keep the cursor live across
+ * the gOamAffineMatrix stores (while still reloading it after the char/bitfield
+ * stores into gUnk_03002920) exactly as the original build does. */
+gStreamPtr = 0x03004D84;
 gUnk_03004800 = 0x03004800;
 gUnk_030034DC = 0x030034DC;
 gUnk_030051DC = 0x030051DC;
@@ -158,6 +173,8 @@ gUnk_08116AA4 = 0x08116AA4;
 gUnk_08116AA7 = 0x08116AA7;
 gUnk_0811710A = 0x0811710A;
 gUnk_08117110 = 0x08117110;
+gWorldMapNodes = 0x0811717C;
+gWorldMapVisionNode = 0x0811762C;
 gUnk_0818B9F8 = 0x0818B9F8;
 gUnk_082EAF8C = 0x082EAF8C;
 gUnk_082EB488 = 0x082EB488;
@@ -531,3 +548,4 @@ SECTIONS {
         data/data.o(.text);
     }
 }
+gMinigamePlayerArmed = 0x0300549C;

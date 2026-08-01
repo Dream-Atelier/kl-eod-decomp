@@ -9,6 +9,8 @@ INCLUDE_ASM("asm/nonmatchings/gfx", UpdateBGScrollRegisters);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateBGTileAnimation);
 void UpdateBGScrollRegisters(void);
 void ProcessFrameAnimation(void);
+u32 ProcessMotionStep(u32 idx);
+void ProcessStaticBGScroll(void);
 void m4aSoundVSyncOff(void);
 void m4aMPlayAllStop(void);
 void UpdateSceneTransition(void);
@@ -298,16 +300,43 @@ void InitGfxStreamState(void) {
     dma[1] = 0xE0 << 19;
     dma[2] = 0x84000100;
     dma[2];
-    *(u8 *)&gRenderFlags = 0x0D;
+    gUnk_03005428 = 0x0D;
     gVramWriteCursor = gVramCursorInit;
     gPaletteVramCursor = gPaletteCursorInit;
 }
 /**
- * ResetGfxStreamEntries: frees all active stream entries and resets state.
- * Iterates 32 entries in gGfxStreamBuffer, frees those with non-zero flags,
- * clears OAM, resets write cursors.
+ * ResetGfxStreamEntries: releases every OBJ tile allocation the graphics stream
+ * owns and rewinds the stream to its initial state.
+ *
+ * Walks the 32-slot allocation table at *gGfxStreamBuffer from the back, and for
+ * each slot still holding tiles (tileCount != 0) frees its heap block — the block
+ * starts 4 bytes before pTiles — then blanks the slot. Finally clears OAM, puts
+ * the renderer back in mode 0x0D and rewinds both VRAM write cursors, so the next
+ * LoadGfxStreamEntry starts allocating OBJ tiles from the top again.
  */
-INCLUDE_ASM("asm/nonmatchings/gfx", ResetGfxStreamEntries);
+void ResetGfxStreamEntries(void) {
+    struct GfxStreamAlloc *entry;
+    u32 base;
+    s32 i;
+
+    for (i = 32; i > 0; i--) {
+        base = gGfxStreamBuffer;
+        entry = (struct GfxStreamAlloc *)((i << 3) + base - 8);
+        if (entry->tileCount != 0) {
+            thunk_HeapFree(entry->pTiles - 4);
+            base = (i << 3) + gGfxStreamBuffer;
+            base -= 8;
+            entry = (struct GfxStreamAlloc *)base;
+            entry->tileCount = 0;
+            entry->pTiles = 0;
+            entry->tileIndex = 0;
+        }
+    }
+    ClearVideoState();
+    gUnk_03005428 = 0x0D;
+    gVramWriteCursor = gVramCursorInit;
+    gPaletteVramCursor = gPaletteCursorInit;
+}
 /**
  * StreamCmd_ResetEntries: stream command handler that resets all entries.
  *
@@ -385,7 +414,38 @@ void ProcessStreamCommand_C218(void) {
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ConfigureSprite);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetupOAMSpriteGroup);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetEntityFlags);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetEntityTransform);
+extern s16 ReciprocalQ8(s16 a);
+extern s16 MultiplyQ8(s16 a, s16 b);
+
+/**
+ * StreamCmd_SetEntityTransform: point an entity at an OBJ affine matrix and
+ * load that matrix with a uniform scale.
+ *
+ * Stream layout (6 bytes):
+ *   [2] entity slot, relative to the stream-owned entity window at index 0xD
+ *   [3] bits 0-4: OBJ affine matrix number (also stored in the entity)
+ *       bit 5   : OBJ affine enable
+ *       bit 7   : OBJ affine double-size bounding box
+ *   [4..5] unaligned s16 magnification (Q_8_8)
+ *
+ * pa = pd = 0x100 / mag with pb = pc = 0 is a pure uniform scale: no rotation,
+ * no shear. The hardware matrix maps screen space back to texture space, so a
+ * *larger* pa/pd yields a *smaller* sprite (see struct OamAffineMatrix, whose
+ * field names are proven in docs/dynamic-analysis/).
+ */
+void StreamCmd_SetEntityTransform(void) {
+    s16 mag;
+
+    gUnk_03002920[gStreamPtr[2] + 0xD].affineHFlip_matrixNum = gStreamPtr[3] & 0x1F;
+    gUnk_03002920[gStreamPtr[2] + 0xD].affineEnable = (gStreamPtr[3] >> 5) & 1;
+    gUnk_03002920[gStreamPtr[2] + 0xD].affineDouble = gStreamPtr[3] >> 7;
+    mag = ReadUnalignedS16(gStreamPtr + 4);
+    gOamAffineMatrix[gStreamPtr[3] & 0x1F].pa = MultiplyQ8(0x100, ReciprocalQ8(mag));
+    gOamAffineMatrix[gStreamPtr[3] & 0x1F].pb = 0;
+    gOamAffineMatrix[gStreamPtr[3] & 0x1F].pc = 0;
+    gOamAffineMatrix[gStreamPtr[3] & 0x1F].pd = MultiplyQ8(0x100, ReciprocalQ8(mag));
+    gStreamPtr += 6;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGPriority);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_FillBGTilemap);
 /**
@@ -401,7 +461,7 @@ void StreamCmd_EnableMosaic(void) {
     bg2cnt++;
     *bg2cnt |= 0x40;
 
-    gBldyFadeLevel = gStreamPtr[2] & 0x0F;
+    gMosaicSize = gStreamPtr[2] & 0x0F;
     gStreamPtr += 3;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetSpriteAttrs);
@@ -518,9 +578,306 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitLinearMotionExt);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitRotationMotion);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitMotionWithPalette);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitAngleMotion);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitOscillation);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitOscillationExt);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitStaticScroll);
+/**
+ * StreamCmd_InitOscillation: initialize a sprite-oscillation entry from stream data.
+ *
+ * Writes the oscillation parameters from the command stream into the
+ * GfxStreamEntry indexed by stream byte[2], then installs ProcessMotionStep as
+ * the entry's per-tick callback and advances the stream by 9 bytes. Each tick
+ * ProcessMotionStep adds trig[(entry[0x1E] * entry->timer) & 0xFF] * amplitude >> 8
+ * to the scroll of the object selected by targetIndex, and decrements the timer.
+ *
+ *   byte[3] low nibble -> targetIndex: which object oscillates (BG layer index)
+ *   byte[4] -> +0x08, byte[5] -> +0x0A: X and Y amplitude of the oscillation
+ *   bytes[6-7] (unaligned s16) -> timer: how many ticks it runs, and the phase
+ *                                 argument (phase = byte[8] * timer)
+ *   byte[8] -> +0x1E: angular step per tick, i.e. the oscillation frequency
+ *
+ * It also clears the target-mode selector (0x07F8 of the halfword at +0x00) to 0,
+ * selecting the BG-layer target mode, and sets the entry type nibble to 1.
+ *
+ * Field meanings verified at runtime against the ROM's own ProcessMotionStep —
+ * see docs/dynamic-analysis/scripts/prove-gfxstream-motion-fields.mjs.
+ */
+void StreamCmd_InitOscillation(void) {
+    u8 **streamPP = &gStreamPtr;
+    u8 **basePP;
+    u8 *sp1;
+    u8 idx1;
+    u8 *base1;
+    u32 offA;
+    u8 *entryA;
+    u32 targetIndex;
+    u8 *sp2;
+    u8 idx2;
+    u8 *base2;
+    u32 offB;
+    u32 offC;
+    s16 amplitude;
+    u8 *sp3;
+    u8 idx3;
+    u8 *base3;
+    u32 offD;
+    u32 offE;
+    u8 *sp4;
+    u8 idx4;
+    u8 *base4;
+    u32 offF;
+    u32 modeBits;
+    s32 modeMask;
+    u32 offG;
+    u32 offH;
+    u8 *entryH;
+    u8 flagsH;
+    s32 maskH;
+
+    sp1 = *streamPP;
+    idx1 = sp1[2];
+    basePP = &gBuffer_52A4;
+    base1 = *basePP;
+    offA = (u32)(idx1 * 9) * 4;
+    offA += (u32)base1;
+    entryA = (u8 *)offA;
+    targetIndex = sp1[3];
+    ((struct GfxStreamEntry *)entryA)->targetIndex = targetIndex;
+
+    sp2 = *streamPP;
+    idx2 = sp2[2];
+    base2 = *basePP;
+    offB = (u32)(idx2 * 9) * 4;
+    offB += (u32)base2;
+    *(u16 *)(offB + 0x08) = sp2[4];
+
+    idx2 = sp2[2];
+    offC = (u32)(idx2 * 9) * 4;
+    offC += (u32)base2;
+    *(u16 *)(offC + 0x0A) = sp2[5];
+
+    amplitude = ReadUnalignedS16(sp2 + 6);
+
+    sp3 = *streamPP;
+    idx3 = sp3[2];
+    base3 = *basePP;
+    offD = (u32)(idx3 * 9) * 4;
+    offD += (u32)base3;
+    *(u16 *)(offD + 0x14) = amplitude;
+
+    idx3 = sp3[2];
+    offE = (u32)(idx3 * 9) * 4;
+    offE += (u32)base3;
+    *(u8 *)(offE + 0x1E) = sp3[8];
+
+    sp4 = *streamPP;
+    idx4 = sp4[2];
+    base4 = *basePP;
+    offF = (u32)(idx4 * 9) * 4;
+    offF += (u32)base4;
+    modeBits = *(u16 *)offF;
+    modeMask = -0x7F9;
+    modeMask &= modeBits;
+    *(u16 *)offF = modeMask;
+
+    idx4 = sp4[2];
+    offG = (u32)(idx4 * 9) * 4;
+    offG += (u32)base4;
+    *(u32 *)(offG + 0x20) = (u32)ProcessMotionStep;
+
+    idx4 = sp4[2];
+    offH = (u32)(idx4 * 9) * 4;
+    offH += (u32)base4;
+    entryH = (u8 *)offH;
+    flagsH = entryH[0];
+    maskH = -8;
+    maskH &= flagsH;
+    entryH[0] = maskH | 1;
+
+    *streamPP += 9;
+}
+/**
+ * StreamCmd_InitOscillationExt: start a sine oscillation on a gfx-stream target.
+ *
+ * Fills the GfxStreamEntry selected by stream byte[2] with the parameters of a
+ * sine wave and installs ProcessMotionStep as its per-frame callback, so that
+ * every frame the entry adds `amplitude * gSineTable[(timer * angularStep) & 0xFF] >> 8`
+ * to its target's X and Y, counts `timer` down by one, and deactivates itself
+ * when the countdown is spent.
+ *
+ * Stream layout (9 bytes):
+ *   [2] entry index          [3] target object index (7 bits, biased +13 by the handler)
+ *   [4] X amplitude          [5] Y amplitude
+ *   [6..7] duration in frames (unaligned s16, also the oscillation phase)
+ *   [8] angular step per frame
+ *
+ * The "Ext" variant additionally forces the entry's target selector (word 0,
+ * bits 3..10) to 2, which makes ProcessMotionStep drive a gUnk_03002920 object
+ * rather than a BG scroll pair.
+ *
+ * Every meaning above is verified at runtime against the real ROM by
+ * docs/dynamic-analysis/scripts/prove-oscillation-fields.mjs.
+ */
+void StreamCmd_InitOscillationExt(void) {
+    u8 **streamPP = &gStreamPtr;
+    u8 **entriesPP;
+    u8 *stream1;
+    u8 idx;
+    u8 *entries1;
+    u32 entA;
+    u32 entB;
+    u32 entC;
+    u32 targetIndexBits;
+    u32 word0;
+    s16 durationFrames;
+    u8 *stream2;
+    u8 *entries2;
+    u32 entD;
+    u32 entE;
+    u8 *stream3;
+    u8 *entries3;
+    u32 entF;
+    u32 entG;
+    u32 entH;
+    u32 selectorWord;
+    s32 selectorMask;
+    u8 *entry;
+    u8 status;
+    s32 statusMask;
+
+    stream1 = *streamPP;
+    idx = stream1[2];
+    entriesPP = &gBuffer_52A4;
+    entries1 = *entriesPP;
+    entA = (u32)(idx * 9) * 4;
+    entA += (u32)entries1;
+    targetIndexBits = stream1[3];
+    targetIndexBits &= 0x7F;
+    targetIndexBits <<= 15;
+    word0 = *(u32 *)entA;
+    word0 &= ~0x3F8000;
+    word0 |= targetIndexBits;
+    *(u32 *)entA = word0;
+
+    idx = stream1[2];
+    entB = (u32)(idx * 9) * 4;
+    entB += (u32)entries1;
+    *(u16 *)(entB + 0x08) = stream1[4];
+
+    idx = stream1[2];
+    entC = (u32)(idx * 9) * 4;
+    entC += (u32)entries1;
+    *(u16 *)(entC + 0x0A) = stream1[5];
+
+    durationFrames = ReadUnalignedS16(stream1 + 6);
+
+    stream2 = *streamPP;
+    idx = stream2[2];
+    entries2 = *entriesPP;
+    entD = (u32)(idx * 9) * 4;
+    entD += (u32)entries2;
+    *(s16 *)(entD + 0x14) = durationFrames;
+
+    idx = stream2[2];
+    entE = (u32)(idx * 9) * 4;
+    entE += (u32)entries2;
+    *(u8 *)(entE + 0x1E) = stream2[8];
+
+    stream3 = *streamPP;
+    idx = stream3[2];
+    entries3 = *entriesPP;
+    entF = (u32)(idx * 9) * 4;
+    entF += (u32)entries3;
+    selectorWord = *(u16 *)entF;
+    selectorMask = ~0x7F8;
+    selectorMask &= selectorWord;
+    *(u16 *)entF = selectorMask | 0x10;
+
+    idx = stream3[2];
+    entG = (u32)(idx * 9) * 4;
+    entG += (u32)entries3;
+    *(u32 *)(entG + 0x20) = (u32)ProcessMotionStep;
+
+    idx = stream3[2];
+    entH = (u32)(idx * 9) * 4;
+    entH += (u32)entries3;
+    entry = (u8 *)entH;
+    status = entry[0];
+    statusMask = -8;
+    statusMask &= status;
+    entry[0] = statusMask | 1;
+
+    *streamPP += 9;
+}
+/**
+ * StreamCmd_InitStaticScroll: initialize a static BG-scroll entry from stream data.
+ *
+ * Reads the entry index from stream byte[2], stores the per-frame X/Y scroll steps
+ * from bytes[4]/[5] into the GfxStreamEntry, selects which BG layer to scroll from
+ * byte[3] (the 4-bit targetIndex into gBGLayerState), clears the packed 8-bit param
+ * field so ProcessStaticBGScroll's gate is open, installs ProcessStaticBGScroll as the
+ * per-frame callback, sets the entry type to 1 (active), then advances the stream by
+ * 6 bytes.
+ */
+void StreamCmd_InitStaticScroll(void) {
+    u8 **streamPP = &gStreamPtr;
+    u32 *basePP;
+    u8 *sp;
+    u8 idx;
+    u32 base;
+    u32 offA;
+    u32 offB;
+    u32 offC;
+    u8 targetIndex;
+    struct GfxStreamEntry *entryC;
+    u8 *sp2;
+    u32 base2;
+    u32 offD;
+    u32 offE;
+    u32 offF;
+    struct GfxStreamEntry *entryD;
+    struct GfxStreamEntry *entryF;
+
+    sp = *streamPP;
+    idx = sp[2];
+    basePP = &gBuffer_52A4;
+    base = *basePP;
+
+    offA = (u32)(idx * 9) * 4;
+    offA += base;
+    *(u16 *)(offA + 0x08) = sp[4];
+
+    idx = sp[2];
+    offB = (u32)(idx * 9) * 4;
+    offB += base;
+    *(u16 *)(offB + 0x0A) = sp[5];
+
+    idx = sp[2];
+    offC = (u32)(idx * 9) * 4;
+    offC += base;
+    entryC = (struct GfxStreamEntry *)offC;
+    targetIndex = sp[3];
+    entryC->targetIndex = targetIndex;
+
+    sp2 = *streamPP;
+    idx = sp2[2];
+    base2 = *basePP;
+
+    offD = (u32)(idx * 9) * 4;
+    offD += base2;
+    entryD = (struct GfxStreamEntry *)offD;
+    entryD->param = 0;
+
+    idx = sp2[2];
+    offE = (u32)(idx * 9) * 4;
+    offE += base2;
+    *(u32 *)(offE + 0x20) = (u32)ProcessStaticBGScroll;
+
+    idx = sp2[2];
+    offF = (u32)(idx * 9) * 4;
+    offF += base2;
+    entryF = (struct GfxStreamEntry *)offF;
+    entryF->type = 1;
+
+    *streamPP += 6;
+}
 /**
  * StreamCmd_InitFrameAnimation: initialize a frame-animation entry from stream data.
  *
@@ -700,7 +1057,83 @@ void StreamCmd_InitHBlankWait(void) {
     *streamPP += 5;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitSpriteWave);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitButtonWait);
+/**
+ * StreamCmd_InitButtonWait: initialize a button-wait entry from stream data.
+ *
+ * Same shape as StreamCmd_InitHBlankWait: reads the s16 timeout from stream
+ * bytes[3-4] into the GfxStreamEntry indexed by stream byte[2] (field `timer`),
+ * then latches the timeout's sign bit into entry byte 0x1E — so a NEGATIVE
+ * timeout means "ignore the timer, wait for the button however long it takes".
+ * Installs ProcessButtonWait as the per-frame callback, sets the entry type
+ * nibble to 1 (which is what makes ProcessAnimationSteps dispatch the entry),
+ * switches the level-state render mode to 2, and advances the stream by 5.
+ *
+ * ProcessButtonWait ends the wait on the A button (gKeysPressed bit 0). It has no
+ * thumb_func_start of its own — luvdis merged it into the tail of
+ * asm/nonmatchings/gfx/ProcessSpriteOscillation.s at 0x0804D074 — so it is linked
+ * through the ldscript.in.txt symbol instead of as a C function.
+ * Both the name and the field meanings are backed by runtime evidence:
+ * docs/dynamic-analysis/scripts/prove-button-wait.mjs
+ */
+void StreamCmd_InitButtonWait(void) {
+    s16 timerVal;
+    u8 **streamPP = &gStreamPtr;
+    u8 **basePP;
+    u8 *sp1;
+    u8 idx1;
+    u8 *base1;
+    u32 offA;
+    u32 offB;
+    u8 *entryB;
+    u8 *sp2;
+    u8 idx2;
+    u8 *base2;
+    u32 offC;
+    u32 offD;
+    u8 *entryD;
+    u8 flags;
+    s32 mask;
+    s8 *gp;
+
+    timerVal = ReadUnalignedS16(*streamPP + 3);
+
+    sp1 = *streamPP;
+    idx1 = sp1[2];
+    basePP = &gBuffer_52A4;
+    base1 = *basePP;
+
+    offA = (u32)(idx1 * 9) * 4;
+    offA += (u32)base1;
+    *(s16 *)(offA + 0x14) = timerVal;
+
+    idx1 = sp1[2];
+    offB = (u32)(idx1 * 9) * 4;
+    offB += (u32)base1;
+    entryB = (u8 *)offB;
+    entryB[0x1E] = *(u16 *)(entryB + 0x14) >> 15;
+
+    sp2 = *streamPP;
+    idx2 = sp2[2];
+    base2 = *basePP;
+
+    offC = (u32)(idx2 * 9) * 4;
+    offC += (u32)base2;
+    *(u32 *)(offC + 0x20) = (u32)ProcessButtonWait;
+
+    idx2 = sp2[2];
+    offD = (u32)(idx2 * 9) * 4;
+    offD += (u32)base2;
+    entryD = (u8 *)offD;
+    flags = entryD[0];
+    mask = -8;
+    mask &= flags;
+    entryD[0] = mask | 1;
+
+    gp = (s8 *)gGfxBufferPtr;
+    *gp = (*gp & ~3) | 2;
+
+    *streamPP += 5;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_StopMotion);
 /**
  * ProcessScreenFade: step the active screen fade one frame toward its target.
@@ -746,7 +1179,23 @@ s32 ProcessScreenFade(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdatePaletteFadeStep);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessSceneTransitionOut);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGModeTiled);
+/**
+ * StreamCmd_BeginSceneExit: stream command that ends the current scene.
+ *
+ * Clears the render-mode bits (low 2) of gGfxBuffer[0], advances the stream by
+ * 2, then replaces the scene-exit control (gGfxBuffer[2] bits 1-2) with
+ * GFX_SCENE_EXITING — so the next gfx-stream tick stops advancing the stream and
+ * runs ProcessSceneTransitionOut() instead. This is the same pair of writes the
+ * tick performs itself when START is pressed on a GFX_SCENE_SKIPPABLE scene.
+ *
+ * Both statements re-read gGfxBufferPtr because the gStreamPtr store between
+ * them may alias it.
+ */
+void StreamCmd_BeginSceneExit(void) {
+    *(s8 *)gGfxBufferPtr &= -4;
+    gStreamPtr += 2;
+    ((s8 *)gGfxBufferPtr)[2] = (((s8 *)gGfxBufferPtr)[2] & ~(GFX_SCENE_EXITING | GFX_SCENE_SKIPPABLE)) | GFX_SCENE_EXITING;
+}
 /**
  * StreamCmd_SetRenderModeTiled: set render mode to 2.
  * Clears low 2 bits of gGfxBuffer[0], sets bit 1. Advances stream by 2.
@@ -767,7 +1216,25 @@ void StreamCmd_ClearRenderMode(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleDisplayFlag);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleLayerFlag);
+/**
+ * StreamCmd_ToggleLayerFlag: flips GfxControlFlags.blendRampDown (byte 0x1C,
+ * bit 5) of the graphics control block, then advances the stream pointer by 2.
+ *
+ * The flag reverses the scene-transition cross-fade: ProcessSceneTransitionOut
+ * ramps gBlendValue down instead of up, and on underflow switches BG2 off and
+ * clears the flag again. Proved at runtime in
+ * docs/dynamic-analysis/scripts/prove-gfx-flag-1C-bit5.mjs — the name
+ * "ToggleLayerFlag" predates that evidence and is a misnomer.
+ *
+ * The `lsl #26 / lsr #31` bit extraction plus the `~0x20` read-modify-write is
+ * agbcc's canonical 1-bit bitfield toggle, so spelling the flag as a bitfield
+ * (rather than hand-written shifts and masks) reproduces the register schedule.
+ */
+void StreamCmd_ToggleLayerFlag(void) {
+    struct GfxControlFlags *ctl = (struct GfxControlFlags *)gGfxBufferPtr;
+    ctl->blendRampDown ^= 1;
+    gStreamPtr += 2;
+}
 /**
  * StreamCmd_SetBlendMode: set the hardware blend control (BLDCNT) from stream data.
  *

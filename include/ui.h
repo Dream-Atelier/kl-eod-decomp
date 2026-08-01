@@ -30,9 +30,6 @@ extern const u32 gSpriteDataTable[];
 /* UI sub-state struct (for dialog, menus, transitions). */
 #define gUIState         ((u8 *)0x03004DA0)
 
-/* Rendering scratch / output flags. */
-#define gRenderFlags     (*(u32 *)0x03005428)
-
 /* Secondary display state. */
 #define gDisplayState2   ((u8 *)0x03003410)
 
