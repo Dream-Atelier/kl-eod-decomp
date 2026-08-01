@@ -221,12 +221,19 @@ struct Unk_03004C08 {
     u8 pad3[0x4 - 0x3];
 };
 
-/* Active entity count (number of slots in gUnk_03002920 to iterate). */
+/* Active entity count (number of slots in gUnk_03002920 to iterate). Entities
+ * below 0xD are fixed slots, so InitGfxStreamState and ResetGfxStreamEntries
+ * rewind it to 0xD when they tear the graphics stream down. */
 extern u8 gUnk_03005428;
 
-/* Per-frame edge-detected key state. */
-extern u16 gNewKeys;
-extern u16 gHeldKeys;
+/* Arming flag for the player avatar of the hidden boot-menu minigame (0x0300549C).
+ * ConfigureInterruptsForGameplay stores IsDpadUpHeld() here on the single frame the
+ * minigame loop starts; UpdateBootMinigame's Select handler only spawns the avatar
+ * when it is 1.  Proven at runtime by
+ * docs/dynamic-analysis/scripts/prove-minigame-player-armed.mjs. */
+extern u8 gMinigamePlayerArmed;
+
+/* gNewKeys / gHeldKeys live in input.h, next to the rest of the input state. */
 
 /* Game-state struct at 0x03003410 (mirrored from kleod). */
 struct Unk_03003410 {
@@ -499,9 +506,25 @@ extern struct Unk_03005220 gUnk_03005220;
 /* Level-config view struct at 0x03005284, accessed via pointer.
  * Holds per-level entity/state replay values. */
 struct Unk_030034B0 {
-    u8 pad0[0x6 - 0x0];
-    u8 unk6_0 : 4;
-    u8 unk6_4 : 4;
+    /* 0x00_0 */ u8 unk0_0 : 1;
+    /* 0x00_1 */ u8 unk0_1 : 3;
+    /* 0x00_4 */ u8 visionStartPending : 1; /* latched high for the ~30-frame confirm-jingle
+                                             * delay in RunVisionStartConfirmDelay and cleared when the scene
+                                             * fade-out is queued. The latch itself is proven at
+                                             * runtime (docs/dynamic-analysis/scripts/prove-vision-start-pending.mjs);
+                                             * the "vision start" reading rests on that single
+                                             * install site, so treat the name as provisional. */
+    /* 0x00_5 */ u8 unk0_5 : 3;
+    /* 0x01 */ u8 pad1[0x5 - 0x1];
+    /* 0x05 */ u8 visionArrivalTimer; /* armed to 0x80 the frame the globe reaches the
+                                       * selected node, then counts down 1/frame:
+                                       * 0x40 = jingle + clear the node's progress byte,
+                                       * 0x01 = hand over to FindNextUnlockedVision. */
+    /* 0x06_0 */ u8 unk6_0 : 4;
+    /* 0x06_4 */ u8 unk6_4 : 4;
+    /* 0x07_0 */ u8 selectedVision : 4; /* world-map vision the globe is driven to,
+                                         * 1-based; 0 = auto-rotation idle. */
+    /* 0x07_4 */ u8 unk7_4 : 4;
 };
 struct Unk_03005294_03005418_0 {
     u32 src;
@@ -695,20 +718,36 @@ struct Unk_03000830 {
 }; /* size = 0x4 */
 extern struct Unk_03000830 gUnk_03000830[];
 
-/* Rotation/scale matrix source table for OAM (halfwords at 0x03004680). */
 struct EntityAnimationInfo {
     u8 state;
     u8 timer;
     volatile u8 frame;
     u8 pad3[1];
 };
-struct Unk_03004680 {
-    u16 unk0;
-    u16 unk2;
-    u16 unk4;
-    u16 unk6;
+
+/* OBJ (sprite) affine-matrix shadow table at 0x03004680, one entry per hardware
+ * OAM affine matrix. The OAM builder copies entry m into the GBA's matrix m,
+ * whose PA/PB/PC/PD live interleaved in OAM at 0x07000006 + 32m, +0x0E, +0x16
+ * and +0x1E (attribute3 of OAM entries 4m+0..4m+3). Entities select a matrix
+ * through `Unk_03002920.affineHFlip_matrixNum`.
+ *
+ * Identity is {0x100, 0, 0, 0x100} (Q_8_8). pa/pd are *inverse* scales — the
+ * hardware maps screen space back to texture space — so pa = pd = 0x200 renders
+ * the sprite at half size. That is why StreamCmd_SetEntityTransform loads
+ * pa = pd = 0x100 / mag.
+ *
+ * Field names proven at runtime, not guessed — see
+ * docs/dynamic-analysis/scripts/prove-oam-affine-matrix.mjs: writing the four
+ * distinct sentinels {0x1111, 0x2222, 0x3333, 0x4444} into one slot makes
+ * exactly those values appear at that matrix's PA, PB, PC, PD in that order,
+ * and perturbing only pa/only pd squashes a sprite horizontally/vertically. */
+struct OamAffineMatrix {
+    u16 pa; /* +0x00: x scale (cos component) -> OAM PA */
+    u16 pb; /* +0x02: x shear (sin component) -> OAM PB */
+    u16 pc; /* +0x04: y shear                 -> OAM PC */
+    u16 pd; /* +0x06: y scale (cos component) -> OAM PD */
 }; /* size = 0x8 */
-extern struct Unk_03004680 gUnk_03004680[];
+extern struct OamAffineMatrix gOamAffineMatrix[];
 
 /* Sprite-part metadata referenced via gUnk_0300466C / gUnk_08078FC8 / gUnk_030051DC. */
 struct Unk_0300466C_4 {
@@ -1040,6 +1079,15 @@ extern struct Unk_03004C08 gUnk_03004C08;
 extern struct Unk_0803D4AC gUnk_081168E8[];
 extern struct Unk_0803D4AC gUnk_03003620;
 extern struct Unk_030034B0 gUnk_030034B0;
+
+/* World-map node tables (ROM).
+ * gWorldMapNodes[world - 1][node][.] : 5-byte per-node records, 40 per world.
+ *   byte 1 is the negated BG2 rotation angle at which that node faces the camera
+ *   (proved dynamically: docs/dynamic-analysis/scripts/prove-worldmap-selected-vision.mjs).
+ *   The remaining 4 bytes are not yet identified.
+ * gWorldMapVisionNode[world - 1][vision - 1] : the node record a vision lives on. */
+extern u8 gWorldMapNodes[6][40][5];
+extern u8 gWorldMapVisionNode[6][8];
 extern u8 gUnk_030007C4;
 extern u16 gUnk_030052B8;
 extern u16 gUnk_08057C70;

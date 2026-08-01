@@ -896,7 +896,12 @@ void TransitionGameOver(void) {
         gMosaicSize += 1;
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_1", GameplayFrameInit);
+#define VCOUNT_SPLIT_LINE   143
+#define MUSIC_FADE_STEP     16
+#define AUTO_ADVANCE_FRAMES 250
+#define SONG_ID_78          0x78
+
+INCLUDE_ASM("asm/nonmatchings/code_1", sub_08024D84);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutFull);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionReturnToWorldMap);
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutMusicAndReset);
@@ -996,7 +1001,7 @@ void TransitionSoftReset(void) {
         return;
     }
 
-    gBldyFadeLevel += 1;
+    gMosaicSize += 1;
 }
 /**
  * TransitionSelfRemoveFadeIn: kleod TransitionSelfRemoveFadeIn.

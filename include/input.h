@@ -5,13 +5,25 @@
 
 /* ── Input System ── */
 
-/* Current frame pressed keys (active-high, edge-detected).
- * Written by ReadKeyInput each frame. */
-extern u16 gKeysPressed;
+/* The two key globals ReadKeyInput writes every frame, both active-high
+ * (REG_KEYINPUT is active-low, so it stores `0x3FF ^ REG_KEYINPUT`):
+ *
+ *     u16 now  = 0x3FF ^ REG_KEYINPUT;
+ *     gNewKeys  = now & ~gHeldKeys;   // edge: read gHeldKeys before overwriting
+ *     gHeldKeys = now;
+ *
+ * So gNewKeys is high only on the frame a button goes down, while gHeldKeys
+ * stays high for as long as it is held. Confirmed at runtime — see
+ * docs/dynamic-analysis/scripts/prove-key-globals.mjs: holding A for six
+ * frames gives gNewKeys 1,0,0,0,0,0 and gHeldKeys 1,1,1,1,1,1.
+ *
+ * Use gNewKeys for "was just pressed" and gHeldKeys for "is being held". */
 
-/* Previous frame raw key state (active-high).
- * Used for edge detection in ReadKeyInput. */
-extern u16 gKeysPrevious;
+/* Buttons that went down THIS frame (active-high, edge-detected). */
+extern u16 gNewKeys;
+
+/* Buttons currently held (active-high). */
+extern u16 gHeldKeys;
 
 /* Extended input state for ProcessInputAndTimers.
  * Separate from the simple ReadKeyInput state. */

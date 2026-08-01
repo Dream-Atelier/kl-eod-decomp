@@ -9,6 +9,10 @@ INCLUDE_ASM("asm/nonmatchings/gfx", UpdateBGScrollRegisters);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateBGTileAnimation);
 void UpdateBGScrollRegisters(void);
 void ProcessFrameAnimation(void);
+u32 ProcessMotionStep(u32 idx);
+void ProcessStaticBGScroll(void);
+extern s16 ReciprocalQ8(s16 a);
+extern s16 MultiplyQ8(s16 a, s16 b);
 void m4aSoundVSyncOff(void);
 void m4aMPlayAllStop(void);
 void UpdateSceneTransition(void);
@@ -298,15 +302,10 @@ void InitGfxStreamState(void) {
     dma[1] = 0xE0 << 19;
     dma[2] = 0x84000100;
     dma[2];
-    *(u8 *)&gRenderFlags = 0x0D;
+    gUnk_03005428 = 0x0D;
     gVramWriteCursor = gVramCursorInit;
     gPaletteVramCursor = gPaletteCursorInit;
 }
-/**
- * ResetGfxStreamEntries: frees all active stream entries and resets state.
- * Iterates 32 entries in gGfxStreamBuffer, frees those with non-zero flags,
- * clears OAM, resets write cursors.
- */
 INCLUDE_ASM("asm/nonmatchings/gfx", ResetGfxStreamEntries);
 /**
  * StreamCmd_ResetEntries: stream command handler that resets all entries.
@@ -401,7 +400,7 @@ void StreamCmd_EnableMosaic(void) {
     bg2cnt++;
     *bg2cnt |= 0x40;
 
-    gBldyFadeLevel = gStreamPtr[2] & 0x0F;
+    gMosaicSize = gStreamPtr[2] & 0x0F;
     gStreamPtr += 3;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetSpriteAttrs);
@@ -518,6 +517,26 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitLinearMotionExt);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitRotationMotion);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitMotionWithPalette);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitAngleMotion);
+/*
+ * Shape shared by the StreamCmd_Init* handlers below (agbcc 2.95 matching notes).
+ * StreamCmd_InitFrameAnimation and StreamCmd_InitHBlankWait predate it and still
+ * carry the raw offA/offB form; they want the same treatment.
+ *
+ * The originals re-read gStreamPtr and gBuffer_52A4 once per short run of stores
+ * instead of caching them, so each run gets its own scope with a fresh
+ * `cmd`/`entries` pair. Hoisting a single pair to the top of the function makes
+ * agbcc park them in callee-saved registers and changes the prologue.
+ *
+ * Inside a run, `idx` exists only to order the first `ldrb [cmd, #2]` ahead of the
+ * gBuffer_52A4 load; the later stores index with `cmd[2]` directly, which re-reads
+ * the byte exactly like the original (the intervening stores kill the cached load
+ * anyway).
+ *
+ * One exception: a bitfield store whose value comes straight from the command
+ * stream (`targetIndex = cmd[3]`) has to have its entry address computed in a
+ * separate statement, scaled index first. Written as one expression, agbcc
+ * schedules the `cmd[3]` load before the address arithmetic instead of after it.
+ */
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitOscillation);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitOscillationExt);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitStaticScroll);
@@ -746,7 +765,7 @@ s32 ProcessScreenFade(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdatePaletteFadeStep);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessSceneTransitionOut);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGModeTiled);
+INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_BeginSceneExit);
 /**
  * StreamCmd_SetRenderModeTiled: set render mode to 2.
  * Clears low 2 bits of gGfxBuffer[0], sets bit 1. Advances stream by 2.
@@ -767,7 +786,7 @@ void StreamCmd_ClearRenderMode(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleDisplayFlag);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleLayerFlag);
+INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleFadeDirection);
 /**
  * StreamCmd_SetBlendMode: set the hardware blend control (BLDCNT) from stream data.
  *

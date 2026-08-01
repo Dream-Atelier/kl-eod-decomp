@@ -155,9 +155,9 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
         case 0x41:
             gUnk_03002920[arg0].affineEnable = 1;
             gUnk_03002920[arg0].affineHFlip_matrixNum = gUnk_03005288 + 1;
-            gUnk_03004680[gUnk_03005288 + 1].unk0 = gUnk_03004680[gUnk_03005288 + 1].unk6 = COS(0);
-            gUnk_03004680[gUnk_03005288 + 1].unk4 = SIN(0);
-            gUnk_03004680[gUnk_03005288 + 1].unk2 = -SIN(0);
+            gOamAffineMatrix[gUnk_03005288 + 1].pa = gOamAffineMatrix[gUnk_03005288 + 1].pd = COS(0);
+            gOamAffineMatrix[gUnk_03005288 + 1].pc = SIN(0);
+            gOamAffineMatrix[gUnk_03005288 + 1].pb = -SIN(0);
             gUnk_03002920[arg0].flip = arg6;
             break;
 
@@ -180,8 +180,8 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
                     if (gUnk_030047B8 == 0) {
                         gUnk_030047B8 = arg0;
                         gUnk_03002920[arg0].affineHFlip_matrixNum = gUnk_03005288;
-                        gUnk_03004680[gUnk_03005288].unk0 = gUnk_03004680[gUnk_03005288].unk6 = 0x100;
-                        gUnk_03004680[gUnk_03005288].unk2 = gUnk_03004680[gUnk_03005288].unk4 = 0;
+                        gOamAffineMatrix[gUnk_03005288].pa = gOamAffineMatrix[gUnk_03005288].pd = 0x100;
+                        gOamAffineMatrix[gUnk_03005288].pb = gOamAffineMatrix[gUnk_03005288].pc = 0;
                         gUnk_03005288 += 1;
                     } else {
                         gUnk_03002920[arg0].affineHFlip_matrixNum = gUnk_03002920[gUnk_030047B8].affineHFlip_matrixNum;
@@ -190,8 +190,8 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
                     if (gUnk_03005470 == 0) {
                         gUnk_03005470 = arg0;
                         gUnk_03002920[arg0].affineHFlip_matrixNum = gUnk_03005288;
-                        gUnk_03004680[gUnk_03005288].unk0 = gUnk_03004680[gUnk_03005288].unk6 = 0x200;
-                        gUnk_03004680[gUnk_03005288].unk2 = gUnk_03004680[gUnk_03005288].unk4 = 0;
+                        gOamAffineMatrix[gUnk_03005288].pa = gOamAffineMatrix[gUnk_03005288].pd = 0x200;
+                        gOamAffineMatrix[gUnk_03005288].pb = gOamAffineMatrix[gUnk_03005288].pc = 0;
                         gUnk_03005288 += 1;
                     } else {
                         gUnk_03002920[arg0].affineHFlip_matrixNum = gUnk_03002920[gUnk_03005470].affineHFlip_matrixNum;
@@ -209,8 +209,8 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
             } else {
                 gUnk_03002920[arg0].affineEnable = 1;
                 gUnk_03002920[arg0].affineHFlip_matrixNum = gUnk_03005288;
-                gUnk_03004680[gUnk_03005288].unk0 = gUnk_03004680[gUnk_03005288].unk6 = 0x100;
-                gUnk_03004680[gUnk_03005288].unk2 = gUnk_03004680[gUnk_03005288].unk4 = 0;
+                gOamAffineMatrix[gUnk_03005288].pa = gOamAffineMatrix[gUnk_03005288].pd = 0x100;
+                gOamAffineMatrix[gUnk_03005288].pb = gOamAffineMatrix[gUnk_03005288].pc = 0;
                 gUnk_03005288 += 1;
             }
             break;
@@ -222,20 +222,20 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
             if (gUnk_03003610[gUnk_03005298].unk0 == 0) {
                 gUnk_03003610[gUnk_03005298].unk0 = arg0;
                 gUnk_03002920[arg0].affineHFlip_matrixNum = gUnk_03005288;
-                gUnk_03004680[gUnk_03005288].unk0 = MultiplyQ8(COS(0), ReciprocalQ8(0x100));
-                gUnk_03004680[gUnk_03005288].unk2 = MultiplyQ8(SIN(0), ReciprocalQ8(0x100));
-                gUnk_03004680[gUnk_03005288].unk4 = MultiplyQ8(-SIN(0), ReciprocalQ8(0x100));
-                gUnk_03004680[gUnk_03005288].unk6 = MultiplyQ8(COS(0), ReciprocalQ8(gUnk_03002920[arg0].unk8));
+                gOamAffineMatrix[gUnk_03005288].pa = MultiplyQ8(COS(0), ReciprocalQ8(0x100));
+                gOamAffineMatrix[gUnk_03005288].pb = MultiplyQ8(SIN(0), ReciprocalQ8(0x100));
+                gOamAffineMatrix[gUnk_03005288].pc = MultiplyQ8(-SIN(0), ReciprocalQ8(0x100));
+                gOamAffineMatrix[gUnk_03005288].pd = MultiplyQ8(COS(0), ReciprocalQ8(gUnk_03002920[arg0].unk8));
                 gUnk_03005288 += 1;
                 gUnk_03002920[arg0].yPosBg2 += (u8)-gUnk_03002920[arg0].unk8 >> 3;
                 gUnk_03002920[arg0 - 1].yPosBg2 += (u8)-gUnk_03002920[arg0].unk8 >> 2;
             } else {
                 gUnk_03003610[gUnk_03005298++].unk1 = arg0;
                 gUnk_03002920[arg0].affineHFlip_matrixNum = gUnk_03005288;
-                gUnk_03004680[gUnk_03005288].unk0 = MultiplyQ8(COS(0), ReciprocalQ8(0x100));
-                gUnk_03004680[gUnk_03005288].unk2 = MultiplyQ8(SIN(0), ReciprocalQ8(0x100));
-                gUnk_03004680[gUnk_03005288].unk4 = MultiplyQ8(-SIN(0), ReciprocalQ8(0x100));
-                gUnk_03004680[gUnk_03005288].unk6 = MultiplyQ8(COS(0), ReciprocalQ8(gUnk_03002920[arg0].unk8));
+                gOamAffineMatrix[gUnk_03005288].pa = MultiplyQ8(COS(0), ReciprocalQ8(0x100));
+                gOamAffineMatrix[gUnk_03005288].pb = MultiplyQ8(SIN(0), ReciprocalQ8(0x100));
+                gOamAffineMatrix[gUnk_03005288].pc = MultiplyQ8(-SIN(0), ReciprocalQ8(0x100));
+                gOamAffineMatrix[gUnk_03005288].pd = MultiplyQ8(COS(0), ReciprocalQ8(gUnk_03002920[arg0].unk8));
                 gUnk_03005288 += 1;
                 gUnk_03002920[arg0].yPosBg2 += (u8)-gUnk_03002920[arg0].unk8 >> 3;
                 gUnk_03002920[arg0 - 1].yPosBg2 += (u8)-gUnk_03002920[arg0].unk8 >> 2;
@@ -278,8 +278,8 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
                 if (gUnk_030052A8 == 0) {
                     gUnk_030052A8 = arg0;
                     gUnk_03002920[arg0].affineHFlip_matrixNum = gUnk_03005288;
-                    gUnk_03004680[gUnk_03005288].unk0 = gUnk_03004680[gUnk_03005288].unk6 = 0x70;
-                    gUnk_03004680[gUnk_03005288].unk2 = gUnk_03004680[gUnk_03005288].unk4 = 0;
+                    gOamAffineMatrix[gUnk_03005288].pa = gOamAffineMatrix[gUnk_03005288].pd = 0x70;
+                    gOamAffineMatrix[gUnk_03005288].pb = gOamAffineMatrix[gUnk_03005288].pc = 0;
                     gUnk_03005288 += 1;
                 } else {
                     gUnk_03002920[arg0].affineHFlip_matrixNum = gUnk_03002920[gUnk_030052A8].affineHFlip_matrixNum;
@@ -291,8 +291,8 @@ void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 
             gUnk_03002920[arg0].affineEnable = 1;
             gUnk_03002920[arg0].affineDouble = 1;
             gUnk_03002920[arg0].affineHFlip_matrixNum = gUnk_03005288;
-            gUnk_03004680[gUnk_03005288].unk0 = gUnk_03004680[gUnk_03005288].unk6 = 0x8000;
-            gUnk_03004680[gUnk_03005288].unk2 = gUnk_03004680[gUnk_03005288].unk4 = 0;
+            gOamAffineMatrix[gUnk_03005288].pa = gOamAffineMatrix[gUnk_03005288].pd = 0x8000;
+            gOamAffineMatrix[gUnk_03005288].pb = gOamAffineMatrix[gUnk_03005288].pc = 0;
             gUnk_03005288 += 1;
             gUnk_03004C38 += 1;
             break;
@@ -1361,7 +1361,7 @@ void InitOamEntries(void) {
     u16 *var_r5;
     union Unk_03000820 var;
 
-    var_r5 = (u16 *)gUnk_03004680;
+    var_r5 = (u16 *)gOamAffineMatrix;
     var = gUnk_080E2A7C;
 
     for (var_r2 = 0; var_r2 < 0x80; var_r2++) {

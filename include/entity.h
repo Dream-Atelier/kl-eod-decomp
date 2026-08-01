@@ -64,7 +64,9 @@ extern u8 gGameFlagsPtr[];
 /* Entity/object pointer (double indirection). */
 #define gEntityPtr        (*(u32 *)0x03004654)
 
-/* OAM source data / lookup table (halfword-indexed). */
+/* 0x03004680 is the OBJ affine-matrix shadow table — use the typed
+ * `gOamAffineMatrix[]` (struct OamAffineMatrix, structs/variables.h) instead of
+ * this untyped halfword view. Currently has no users. */
 #define gOamSourceTable   ((u16 *)0x03004680)
 
 /* Status byte lookup table. */
@@ -110,11 +112,15 @@ extern u32 gCallbackStateArray[];
 extern const u8 gEntityDataTable[];
 #define ROM_ENTITY_DATA_TABLE 0x081168E8
 
-/* Entity animation/behavior data table (172 refs, most-referenced unnamed ROM address).
- * Halfword-indexed: value >> 2 + 0xC0 or byte + 0x40, scaled ×2.
- * Used by EntityBoss*, sub_080158AC, sub_0801AF28, and many entity behavior functions. */
+/* 0x080D8E14 is gSineTable (declared in data/trig.h), not an entity animation
+ * table: docs/dynamic-analysis/scripts/prove-oscillation-fields.mjs (E7) dumps
+ * it from ROM and the entries are exactly Q_8_8 sine —
+ *   index    0    32    64    96   128   160   192   224
+ *   value    0   181   256   181     0  -181  -256  -181
+ * and CalcSinCosVelocity indexes it with ((timer * unk_1E) & 0xFF) to drive the
+ * gfx-stream oscillation. The stale ROM_ENTITY_ANIM_TABLE alias for the same
+ * address had no users and has been removed. */
 extern const s16 gSineTable[];
-#define ROM_ENTITY_ANIM_TABLE 0x080D8E14
 
 /* Item drop velocity parameter table (2 bytes per entry, indexed by item type).
  * Provides horizontal velocity [+0x00] and vertical amplitude [+0x01].

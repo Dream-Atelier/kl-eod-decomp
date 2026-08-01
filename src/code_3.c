@@ -28,6 +28,9 @@ void UpdatePlayerAlternate(u8 arg0);
 void UpdatePlayerMinigame(u8 arg0);
 void VBlankHandler_ModeB(void);
 void ReadKeyInput(void);
+void UpdateVisionStarIcons(void);
+u8 FindNextUnlockedVision(void);
+void UpdateWorldMapNodeState(void);
 void VBlankCallback_Gameplay(void);
 void AnimatePaletteEffects(void);
 void IntroScrollAnimation(void);
@@ -2082,10 +2085,10 @@ void UpdateAllEntities(void) {
     gUnk_03004C20.world = temp_r6;
     gUnk_03004C20.level = temp_r8;
 
-    gUnk_03004680[0].unk0 = 0x100;
-    gUnk_03004680[0].unk2 = 0;
-    gUnk_03004680[0].unk4 = 0;
-    gUnk_03004680[0].unk6 = 0x100;
+    gOamAffineMatrix[0].pa = 0x100;
+    gOamAffineMatrix[0].pb = 0;
+    gOamAffineMatrix[0].pc = 0;
+    gOamAffineMatrix[0].pd = 0x100;
 
     gEntityInfo[0].unk10 = 1;
     for (var_r4 = 1; var_r4 < 0x13; var_r4++) {
@@ -2934,20 +2937,20 @@ void ComputeScrollLimits(void) {
     temp_r7 = MultiplyQ8(-SIN(0), ReciprocalQ8(gBg2YMag));
     temp_r4 = MultiplyQ8(COS(0), ReciprocalQ8(gBg2YMag));
 
-    gUnk_03004680[0].unk0 = temp_sl;
-    gUnk_03004680[0].unk2 = temp_sb;
-    gUnk_03004680[0].unk4 = temp_r7;
-    gUnk_03004680[0].unk6 = temp_r4;
+    gOamAffineMatrix[0].pa = temp_sl;
+    gOamAffineMatrix[0].pb = temp_sb;
+    gOamAffineMatrix[0].pc = temp_r7;
+    gOamAffineMatrix[0].pd = temp_r4;
 
-    gUnk_03004680[1].unk0 = -temp_sl;
-    gUnk_03004680[1].unk2 = temp_sb;
-    gUnk_03004680[1].unk4 = temp_r7;
-    gUnk_03004680[1].unk6 = temp_r4;
+    gOamAffineMatrix[1].pa = -temp_sl;
+    gOamAffineMatrix[1].pb = temp_sb;
+    gOamAffineMatrix[1].pc = temp_r7;
+    gOamAffineMatrix[1].pd = temp_r4;
 
-    gUnk_03004680[2].unk0 = temp_sl;
-    gUnk_03004680[2].unk2 = temp_sb;
-    gUnk_03004680[2].unk4 = temp_r7;
-    gUnk_03004680[2].unk6 = -temp_r4;
+    gOamAffineMatrix[2].pa = temp_sl;
+    gOamAffineMatrix[2].pb = temp_sb;
+    gOamAffineMatrix[2].pc = temp_r7;
+    gOamAffineMatrix[2].pd = -temp_r4;
 
     temp_sl = MultiplyQ8(COS(gUnk_03003590[0].unk4), ReciprocalQ8(gBg2XMag + gUnk_03003590[0].unk0 + gUnk_030007CC));
     temp_sb = MultiplyQ8(SIN(gUnk_03003590[0].unk4), ReciprocalQ8(gBg2XMag + gUnk_03003590[0].unk0 + gUnk_030007CC));
@@ -2955,14 +2958,14 @@ void ComputeScrollLimits(void) {
     temp_r4 = MultiplyQ8(COS(gUnk_03003590[0].unk4), ReciprocalQ8(gBg2YMag + gUnk_03003590[0].unk2 + gUnk_030007CC));
 
     if (gUnk_03003590[0].unk5_0 == 0) {
-        gUnk_03004680[3].unk0 = temp_sl;
-        gUnk_03004680[3].unk4 = temp_r7;
+        gOamAffineMatrix[3].pa = temp_sl;
+        gOamAffineMatrix[3].pc = temp_r7;
     } else {
-        gUnk_03004680[3].unk0 = -temp_sl;
-        gUnk_03004680[3].unk4 = -temp_r7;
+        gOamAffineMatrix[3].pa = -temp_sl;
+        gOamAffineMatrix[3].pc = -temp_r7;
     }
-    gUnk_03004680[3].unk2 = temp_sb;
-    gUnk_03004680[3].unk6 = temp_r4;
+    gOamAffineMatrix[3].pb = temp_sb;
+    gOamAffineMatrix[3].pd = temp_r4;
 
     for (sp0 = 1; sp0 < 0x10; sp0++) {
         if (gUnk_03003590[sp0].unk5_0 == 0) {
@@ -2977,17 +2980,17 @@ void ComputeScrollLimits(void) {
         temp_r4 = MultiplyQ8(COS(var_r4), ReciprocalQ8(gBg2YMag + gUnk_03003590[sp0].unk2));
 
         if (gUnk_03003590[sp0].unk5_0 == 0) {
-            gUnk_03004680[sp0 + 3].unk0 = temp_sl;
+            gOamAffineMatrix[sp0 + 3].pa = temp_sl;
         } else {
-            gUnk_03004680[sp0 + 3].unk0 = -temp_sl;
+            gOamAffineMatrix[sp0 + 3].pa = -temp_sl;
         }
         if ((gUnk_03003590[sp0].unk5_0 != 0) && (gUnk_03003590[sp0].unk4 != 0)) {
-            gUnk_03004680[sp0 + 3].unk4 = -temp_r7;
+            gOamAffineMatrix[sp0 + 3].pc = -temp_r7;
         } else {
-            gUnk_03004680[sp0 + 3].unk4 = temp_r7;
+            gOamAffineMatrix[sp0 + 3].pc = temp_r7;
         }
-        gUnk_03004680[sp0 + 3].unk2 = temp_sb;
-        gUnk_03004680[sp0 + 3].unk6 = temp_r4;
+        gOamAffineMatrix[sp0 + 3].pb = temp_sb;
+        gOamAffineMatrix[sp0 + 3].pd = temp_r4;
     }
 }
 /**
@@ -6357,7 +6360,7 @@ INCLUDE_ASM("asm/nonmatchings/code_3", UpdateStageSelectScreen);
 INCLUDE_ASM("asm/nonmatchings/code_3", DecompressAndLoadLevel); /* DecompressLZ77 */
 INCLUDE_ASM("asm/nonmatchings/code_3", CheckTileCollisionRect);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateScrollPosition);
-INCLUDE_ASM("asm/nonmatchings/code_3", InitPauseMenu);
+INCLUDE_ASM("asm/nonmatchings/code_3", RunVisionStartConfirmDelay);
 INCLUDE_ASM("asm/nonmatchings/code_3", InitGameplayFromWorldMap);
 /*
  * Runs the per-frame game update. If the pause flag at 0x030034E4 is zero,
@@ -6380,7 +6383,34 @@ INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerInput); /* UpdatePhysics */
 INCLUDE_ASM("asm/nonmatchings/code_3", InitPlayerCollision); /* UpdateCollision */
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapCursor); /* UpdateCamera */
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateVisionStarIcons);
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapNodeState); /* UpdateGameLogic */
+/* The world-map node record the selected vision lives on, and the BG2 rotation
+ * angle at which that node faces the camera (byte 1 of the record, stored
+ * negated). A macro rather than a local because the original recomputes the
+ * lookup in every branch below; agbcc CSEs the shared address arithmetic on its
+ * own, so hoisting it by hand only changes the register schedule. */
+#define SELECTED_VISION_NODE                                                                                                          \
+    gWorldMapNodes[gUnk_03004C20.world - 1][gWorldMapVisionNode[gUnk_03004C20.world - 1][gUnk_030034B0.selectedVision - 1]]
+#define SELECTED_VISION_ANGLE    (-SELECTED_VISION_NODE[1])
+
+/* The player's progress byte for the selected vision. */
+#define SELECTED_VISION_PROGRESS gUnk_03004670->unk8[gUnk_03004C20.world - 1][gUnk_030034B0.selectedVision - 1]
+
+/*
+ * UpdateWorldMapNodeState: drives the world-map globe toward the currently
+ * selected vision node.
+ *
+ * gUnk_030034B0.selectedVision holds the selected vision (1-based; 0 = world map not
+ * active).  gWorldMapVisionNode[world-1][vision-1] indexes the per-node record table
+ * gWorldMapNodes[world-1][]; byte 1 of that record is the BG2 rotation angle at
+ * which the node faces the camera (stored negated).
+ *
+ * Each frame the routine compares the live rotation gBg2Alpha with that target
+ * and fakes an L / R shoulder press in gHeldKeys so the normal world-map
+ * rotation code spins the globe the short way round.  Once aligned it holds
+ * both (L|R), runs a 0x80-frame arrival sequence (jingle + progress flag clear
+ * at frame 0x40) and finally hands the selection to FindNextUnlockedVision.
+ */
+INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapNodeState);
 INCLUDE_ASM("asm/nonmatchings/code_3", FindNextUnlockedVision);
 INCLUDE_ASM("asm/nonmatchings/code_3", SortEntityDrawOrder);
 INCLUDE_ASM("asm/nonmatchings/code_3", SaveGameToSRAM);
@@ -6389,15 +6419,19 @@ INCLUDE_ASM("asm/nonmatchings/code_3", LoadGameFromSRAM);
 INCLUDE_ASM("asm/nonmatchings/code_3", SaveGameRetryLoop);
 INCLUDE_ASM("asm/nonmatchings/code_3", SavePlayerProgress);
 /**
- * IsSelectButtonPressed: returns 1 if Select (bit 6) is held, 0 otherwise.
+ * IsDpadUpHeld: returns 1 if D-pad Up (gHeldKeys bit 6, DPAD_UP) is held, 0 otherwise.
+ * Reads the held state, not the edge, so the boot combo counts as long as Up is
+ * down on the frame ConfigureInterruptsForGameplay runs.
+ * Its single caller (ConfigureInterruptsForGameplay) latches the result into
+ * gMinigamePlayerArmed, which arms the boot-menu minigame's player avatar.
  */
-u32 IsSelectButtonPressed(void) {
-    if (gKeysPrevious & 0x40)
+u32 IsDpadUpHeld(void) {
+    if (gHeldKeys & DPAD_UP)
         return 1;
     return 0;
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", ConfigureInterruptsForGameplay);
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdatePlayerEntity);
+INCLUDE_ASM("asm/nonmatchings/code_3", UpdateBootMinigame);
 INCLUDE_ASM("asm/nonmatchings/code_3", MainGameFrameLoop);
 INCLUDE_ASM("asm/nonmatchings/code_3", InitFadeTransition);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateScreenWipe);
