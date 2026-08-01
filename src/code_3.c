@@ -6486,7 +6486,80 @@ u32 IsDpadUpHeld(void) {
     return 0;
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", ConfigureInterruptsForGameplay);
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdateBootMinigame);
+/**
+ * UpdateBootMinigame: per-frame update of the hidden boot-menu minigame.
+ *
+ * Reached only through AgbMain's boot code (A+B+RIGHT+L+R held on frame 0), which
+ * swaps callback slot 1 for MainGameFrameLoop; that loop calls this every frame on
+ * top of the "Delete all save data?" screen. Entities 14..19 rain down the screen
+ * (byte at +0x09 is each one's per-frame descent, redrawn as (rand % 3) + 2 when it
+ * respawns off the bottom at y > 0xC0). If the run was armed by also holding Up at
+ * boot (gMinigamePlayerArmed), Select spawns Klonoa at (0x78, 0x9C); R/L then slide
+ * him 2px per frame within [0x10, 0xDF], and touching a falling enemy plays hit
+ * animation 0x0C, which locks the controls until it ends.
+ * See docs/dynamic-analysis/scripts/prove-minigame-player-armed.mjs.
+ */
+void UpdateBootMinigame(void) {
+    u32 i;
+
+    if ((gNewKeys & SELECT_BUTTON) && (gMinigamePlayerArmed == 1)) {
+        gEntityInfo[0].unk10 = 1;
+        gEntityInfo[0].xPosBg2 = 0x78;
+        gEntityInfo[0].yPosBg2 = 0x9C;
+        SetPaletteAnimEntry(0, 0x22);
+    }
+    /* state 0xC is the hit animation; it locks the controls until it ends. */
+    if ((gEntityInfo[0].unk10 == 1) && (gEntityAnimationInfo[0].state != 0xC)) {
+        if (gHeldKeys & R_BUTTON) {
+            gEntityInfo[0].unkC_2 = 0;
+            if (gEntityAnimationInfo[0].state != 1) {
+                SetPaletteAnimEntry(0, 1);
+            }
+            if (gEntityInfo[0].xPosBg2 <= 0xDF) {
+                gEntityInfo[0].xPosBg2 += 2;
+            }
+        } else if (gHeldKeys & L_BUTTON) {
+            gEntityInfo[0].unkC_2 = 1;
+            if (gEntityAnimationInfo[0].state != 1) {
+                SetPaletteAnimEntry(0, 1);
+            }
+            if (gEntityInfo[0].xPosBg2 > 0x10) {
+                gEntityInfo[0].xPosBg2 -= 2;
+            }
+        } else if (gEntityAnimationInfo[0].state != 0x22) {
+            SetPaletteAnimEntry(0, 0x22);
+        }
+    }
+
+    for (i = 0xE; i <= 0x13; i++) {
+        switch (gEntityInfo[i].unkF) {
+            case 0:
+                gEntityInfo[i].yPosBg2 += gEntityInfo[i].unk8.split.unk9;
+                if (gEntityInfo[i].yPosBg2 > 0xC0) {
+                    gEntityInfo[i].unkF = 0x1C;
+                }
+                if (gEntityInfo[0].xPosBg2 - 0xC < gEntityInfo[i].xPosBg2 + 0xA
+                    && gEntityInfo[0].xPosBg2 + 0xC > gEntityInfo[i].xPosBg2 - 0xA
+                    && gEntityInfo[0].yPosBg2 - 0x18 < gEntityInfo[i].yPosBg2 - 8
+                    && gEntityInfo[0].yPosBg2 > gEntityInfo[i].yPosBg2 - 0x14) {
+                    SetPaletteAnimEntry(0, 0xC);
+                }
+                break;
+            case 0x1C:
+                gEntityInfo[i].xPosBg2 = ((thunk_sub_080002A0() % 6) * 40) + (thunk_sub_080002A0() % 0x28);
+                gEntityInfo[i].yPosBg2 = 0;
+                gEntityInfo[i].unk8.split.unk9 = (thunk_sub_080002A0() % 3) + 2;
+                gEntityInfo[i].unkF = 0;
+                gEntityInfo[i].unkC_2 = thunk_sub_080002A0() & 3;
+                if (i <= 0x11) {
+                    SetPaletteAnimEntry(i, 2);
+                } else {
+                    SetPaletteAnimEntry(i, 1);
+                }
+                break;
+        }
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", MainGameFrameLoop);
 INCLUDE_ASM("asm/nonmatchings/code_3", InitFadeTransition);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateScreenWipe);
