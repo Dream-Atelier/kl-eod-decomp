@@ -27,8 +27,9 @@ extern const u32 gSpriteDataTable[];
 /* Scroll/position state for text rendering. */
 #define gTextScrollState (*(u32 *)0x030034DC)
 
-/* UI sub-state struct (for dialog, menus, transitions). */
-#define gUIState         ((u8 *)0x03004DA0)
+/* 0x03004DA0 is NOT a UI sub-state struct — it is gNewKeys, ReadKeyInput's
+ * edge-detected key output (see input.h). The gUIState macro that used to sit
+ * here had no users; it is gone rather than renamed. */
 
 /* Secondary display state. */
 #define gDisplayState2   ((u8 *)0x03003410)

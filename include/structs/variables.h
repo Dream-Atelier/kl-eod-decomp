@@ -233,9 +233,7 @@ extern u8 gUnk_03005428;
  * docs/dynamic-analysis/scripts/prove-minigame-player-armed.mjs. */
 extern u8 gMinigamePlayerArmed;
 
-/* Per-frame edge-detected key state. */
-extern u16 gNewKeys;
-extern u16 gHeldKeys;
+/* gNewKeys / gHeldKeys live in input.h, next to the rest of the input state. */
 
 /* Game-state struct at 0x03003410 (mirrored from kleod). */
 struct Unk_03003410 {

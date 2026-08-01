@@ -52,12 +52,12 @@ const F = {
   callback: di.structMember('GfxStreamEntry', 'callback'),
 };
 const STRIDE = 36;
-const KEYS = di.symbolToAddress('gKeysPressed');
+const KEYS = di.symbolToAddress('gNewKeys');
 const ENTRY_ARRAY_PTR = 0x030052a4; // gBuffer_52A4
 
 console.log('=== layout resolved from DWARF (nothing hand-coded) ===');
 for (const [k, v] of Object.entries(F)) console.log(`  GfxStreamEntry.${k.padEnd(8)} +0x${v.offset.toString(16).padStart(2, '0')} size ${v.size}`);
-console.log('  sizeof(GfxStreamEntry) =', STRIDE, '  gKeysPressed = 0x' + KEYS.toString(16));
+console.log('  sizeof(GfxStreamEntry) =', STRIDE, '  gNewKeys = 0x' + KEYS.toString(16));
 
 console.log('\n=== the unnamed callback, disassembled from the live cartridge ===');
 for (const i of eng.disassemble(CALLBACK_FN, 24, 'thumb')) {
@@ -107,9 +107,9 @@ function callThumb(addr, r0) {
 const shortTrace = (t) => t.map((p) => p.toString(16).slice(-3)).join('>');
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 1. Which button is bit 0 of gKeysPressed?  (real input path, no register pokes)
+// 1. Which button is bit 0 of gNewKeys?  (real input path, no register pokes)
 // ═══════════════════════════════════════════════════════════════════════════════
-console.log('\n=== 1. gKeysPressed bit assignment, measured by actually pressing buttons ===');
+console.log('\n=== 1. gNewKeys bit assignment, measured by actually pressing buttons ===');
 for (const btn of ['a', 'b', 'select', 'start', 'right', 'left', 'up', 'down', 'r', 'l']) {
   await eng.loadState(SAVE);
   await eng.wait({ frames: 4 });
@@ -117,7 +117,7 @@ for (const btn of ['a', 'b', 'select', 'start', 'right', 'left', 'up', 'down', '
   eng.onFrame(() => { peak |= bus.read16(KEYS); });
   await eng.pressSequence([[null, 2], [btn, 8], [null, 2]]);
   eng.onFrame(null);
-  console.log(`  press ${btn.padEnd(6)} -> gKeysPressed = 0x${peak.toString(16).padStart(4, '0')}   bit0 = ${peak & 1}`);
+  console.log(`  press ${btn.padEnd(6)} -> gNewKeys = 0x${peak.toString(16).padStart(4, '0')}   bit0 = ${peak & 1}`);
 }
 {
   await eng.loadState(SAVE);
@@ -202,7 +202,7 @@ for (const r of await runDispatcher(2, 0, (n) => (n === 6 ? 1 : 0), 9)) {
 }
 
 console.log('\n=== 3e. CONTROL: which button reaches the dispatcher? (timeout 600, real presses) ===');
-// Here the game itself runs frames, so gKeysPressed is produced by the real input
+// Here the game itself runs frames, so gNewKeys is produced by the real input
 // path; between frames we hand-dispatch the entry.
 for (const btn of ['a', 'b', 'start', 'left']) {
   await eng.loadState(SAVE);

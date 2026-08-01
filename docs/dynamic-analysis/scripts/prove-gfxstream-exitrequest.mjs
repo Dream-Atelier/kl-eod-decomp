@@ -13,7 +13,7 @@
 // Static context (asm):
 //   * sub_0804EB64 (the gfx-stream tick) reads the same field:
 //       field & 1  -> tear down windows, gUnk_03005498 = 0x0F, ProcessSceneTransitionOut()
-//       field & 2  -> if (gKeyInput & 8 /* START */) do exactly the two writes above
+//       field & 2  -> if (gNewKeys & 8 /* START */) do exactly the two writes above
 //                     and clear REG_DISPCNT bit 14.
 //   * InitWorldMapGfx sets the field to 2 ("skippable").
 //   * StreamCmd_ToggleDisplayFlag flips the field's high bit (2).
@@ -110,9 +110,9 @@ for (const poke of [false, true]) {
 }
 
 // ---------------------------------------------------------------- experiment C
-// The skip path is gated on `gKeyInput (0x03004DA0) & 8`. Confirm bit 3 is START.
+// The skip path is gated on `gNewKeys (0x03004DA0) & 8`. Confirm bit 3 is START.
 console.log('');
-console.log('=== C. which key is bit 3 of gKeyInput (0x03004DA0)? ===');
+console.log('=== C. which key is bit 3 of gNewKeys (0x03004DA0)? ===');
 {
   const rt = await mk(); const eng = rt.engine, bus = rt.gba.bus;
   await eng.pressSequence(TO_SKIPPABLE_SCENE);
@@ -122,6 +122,6 @@ console.log('=== C. which key is bit 3 of gKeyInput (0x03004DA0)? ===');
     await eng.press([key], { hold: 6 });
     await eng.wait({ frames: 4 });
     if (typeof stop === 'function') stop();
-    console.log(`  ${key.padEnd(7)} -> gKeyInput bits seen = 0x${seen.toString(16)}  (bit3 set: ${(seen & 8) !== 0})`);
+    console.log(`  ${key.padEnd(7)} -> gNewKeys bits seen = 0x${seen.toString(16)}  (bit3 set: ${(seen & 8) !== 0})`);
   }
 }

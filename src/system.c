@@ -37,19 +37,20 @@ INCLUDE_ASM("asm/nonmatchings/system", AgbMain);
  * ReadKeyInput: read GBA buttons, debounce, and check for reset combo.
  *
  * Reads REG_KEYINPUT (active-low), XORs with 0x3FF to get active-high
- * pressed state, edge-detects new presses against previous frame,
- * checks A+B+Start+Select combo (0x0F) for soft reset, and tracks
- * A-button hold duration for repeat input.
+ * pressed state, edge-detects new presses against the previous frame into
+ * gNewKeys while gHeldKeys keeps the raw held state, checks the
+ * A+B+Select+Start combo (0x0F) for soft reset, and tracks A-button hold
+ * duration for repeat input.
  */
 void ReadKeyInput(void) {
     u16 pressed = REG_KEYINPUT ^ 0x3FF;
 
-    gKeysPressed = pressed & ~gKeysPrevious;
-    gKeysPrevious = pressed;
+    gNewKeys = pressed & ~gHeldKeys;
+    gHeldKeys = pressed;
     if ((pressed & 0x0F) == 0x0F) {
         SoftResetRom(0xFF);
     }
-    if (gKeysPrevious & 1) {
+    if (gHeldKeys & A_BUTTON) {
         gAButtonHold++;
     } else {
         gAButtonHold = 0;

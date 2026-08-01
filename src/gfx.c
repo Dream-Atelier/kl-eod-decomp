@@ -1068,7 +1068,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitSpriteWave);
  * nibble to 1 (which is what makes ProcessAnimationSteps dispatch the entry),
  * switches the level-state render mode to 2, and advances the stream by 5.
  *
- * ProcessButtonWait ends the wait on the A button (gKeysPressed bit 0). It has no
+ * ProcessButtonWait ends the wait on a fresh A press (gNewKeys bit 0). It has no
  * thumb_func_start of its own — luvdis merged it into the tail of
  * asm/nonmatchings/gfx/ProcessSpriteOscillation.s at 0x0804D074 — so it is linked
  * through the ldscript.in.txt symbol instead of as a C function.

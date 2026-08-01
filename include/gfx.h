@@ -111,7 +111,7 @@ struct GfxStreamEntry {
  *
  * Returns 1 to keep waiting, 0 to finish; ProcessAnimationSteps masks the result
  * with 7 and stores it into status's low 3 bits, so returning 0 deactivates the
- * entry. It ends the wait when gKeysPressed bit 0 (the A button) is set, otherwise
+ * entry. It ends the wait when gNewKeys bit 0 (a fresh A press) is set, otherwise
  * it decrements `timer` and ends when that goes negative — unless unk_1E is set,
  * in which case the timeout is ignored and only A ends it.
  *
@@ -140,7 +140,7 @@ extern u8 *gStreamPtr;
  * The gfx-stream tick (sub_0804EB64) branches on these two bits:
  *   GFX_SCENE_EXITING   -> stop advancing the stream; tear the windows down and
  *                          call ProcessSceneTransitionOut() every frame instead.
- *   GFX_SCENE_SKIPPABLE -> while set, pressing START (gKeyInput bit 3) makes the
+ *   GFX_SCENE_SKIPPABLE -> while set, pressing START (gNewKeys bit 3) makes the
  *                          tick clear the render mode and set GFX_SCENE_EXITING.
  *
  * Proven at runtime — see docs/dynamic-analysis/scripts/prove-gfxstream-exitrequest.mjs. */

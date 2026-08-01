@@ -37,12 +37,15 @@ gBgInfo = 0x03003430;
 gUnk_03005428 = 0x03005428;
 gUnk_03003410 = 0x03003410;
 gCallbackQueue = 0x03003510;
+/* ReadKeyInput's two outputs. gNewKeys is edge-detected (high only on the
+ * frame a button goes down); gHeldKeys is the raw held state. Both active-high.
+ * They previously had a second alias each — gKeysPressed and gKeysPrevious —
+ * whose names implied the opposite meanings; see input.h and
+ * docs/dynamic-analysis/scripts/prove-key-globals.mjs. */
 gNewKeys      = 0x03004DA0;
-gKeysPressed  = 0x03004DA0;
-gKeysPrevious = 0x030051E4;
+gHeldKeys     = 0x030051E4;
 gAButtonHold  = 0x030034F0;
 gLevelStatePtr = 0x030034A0;
-gHeldKeys     = 0x030051E4;
 gUnk_03004790 = 0x03004790;
 gUnk_03004DB0 = 0x03004DB0;
 gScrollBounds = 0x03005468;

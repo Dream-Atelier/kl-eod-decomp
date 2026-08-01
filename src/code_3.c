@@ -6474,11 +6474,13 @@ INCLUDE_ASM("asm/nonmatchings/code_3", SaveGameRetryLoop);
 INCLUDE_ASM("asm/nonmatchings/code_3", SavePlayerProgress);
 /**
  * IsDpadUpHeld: returns 1 if D-pad Up (gHeldKeys bit 6, DPAD_UP) is held, 0 otherwise.
+ * Reads the held state, not the edge, so the boot combo counts as long as Up is
+ * down on the frame ConfigureInterruptsForGameplay runs.
  * Its single caller (ConfigureInterruptsForGameplay) latches the result into
  * gMinigamePlayerArmed, which arms the boot-menu minigame's player avatar.
  */
 u32 IsDpadUpHeld(void) {
-    if (gKeysPrevious & DPAD_UP)
+    if (gHeldKeys & DPAD_UP)
         return 1;
     return 0;
 }
