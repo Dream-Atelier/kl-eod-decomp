@@ -418,7 +418,35 @@ void ProcessStreamCommand_C218(void) {
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ConfigureSprite);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetupOAMSpriteGroup);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetEntityFlags);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetEntityTransform);
+/**
+ * StreamCmd_SetEntityTransform: point an entity at an OBJ affine matrix and
+ * load that matrix with a uniform scale.
+ *
+ * Stream layout (6 bytes):
+ *   [2] entity slot, relative to the stream-owned entity window at index 0xD
+ *   [3] bits 0-4: OBJ affine matrix number (also stored in the entity)
+ *       bit 5   : OBJ affine enable
+ *       bit 7   : OBJ affine double-size bounding box
+ *   [4..5] unaligned s16 magnification (Q_8_8)
+ *
+ * pa = pd = 0x100 / mag with pb = pc = 0 is a pure uniform scale: no rotation,
+ * no shear. The hardware matrix maps screen space back to texture space, so a
+ * *larger* pa/pd yields a *smaller* sprite (see struct OamAffineMatrix, whose
+ * field names are proven in docs/dynamic-analysis/).
+ */
+void StreamCmd_SetEntityTransform(void) {
+    s16 mag;
+
+    gUnk_03002920[gStreamPtr[2] + 0xD].affineHFlip_matrixNum = gStreamPtr[3] & 0x1F;
+    gUnk_03002920[gStreamPtr[2] + 0xD].affineEnable = (gStreamPtr[3] >> 5) & 1;
+    gUnk_03002920[gStreamPtr[2] + 0xD].affineDouble = gStreamPtr[3] >> 7;
+    mag = ReadUnalignedS16(gStreamPtr + 4);
+    gOamAffineMatrix[gStreamPtr[3] & 0x1F].pa = MultiplyQ8(0x100, ReciprocalQ8(mag));
+    gOamAffineMatrix[gStreamPtr[3] & 0x1F].pb = 0;
+    gOamAffineMatrix[gStreamPtr[3] & 0x1F].pc = 0;
+    gOamAffineMatrix[gStreamPtr[3] & 0x1F].pd = MultiplyQ8(0x100, ReciprocalQ8(mag));
+    gStreamPtr += 6;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGPriority);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_FillBGTilemap);
 /**
