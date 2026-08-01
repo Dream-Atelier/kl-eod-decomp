@@ -634,7 +634,60 @@ void StreamCmd_InitOscillation(void) {
     }
     gStreamPtr += 9;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitOscillationExt);
+/**
+ * StreamCmd_InitOscillationExt: start a sine oscillation on a gfx-stream target.
+ *
+ * Fills the GfxStreamEntry selected by stream byte[2] with the parameters of a
+ * sine wave and installs ProcessMotionStep as its per-frame callback, so that
+ * every frame the entry adds `amplitude * gSineTable[(timer * angularStep) & 0xFF] >> 8`
+ * to its target's X and Y, counts `timer` down by one, and deactivates itself
+ * when the countdown is spent.
+ *
+ * Stream layout (9 bytes):
+ *   [2] entry index          [3] target object index (7 bits, biased +13 by the handler)
+ *   [4] X amplitude          [5] Y amplitude
+ *   [6..7] duration in frames (unaligned s16, also the oscillation phase)
+ *   [8] angular step per frame
+ *
+ * The "Ext" variant additionally forces the entry's target selector (word 0,
+ * bits 3..10) to 2, which makes ProcessMotionStep drive a gUnk_03002920 object
+ * rather than a BG scroll pair.
+ *
+ * Every meaning above is verified at runtime against the real ROM by
+ * docs/dynamic-analysis/scripts/prove-oscillation-fields.mjs.
+ */
+void StreamCmd_InitOscillationExt(void) {
+    s16 duration;
+
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].objIndex = cmd[3];
+        entries[cmd[2]].unk_08 = cmd[4];
+        entries[cmd[2]].unk_0A = cmd[5];
+        duration = ReadUnalignedS16(cmd + 6);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].timer = duration;
+        entries[cmd[2]].unk_1E = cmd[8];
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].param = 2;
+        entries[cmd[2]].callback = (u32)ProcessMotionStep;
+        entries[cmd[2]].type = 1;
+    }
+    gStreamPtr += 9;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitStaticScroll);
 /**
  * StreamCmd_InitFrameAnimation: initialize a frame-animation entry from stream data.
