@@ -306,7 +306,41 @@ void InitGfxStreamState(void) {
     gVramWriteCursor = gVramCursorInit;
     gPaletteVramCursor = gPaletteCursorInit;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", ResetGfxStreamEntries);
+/**
+ * ResetGfxStreamEntries: releases every OBJ tile allocation the graphics stream
+ * owns and rewinds the stream to its initial state.
+ *
+ * Walks the 32-slot allocation table at *gGfxStreamBuffer from the back, and for
+ * each slot still holding tiles (tileCount != 0) frees its heap block — the block
+ * starts 4 bytes before pTiles — then blanks the slot. Finally clears OAM, puts
+ * the renderer back in mode 0x0D and rewinds both VRAM write cursors, so the next
+ * LoadGfxStreamEntry starts allocating OBJ tiles from the top again.
+ */
+void ResetGfxStreamEntries(void) {
+    struct GfxStreamAlloc *entry;
+    s32 i;
+
+    for (i = 32; i > 0; i--) {
+        u32 base = gGfxStreamBuffer;
+
+        entry = (struct GfxStreamAlloc *)(i * sizeof(struct GfxStreamAlloc) + base) - 1;
+        if (entry->tileCount != 0) {
+            thunk_HeapFree(entry->pTiles - 4);
+            /* The call forces gGfxStreamBuffer to be re-read, so the original
+             * recomputes the slot address here instead of reusing `entry`. */
+            base = i * sizeof(struct GfxStreamAlloc) + gGfxStreamBuffer;
+            base -= sizeof(struct GfxStreamAlloc);
+            entry = (struct GfxStreamAlloc *)base;
+            entry->tileCount = 0;
+            entry->pTiles = 0;
+            entry->tileIndex = 0;
+        }
+    }
+    ClearVideoState();
+    gUnk_03005428 = 0x0D;
+    gVramWriteCursor = gVramCursorInit;
+    gPaletteVramCursor = gPaletteCursorInit;
+}
 /**
  * StreamCmd_ResetEntries: stream command handler that resets all entries.
  *
