@@ -571,7 +571,69 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitAngleMotion);
  * separate statement, scaled index first. Written as one expression, agbcc
  * schedules the `cmd[3]` load before the address arithmetic instead of after it.
  */
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitOscillation);
+/**
+ * StreamCmd_InitOscillation: initialize a sprite-oscillation entry from stream data.
+ *
+ * Writes the oscillation parameters from the command stream into the
+ * GfxStreamEntry indexed by stream byte[2], then installs ProcessMotionStep as
+ * the entry's per-tick callback and advances the stream by 9 bytes. Each tick
+ * ProcessMotionStep adds trig[(entry[0x1E] * entry->timer) & 0xFF] * amplitude >> 8
+ * to the scroll of the object selected by targetIndex, and decrements the timer.
+ *
+ *   byte[3] low nibble -> targetIndex: which object oscillates (BG layer index)
+ *   byte[4] -> +0x08, byte[5] -> +0x0A: X and Y amplitude of the oscillation
+ *   bytes[6-7] (unaligned s16) -> timer: how many ticks it runs, and the phase
+ *                                 argument (phase = byte[8] * timer)
+ *   byte[8] -> +0x1E: angular step per tick, i.e. the oscillation frequency
+ *
+ * It also clears the target-mode selector (0x07F8 of the halfword at +0x00) to 0,
+ * selecting the BG-layer target mode, and sets the entry type nibble to 1.
+ *
+ * Field meanings verified at runtime against the ROM's own ProcessMotionStep —
+ * see docs/dynamic-analysis/scripts/prove-gfxstream-motion-fields.mjs.
+ */
+void StreamCmd_InitOscillation(void) {
+    s16 duration;
+
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+        struct GfxStreamEntry *entry;
+        u8 target;
+
+        entry = (struct GfxStreamEntry *)(idx * sizeof(struct GfxStreamEntry) + (u32)entries);
+        target = cmd[3];
+        entry->targetIndex = target;
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_08 = cmd[4];
+        entries[cmd[2]].unk_0A = cmd[5];
+        duration = ReadUnalignedS16(cmd + 6);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].timer = duration;
+        entries[cmd[2]].unk_1E = cmd[8];
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].param = 0;
+        entries[cmd[2]].callback = (u32)ProcessMotionStep;
+        entries[cmd[2]].type = 1;
+    }
+    gStreamPtr += 9;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitOscillationExt);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitStaticScroll);
 /**
