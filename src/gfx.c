@@ -765,7 +765,23 @@ s32 ProcessScreenFade(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdatePaletteFadeStep);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessSceneTransitionOut);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_BeginSceneExit);
+/**
+ * StreamCmd_BeginSceneExit: stream command that ends the current scene.
+ *
+ * Clears the render-mode bits (low 2) of gGfxBuffer[0], advances the stream by
+ * 2, then replaces the scene-exit control (gGfxBuffer[2] bits 1-2) with
+ * GFX_SCENE_EXITING — so the next gfx-stream tick stops advancing the stream and
+ * runs ProcessSceneTransitionOut() instead. This is the same pair of writes the
+ * tick performs itself when START is pressed on a GFX_SCENE_SKIPPABLE scene.
+ *
+ * Both statements re-read gGfxBufferPtr because the gStreamPtr store between
+ * them may alias it.
+ */
+void StreamCmd_BeginSceneExit(void) {
+    *(s8 *)gGfxBufferPtr &= ~3;
+    gStreamPtr += 2;
+    ((s8 *)gGfxBufferPtr)[2] = (((s8 *)gGfxBufferPtr)[2] & ~(GFX_SCENE_EXITING | GFX_SCENE_SKIPPABLE)) | GFX_SCENE_EXITING;
+}
 /**
  * StreamCmd_SetRenderModeTiled: set render mode to 2.
  * Clears low 2 bits of gGfxBuffer[0], sets bit 1. Advances stream by 2.
