@@ -6360,7 +6360,34 @@ INCLUDE_ASM("asm/nonmatchings/code_3", UpdateStageSelectScreen);
 INCLUDE_ASM("asm/nonmatchings/code_3", DecompressAndLoadLevel); /* DecompressLZ77 */
 INCLUDE_ASM("asm/nonmatchings/code_3", CheckTileCollisionRect);
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateScrollPosition);
-INCLUDE_ASM("asm/nonmatchings/code_3", RunVisionStartConfirmDelay);
+/**
+ * RunVisionStartConfirmDelay: the confirm delay between picking a vision and loading it.
+ *
+ * NOTE: the name is a legacy misnomer — this has nothing to do with the pause menu (that is
+ * HandlePauseMenuInput). It is installed as gCallbackQueue.current[1] by UpdatePlayerInput when A is
+ * pressed on a vision node of the vision-select map, and it runs once per frame from then on.
+ *
+ * First frame (visionStartPending clear): play the confirm jingle (song 0x26), latch
+ * visionStartPending and restart the scene frame counter. Subsequent frames: once the scene counter
+ * passes 30, hand over to TransitionGameOver — the generic fade-out step that then queues the level
+ * setup — and drop the latch.
+ *
+ * Verified at runtime (docs/dynamic-analysis/scripts/prove-vision-start-pending.mjs): the latch is
+ * high for exactly the 31 frames between the vision-select map and the fade-out, three times in a
+ * three-vision run, and stays 0 while the pause menu is open.
+ *   no parameters
+ *   no return value
+ */
+void RunVisionStartConfirmDelay(void) {
+    if (gUnk_030034B0.visionStartPending == 0) {
+        m4aSongNumStart(0x26);
+        gUnk_030034B0.visionStartPending = 1;
+        gUnk_03004C20.sceneFrameCounter = 0;
+    } else if (gUnk_03004C20.sceneFrameCounter > 30) {
+        gCallbackQueue.current[1] = TransitionGameOver;
+        gUnk_030034B0.visionStartPending = 0;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", InitGameplayFromWorldMap);
 /*
  * Runs the per-frame game update. If the pause flag at 0x030034E4 is zero,
