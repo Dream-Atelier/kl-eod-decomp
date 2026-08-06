@@ -6473,8 +6473,8 @@ void UpdateWorldMapNodeState(void) {
  * gVisionUnlockMask[world][gUnk_030034B0.unk7_4] is the bitmask of visions this
  * world offers at the current world-map progress stage; bit i set = vision i + 1
  * exists.  gUnk_03004670->unk8[world - 1][i] is that vision's progress byte, and
- * 0x7F is the "available, not cleared" value UpdateWorldMapNodeState leaves behind
- * when it clears the node with `&= 0x80`.
+ * 0x7F is the never-played sentinel in the low 7 bits (a score otherwise); UpdateWorldMapNodeState's `&= 0x80` is what CLEARS it, not
+ * what leaves it behind.
  *
  * Note the row index is `world`, not `world - 1`, as in the original: every row of
  * gVisionUnlockMask is identical, so the off-by-one is unobservable for worlds 1..5.
