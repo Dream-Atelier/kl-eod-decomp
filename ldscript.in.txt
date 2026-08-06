@@ -80,7 +80,6 @@ gUnk_08078FC8 = 0x08078FC8;
  * cross-jumping from folding the loop guard into the loop's exit test.  With a
  * big CONST_INT base it rematerialises the address from the pool inside the
  * loop instead and the guard folds away.  See src/gfx.c. */
-gBGLookupTable = 0x08057ACC;
 /* OBJ palette RAM / OBJ VRAM write cursors (advanced by the per-level VBlank
  * DMA loaders). Extern symbols rather than literal-address macros so agbcc
  * eager-loads their address into a callee-saved register and matches. */

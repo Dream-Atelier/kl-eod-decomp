@@ -113,11 +113,9 @@ void DecompressAndDmaCopy(void *src, void *dest, u32 size) {
  * ldrb, and swapping it is the only difference between this and a 3-byte miss.
  */
 void LoadBGTileData(s32 levelIdx, s32 sublevel) {
-    DecompressAndDmaCopy((void *)gBgTileSubtable[gBgLayerLookup[levelIdx][sublevel][0]]
-                                                [gBgLayerLookup[levelIdx][sublevel][1] - 2],
+    DecompressAndDmaCopy((void *)gBgTileSubtable[gBgLayerLookup[levelIdx][sublevel][0]][gBgLayerLookup[levelIdx][sublevel][1] - 2],
                          gBgInfo[gBgLayerLookup[levelIdx][sublevel][1]].pTiles,
-                         gBgInfo[gBgLayerLookup[levelIdx][sublevel][1]].unk16 *
-                             gBgInfo[gBgLayerLookup[levelIdx][sublevel][1]].unk18);
+                         gBgInfo[gBgLayerLookup[levelIdx][sublevel][1]].unk16 * gBgInfo[gBgLayerLookup[levelIdx][sublevel][1]].unk18);
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", LoadBGTilemapData);
 INCLUDE_ASM("asm/nonmatchings/gfx", SetupLevelLayerConfig);
@@ -526,18 +524,18 @@ void StreamCmd_SetEntityTransform(void) {
  */
 void StreamCmd_SetBGPriority(void) {
     switch (gStreamPtr[2] & 3) {
-    case 0:
-        REG_BG0CNT = (REG_BG0CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
-        break;
-    case 1:
-        REG_BG1CNT = (REG_BG1CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
-        break;
-    case 2:
-        REG_BG2CNT = (REG_BG2CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
-        break;
-    case 3:
-        REG_BG3CNT = (REG_BG3CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
-        break;
+        case 0:
+            REG_BG0CNT = (REG_BG0CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
+            break;
+        case 1:
+            REG_BG1CNT = (REG_BG1CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
+            break;
+        case 2:
+            REG_BG2CNT = (REG_BG2CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
+            break;
+        case 3:
+            REG_BG3CNT = (REG_BG3CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
+            break;
     }
     gStreamPtr += 3;
 }
@@ -568,14 +566,14 @@ void StreamCmd_FillBGTilemap(void) {
 
     entry = 0xF002;
     switch (gStreamPtr[2]) {
-    case 0:
-    case 1:
-        DmaFill16(3, entry, &gBgTilemapBufs[gStreamPtr[2]], 0x800);
-        break;
-    case 2:
-    case 3:
-        DmaFill16(3, entry, gBgInfo[gStreamPtr[2]].pTilemap, 0x800);
-        break;
+        case 0:
+        case 1:
+            DmaFill16(3, entry, &gBgTilemapBufs[gStreamPtr[2]], 0x800);
+            break;
+        case 2:
+        case 3:
+            DmaFill16(3, entry, gBgInfo[gStreamPtr[2]].pTilemap, 0x800);
+            break;
     }
 
     gStreamPtr += 7;
@@ -612,15 +610,19 @@ void LoadBGTilemapData(u32 sceneIdx, u32 layerIdx);
  * DispatchLevelLayerSetup: set up every BG layer of one scene.
  *
  * Reads the scene index from the command stream (byte 2), advances the cursor
- * by 3, then walks that scene's layer list in gBGLookupTable -- 4 bytes per
+ * by 3, then walks that scene's layer list in gBgLayerLookup -- 4 bytes per
  * scene, two 2-byte layer slots, 0xFF terminating -- configuring, loading tiles
  * for and loading the tilemap of each layer in turn. Finally loads the scene's
  * BG palette from the first slot's entry index.
  *
- * The lookup index is spelled `i * 2 + sceneIdx * 4` and not the other way
- * round on purpose: with `sceneIdx * 4` written first agbcc strength-reduces
- * the address into a pointer induction variable (`adds rN, #2` per iteration),
- * where the original recomputes the whole address every iteration.
+ * The two-subscript form `gBgLayerLookup[sceneIdx][i]` is load-bearing, as is
+ * the fact that the base is a real extern rather than a cast address constant.
+ * A flat index written `sceneIdx * 4 + i * 2` lets agbcc strength-reduce the
+ * address into a pointer induction variable (`adds rN, #2` per iteration) where
+ * the original recomputes it every iteration -- 19 points. And with a CONST_INT
+ * base agbcc rematerialises the address from the pool inside the loop instead of
+ * keeping it in a callee-saved register, which additionally lets cross-jumping
+ * fold the loop guard into the exit test -- 28 points.
  */
 void DispatchLevelLayerSetup(void) {
     s32 sceneIdx;
@@ -629,15 +631,15 @@ void DispatchLevelLayerSetup(void) {
     sceneIdx = gStreamPtr[2];
     gStreamPtr += 3;
     i = 0;
-    if (gBGLookupTable[sceneIdx * 4] != 0xFF) {
+    if (gBgLayerLookup[sceneIdx][0][0] != 0xFF) {
         do {
             SetupLevelLayerConfig(sceneIdx, i);
             LoadBGTileData(sceneIdx, i);
             LoadBGTilemapData(sceneIdx, i);
             i++;
-        } while (i <= 1 && gBGLookupTable[i * 2 + sceneIdx * 4] != 0xFF);
+        } while (i <= 1 && gBgLayerLookup[sceneIdx][i][0] != 0xFF);
     }
-    FinalizeLevelLayerSetup(gBGLookupTable[sceneIdx * 4]);
+    FinalizeLevelLayerSetup(gBgLayerLookup[sceneIdx][0][0]);
 }
 /**
  * StreamCmd_SetBGScroll: set BG layer scroll from stream data.

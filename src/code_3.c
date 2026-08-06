@@ -6483,8 +6483,8 @@ u8 FindNextUnlockedVision(void) {
     u8 i;
 
     for (i = 0; i < 8; i++) {
-        if (((gVisionUnlockMask[gUnk_03004C20.world][gUnk_030034B0.unk7_4] >> i) & 1) &&
-            gUnk_03004670->unk8[gUnk_03004C20.world - 1][i] == 0x7F) {
+        if (((gVisionUnlockMask[gUnk_03004C20.world][gUnk_030034B0.unk7_4] >> i) & 1)
+            && gUnk_03004670->unk8[gUnk_03004C20.world - 1][i] == 0x7F) {
             return i + 1;
         }
     }
