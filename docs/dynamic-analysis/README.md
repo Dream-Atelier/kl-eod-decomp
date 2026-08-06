@@ -21,7 +21,7 @@ GBA_KIT=../gba-kit node docs/dynamic-analysis/scripts/prove-button-wait.mjs
 
 | variable | default | meaning |
 |---|---|---|
-| `GBA_KIT` | `../gba-kit` | built gba-kit checkout |
+| `GBA_KIT` | `../gba-kit`, resolved against **this repo**, not the current directory | built gba-kit checkout — set it explicitly unless gba-kit really is this repo's sibling |
 | `GBA_KIT_SAVESTATE` | `$GBA_KIT/klonoa-analysis/savestate-in-level-idle.json` | savestate to resume from |
 | `KLONOA_ROOT` | this repo | where to find `baserom.gba` / `klonoa-eod.elf` |
 
