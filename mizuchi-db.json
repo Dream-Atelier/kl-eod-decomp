@@ -3269,10 +3269,10 @@
       ]
     },
     {
-      "id": "StreamCmd_SetScrollPosition",
-      "name": "StreamCmd_SetScrollPosition",
-      "asmCode": "\tthumb_func_start StreamCmd_SetScrollPosition\nStreamCmd_SetScrollPosition: @ 0804E634\n\tpush {r4, lr}\n\tldr r0, _0804E668 @ =0x03004D84\n\tldr r4, [r0, #0x00]\n\tldrb r1, [r4, #0x02]\n\tmovs r0, #0x02\n\tands r0, r1\n\tcmp r0, #0x00\n\tbeq _0804E670\n\tldr r0, _0804E66C @ =0x030034A0\n\tldr r3, [r0, #0x00]\n\tmovs r2, #0x01\n\tadds r0, r2, #0x0\n\tands r0, r1\n\tlsls r0, r0, #0x02\n\tadds r1, r3, #0x0\n\tadds r1, #0x08\n\tadds r1, r1, r0\n\tldrb r0, [r4, #0x03]\n\tlsls r0, r0, #0x04\n\tstrh r0, [r1, #0x00]\n\tldrb r0, [r4, #0x02]\n\tands r2, r0\n\tlsls r2, r2, #0x02\n\tadds r3, #0x0A\n\tb _0804E690\n\tlsls r0, r0, #0x00\n_0804E668: .4byte 0x03004D84\n_0804E66C: .4byte 0x030034A0\n_0804E670:\n\tldr r0, _0804E6AC @ =0x030034A0\n\tldr r3, [r0, #0x00]\n\tmovs r2, #0x01\n\tadds r0, r2, #0x0\n\tands r0, r1\n\tlsls r0, r0, #0x02\n\tadds r1, r3, #0x0\n\tadds r1, #0x10\n\tadds r1, r1, r0\n\tldrb r0, [r4, #0x03]\n\tlsls r0, r0, #0x04\n\tstrh r0, [r1, #0x00]\n\tldrb r0, [r4, #0x02]\n\tands r2, r0\n\tlsls r2, r2, #0x02\n\tadds r3, #0x12\n_0804E690:\n\tadds r3, r3, r2\n\tldrb r0, [r4, #0x04]\n\tlsls r0, r0, #0x04\n\tstrh r0, [r3, #0x00]\n_0804E698:\n\tbl UpdateAffineRegisters\n\tldr r1, _0804E6B0 @ =0x03004D84\n\tldr r0, [r1, #0x00]\n\tadds r0, #0x05\n\tstr r0, [r1, #0x00]\n\tpop {r4}\n\tpop {r0}\n\tbx r0\n\tlsls r0, r0, #0x00\n_0804E6AC: .4byte 0x030034A0\n_0804E6B0: .4byte 0x03004D84\n",
-      "asmModulePath": "asm/nonmatchings/gfx/StreamCmd_SetScrollPosition.s",
+      "id": "StreamCmd_SetWindowCorner",
+      "name": "StreamCmd_SetWindowCorner",
+      "asmCode": "\tthumb_func_start StreamCmd_SetWindowCorner\nStreamCmd_SetWindowCorner: @ 0804E634\n\tpush {r4, lr}\n\tldr r0, _0804E668 @ =0x03004D84\n\tldr r4, [r0, #0x00]\n\tldrb r1, [r4, #0x02]\n\tmovs r0, #0x02\n\tands r0, r1\n\tcmp r0, #0x00\n\tbeq _0804E670\n\tldr r0, _0804E66C @ =0x030034A0\n\tldr r3, [r0, #0x00]\n\tmovs r2, #0x01\n\tadds r0, r2, #0x0\n\tands r0, r1\n\tlsls r0, r0, #0x02\n\tadds r1, r3, #0x0\n\tadds r1, #0x08\n\tadds r1, r1, r0\n\tldrb r0, [r4, #0x03]\n\tlsls r0, r0, #0x04\n\tstrh r0, [r1, #0x00]\n\tldrb r0, [r4, #0x02]\n\tands r2, r0\n\tlsls r2, r2, #0x02\n\tadds r3, #0x0A\n\tb _0804E690\n\tlsls r0, r0, #0x00\n_0804E668: .4byte 0x03004D84\n_0804E66C: .4byte 0x030034A0\n_0804E670:\n\tldr r0, _0804E6AC @ =0x030034A0\n\tldr r3, [r0, #0x00]\n\tmovs r2, #0x01\n\tadds r0, r2, #0x0\n\tands r0, r1\n\tlsls r0, r0, #0x02\n\tadds r1, r3, #0x0\n\tadds r1, #0x10\n\tadds r1, r1, r0\n\tldrb r0, [r4, #0x03]\n\tlsls r0, r0, #0x04\n\tstrh r0, [r1, #0x00]\n\tldrb r0, [r4, #0x02]\n\tands r2, r0\n\tlsls r2, r2, #0x02\n\tadds r3, #0x12\n_0804E690:\n\tadds r3, r3, r2\n\tldrb r0, [r4, #0x04]\n\tlsls r0, r0, #0x04\n\tstrh r0, [r3, #0x00]\n_0804E698:\n\tbl UpdateAffineRegisters\n\tldr r1, _0804E6B0 @ =0x03004D84\n\tldr r0, [r1, #0x00]\n\tadds r0, #0x05\n\tstr r0, [r1, #0x00]\n\tpop {r4}\n\tpop {r0}\n\tbx r0\n\tlsls r0, r0, #0x00\n_0804E6AC: .4byte 0x030034A0\n_0804E6B0: .4byte 0x03004D84\n",
+      "asmModulePath": "asm/nonmatchings/gfx/StreamCmd_SetWindowCorner.s",
       "callsFunctions": [
         "0x03004D84",
         "0x030034A0",
@@ -215087,7 +215087,7 @@
       ]
     },
     {
-      "id": "StreamCmd_SetScrollPosition",
+      "id": "StreamCmd_SetWindowCorner",
       "embedding": [
         0.007651456166058779,
         -0.04579543694853783,
@@ -410151,7 +410151,7 @@
       "StreamCmd_SetEntityTransform": "ee82bc5831b2eddd5ef78ffad5caaa1e20072e55b8c5bf202f85160358eb2924",
       "StreamCmd_SetMusicParams": "9b03b28eca2b8dda01d719841337e9012b5680eb06e61d64c36cb3233a3982fc",
       "StreamCmd_SetRenderMode": "6f908bfd1f05a42597c8cd5f9a5bce912aeaeb90fbbd9b2cbc3ca88f4e93b2cb",
-      "StreamCmd_SetScrollPosition": "87999ce84c71091f58e7159787978ed4134119cbe16acb203c9b5fa002ea7193",
+      "StreamCmd_SetWindowCorner": "87999ce84c71091f58e7159787978ed4134119cbe16acb203c9b5fa002ea7193",
       "StreamCmd_SetSpriteAttrs": "0e8e4b641222be14425bf0ad9516ada4353a72a99357f6589aa234cc3db05709",
       "StreamCmd_SetTimerAndMode": "f372e2d2b8b666989dca743e3e53ccd02da598f0ce7624931cab6bfad88b1a64",
       "StreamCmd_SetupOAMSpriteGroup": "c11ec95df9d98c5243726f6872f7a9f6b461b3133e31bfea95749f8d04b78b1d",
