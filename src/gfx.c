@@ -606,7 +606,39 @@ void StreamCmd_SetRenderMode(void) {
     *p = (*p & ~3) | 2;
     gStreamPtr += 2;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", DispatchLevelLayerSetup);
+void SetupLevelLayerConfig(u32 sceneIdx, u32 layerIdx);
+void LoadBGTilemapData(u32 sceneIdx, u32 layerIdx);
+/**
+ * DispatchLevelLayerSetup: set up every BG layer of one scene.
+ *
+ * Reads the scene index from the command stream (byte 2), advances the cursor
+ * by 3, then walks that scene's layer list in gBGLookupTable -- 4 bytes per
+ * scene, two 2-byte layer slots, 0xFF terminating -- configuring, loading tiles
+ * for and loading the tilemap of each layer in turn. Finally loads the scene's
+ * BG palette from the first slot's entry index.
+ *
+ * The lookup index is spelled `i * 2 + sceneIdx * 4` and not the other way
+ * round on purpose: with `sceneIdx * 4` written first agbcc strength-reduces
+ * the address into a pointer induction variable (`adds rN, #2` per iteration),
+ * where the original recomputes the whole address every iteration.
+ */
+void DispatchLevelLayerSetup(void) {
+    s32 sceneIdx;
+    s32 i;
+
+    sceneIdx = gStreamPtr[2];
+    gStreamPtr += 3;
+    i = 0;
+    if (gBGLookupTable[sceneIdx * 4] != 0xFF) {
+        do {
+            SetupLevelLayerConfig(sceneIdx, i);
+            LoadBGTileData(sceneIdx, i);
+            LoadBGTilemapData(sceneIdx, i);
+            i++;
+        } while (i <= 1 && gBGLookupTable[i * 2 + sceneIdx * 4] != 0xFF);
+    }
+    FinalizeLevelLayerSetup(gBGLookupTable[sceneIdx * 4]);
+}
 /**
  * StreamCmd_SetBGScroll: set BG layer scroll from stream data.
  *

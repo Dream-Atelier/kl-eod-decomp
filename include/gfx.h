@@ -283,8 +283,21 @@ struct GfxStreamAlloc {
 
 /* BG tile/tilemap configuration lookup table.
  * Used by LoadBGTileData and LoadBGTilemapData to map (sceneIdx, layerIdx)
- * to an entry index into the BG layer struct and ROM data tables. */
+ * to an entry index into the BG layer struct and ROM data tables.
+ *
+ * Layout, from the three functions that index it: 4 bytes per scene, split
+ * into two 2-byte layer slots, so the byte at [sceneIdx * 4 + layerIdx * 2]
+ * is the layer's entry index and the byte after it is its BG-layer id.
+ * 0xFF in the entry-index byte terminates a scene's layer list.
+ *
+ * Declared as a real extern object (address from ldscript) as well as a
+ * literal-address macro: DispatchLevelLayerSetup only matches with the
+ * symbol_ref spelling -- see the note in ldscript.in.txt.  It is deliberately
+ * a flat u8 array rather than a struct: agbcc's ARM default
+ * STRUCTURE_SIZE_BOUNDARY is 32 bits, so `struct { u8 a; u8 b; }` is padded to
+ * 4 bytes and a struct spelling cannot express the 2-byte slot at all. */
 #define ROM_BG_LOOKUP_TABLE      0x08057ACC
+extern const u8 gBGLookupTable[];
 
 /* Typed view of ROM_BG_LOOKUP_TABLE (0x08057ACC).
  *
