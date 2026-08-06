@@ -72,14 +72,6 @@ gUnk_030034DC = 0x030034DC;
 gUnk_030051DC = 0x030051DC;
 gUnk_080E2A7C = 0x080E2A7C;
 gUnk_08078FC8 = 0x08078FC8;
-/* BG tile/tilemap configuration lookup table (also spelled ROM_BG_LOOKUP_TABLE,
- * a literal-address macro, in gfx.h). A real extern object rather than a cast
- * constant: with a symbol_ref base agbcc keeps the table address in a
- * callee-saved register across the calls inside DispatchLevelLayerSetup's loop
- * (`adds r6, r1, #0` in the loop preheader), which is also what stops
- * cross-jumping from folding the loop guard into the loop's exit test.  With a
- * big CONST_INT base it rematerialises the address from the pool inside the
- * loop instead and the guard folds away.  See src/gfx.c. */
 /* OBJ palette RAM / OBJ VRAM write cursors (advanced by the per-level VBlank
  * DMA loaders). Extern symbols rather than literal-address macros so agbcc
  * eager-loads their address into a callee-saved register and matches. */
@@ -478,6 +470,13 @@ gUnk_0805267E = 0x0805267E;
 gUnk_08051BD4 = 0x08051BD4;
 gItemDropParamTable = 0x080E2ADE;
 gLevelPaletteTable = 0x08189B4C;
+/* BG tile/tilemap configuration lookup table. A real extern object rather than a cast
+ * constant: with a symbol_ref base agbcc keeps the table address in a
+ * callee-saved register across the calls inside DispatchLevelLayerSetup's loop
+ * (`adds r6, r1, #0` in the loop preheader), which is also what stops
+ * cross-jumping from folding the loop guard into the loop's exit test.  With a
+ * big CONST_INT base it rematerialises the address from the pool inside the
+ * loop instead and the guard folds away.  See src/gfx.c. */
 gBgLayerLookup = 0x08057ACC;
 gBgTileSubtable = 0x08189BCC;
 gStreamDataTable = 0x08189AFC;
