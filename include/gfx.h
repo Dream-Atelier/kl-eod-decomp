@@ -410,17 +410,23 @@ extern void *volatile gPaletteVramCursor;
 /* Per-level window clip bounds, consumed by the HBlank handler that writes
  * REG_WIN0H/V and REG_WIN1H/V: each WINxH packs (left << 4) | (right >> 4),
  * each WINxV packs (top << 4) | (bottom >> 4). The pointer itself lives at
- * 0x030034A0 (the same heap buffer aliased by gGfxBufferPtr). */
+ * 0x030034A0 (the same heap buffer aliased by gGfxBufferPtr).
+ *
+ * The eight halfwords are two 2x2 arrays, not eight scalars: the first index is
+ * the window number and the second is the axis (0 = horizontal, 1 = vertical).
+ * StreamCmd_SetScrollPosition indexes BOTH dimensions at run time from stream
+ * byte 2 (bit 1 picks leftTop vs rightBottom, bit 0 picks the window), and only
+ * the array spelling reproduces agbcc's address arithmetic for it: with plain
+ * scalars agbcc folds the member offset into the store's immediate, and the
+ * function does not match. Offsets and meanings are unchanged from the earlier
+ * scalar declaration (win0Left = leftTop[0][0], win0Top = leftTop[0][1], ...);
+ * see include/io_reg.h for the real WIN0H/WIN1H/WIN0V/WIN1V map. */
 struct LevelWindowBounds {
     u8 pad_0[0x8];
-    s16 win0Left; /* 0x08 */
-    s16 win0Top; /* 0x0A */
-    s16 win1Left; /* 0x0C */
-    s16 win1Top; /* 0x0E */
-    s16 win0Right; /* 0x10 */
-    s16 win0Bottom; /* 0x12 */
-    s16 win1Right; /* 0x14 */
-    s16 win1Bottom; /* 0x16 */
+    /* 0x08: [window][0] = left, [window][1] = top */
+    s16 leftTop[2][2];
+    /* 0x10: [window][0] = right, [window][1] = bottom */
+    s16 rightBottom[2][2];
 };
 extern struct LevelWindowBounds *gLevelStatePtr;
 
