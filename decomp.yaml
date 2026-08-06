@@ -5,6 +5,12 @@ tools:
     # Shell command template for compiling a candidate source.
     # Use the placeholders `{{inputPath}}`, `{{outputPath}}`, and `{{functionName}}` as needed.
     compiler: |
+      # `sh -c` runs this whole template as ONE command, so without `set -e` a compiler
+      # error does not fail it: agbcc emits an error-recovery .s anyway, `as` assembles
+      # that, the script exits 0, and the caller scores an object built from source the
+      # compiler REJECTED. That is where phantom scores come from.
+      set -e
+
       ASM_DIR="$(dirname "{{outputPath}}")"
       BASENAME="$(basename "{{outputPath}}" .o)"
       PRE_FILE="$ASM_DIR/$BASENAME.i"
@@ -33,6 +39,12 @@ tools:
     # (build it with `make asmlift-elf`) — asmlift's symbol source
     elf: klonoa-eod-syms.elf
     compiler: |
+      # `sh -c` runs this whole template as ONE command, so without `set -e` a compiler
+      # error does not fail it: agbcc emits an error-recovery .s anyway, `as` assembles
+      # that, the script exits 0, and the caller scores an object built from source the
+      # compiler REJECTED. That is where phantom scores come from.
+      set -e
+
       ASM_DIR="$(dirname "{{outputPath}}")"
       BASENAME="$(basename "{{outputPath}}" .o)"
       PRE_FILE="$ASM_DIR/$BASENAME.i"
