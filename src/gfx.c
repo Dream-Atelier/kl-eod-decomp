@@ -448,7 +448,44 @@ void StreamCmd_SetEntityTransform(void) {
     gStreamPtr += 6;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGPriority);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_FillBGTilemap);
+/**
+ * StreamCmd_FillBGTilemap: stream command that clears one BG layer to a single
+ * tile, then paints that layer's whole tilemap with that tile.
+ *
+ * Stream layout (7 bytes):
+ *   [2]    BG layer index (0..3)
+ *   [3..6] unaligned u32 fill pattern for the tile's pixels
+ *
+ * Two DMA fills:
+ *   1. 32 bytes (one 4bpp tile) of the unaligned pattern into the layer's
+ *      charblock at +0x40, i.e. tile index 2.
+ *   2. 0x800 bytes (0x400 entries) of 0xF002 — tile 2, palette 15 — over the
+ *      layer's tilemap. Layers 0 and 1 are painted into the IWRAM scratch
+ *      buffers gBgTilemapBufs[i]; layers 2 and 3 straight into their VRAM
+ *      screenbase, gBgInfo[i].pTilemap. Any other index does nothing beyond
+ *      the tile fill.
+ *
+ * Advances the stream pointer by 7.
+ */
+void StreamCmd_FillBGTilemap(void) {
+    u16 entry;
+
+    DmaFill32(3, ReadUnalignedU32(gStreamPtr + 3), (u8 *)gBgInfo[gStreamPtr[2]].pTiles + 0x40, 32);
+
+    entry = 0xF002;
+    switch (gStreamPtr[2]) {
+    case 0:
+    case 1:
+        DmaFill16(3, entry, &gBgTilemapBufs[gStreamPtr[2]], 0x800);
+        break;
+    case 2:
+    case 3:
+        DmaFill16(3, entry, gBgInfo[gStreamPtr[2]].pTilemap, 0x800);
+        break;
+    }
+
+    gStreamPtr += 7;
+}
 /**
  * StreamCmd_EnableMosaic: enables mosaic on BG2/BG3 and sets mosaic level.
  *
