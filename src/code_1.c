@@ -13,6 +13,8 @@ extern void InitVideoAndBG();
 extern void TransitionFadeOutFull();
 extern void WaitVBlankAndClearMosaic();
 extern void InitWorldMapGfx();
+extern void SavePlayerProgress(void);
+extern void SaveGameWithVerify(s32, s32);
 extern void UpdateSceneTransition();
 extern void IntroScrollAnimation();
 extern void VBlankCallback_TitleScreen();
@@ -1012,7 +1014,53 @@ checkAdvance:
     gUnk_03003410.unk0++;
 }
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutFull);
-INCLUDE_ASM("asm/nonmatchings/code_1", TransitionReturnToWorldMap);
+/* The callback queue reached by ADDRESS rather than through the `gCallbackQueue`
+ * extern. Both spell the same cell (0x03003510) and both assemble to the same
+ * bytes here, but naming the extern in THIS function makes agbcc allocate
+ * registers differently in VBlankDMA_Level21 further down the same translation
+ * unit (0x66C -> 0x668 bytes), which breaks the ROM. Verified: the two struct
+ * spellings produce a byte-identical TransitionReturnToWorldMap; only the
+ * unrelated later function moves. Do not "clean this up" back to
+ * gCallbackQueue without re-running `make compare`. */
+#define gCallbackQueueAt3510 (*(struct CallbackQueue *)0x03003510)
+/**
+ * TransitionReturnToWorldMap: per-frame fade-out step on the way back to the world
+ * map. Runs every other frame: forces BLDCNT to full darken and, in the mode
+ * flagged by gUnk_03003410.unkC, opens both window regions. After 16 frames it
+ * commits the save (player progress, then the two verified save writes), queues
+ * InitWorldMapGfx as the only next-frame callback and restarts the scene counter;
+ * otherwise it just steps the mosaic.
+ */
+void TransitionReturnToWorldMap(void) {
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    REG_BLDCNT = 0xFF;
+    if (gUnk_03003410.unkC == 1) {
+        REG_WININ = 0x3F3F;
+        REG_WINOUT = 0x3F3F;
+    }
+
+    gFrameCounter += 1;
+    if (gFrameCounter == 16) {
+        gUnk_030034E4 = 0;
+        if (gUnk_03003410.unkC == 1) {
+            SavePlayerProgress();
+            SaveGameWithVerify(1, 0);
+            gUnk_03005284->unk1 = gUnk_03004C20.world;
+            SaveGameWithVerify(0, 2);
+        }
+        gCallbackQueueAt3510.next[0] = InitWorldMapGfx;
+        gCallbackQueueAt3510.next[1] = NULL + 1;
+        gCallbackQueueAt3510.current[gCallbackQueueAt3510.currentCount - 1] = NULL;
+        gCallbackQueueAt3510.nextCount = 2;
+        gUnk_03004C20.sceneFrameCounter = -1;
+    } else {
+        gMosaicSize += 1;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutMusicAndReset);
 /**
  * TransitionClearAndRestart: per-frame fade-in step (every other frame). Brightens
