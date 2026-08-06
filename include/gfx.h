@@ -159,7 +159,23 @@ extern u8 *gStreamPtr;
  * UpdatePaletteFadeStep and written by StreamCmd_ConfigureBlend, but that is
  * static evidence only, so they keep placeholder names. */
 struct GfxControlFlags {
-    u8 pad_00[0x1C];
+    u8 pad_00[2];
+    u32 flag_02_0 : 1;
+    /* 0x02 bits 1-2 — the two scene-exit bits GFX_SCENE_EXITING (0x02) and
+     * GFX_SCENE_SKIPPABLE (0x04) documented above, spelled as one 2-bit field
+     * because StreamCmd_ToggleDisplayFlag toggles GFX_SCENE_EXITING with
+     * `sceneExit ^= 2`, which reads and rewrites both bits as one unit.
+     *
+     * The `u32` container is load-bearing, not cosmetic. As `u8 : 2` agbcc
+     * materialises the insert's negated mask with `mov #7 / neg`; as `u32 : 2`
+     * it CSEs the mask against the register already holding the xor constant
+     * and emits `mov #2 / sub #9` — which is what the ROM has. The two spell
+     * the same 8-bit unit at byte 2 (both compile to ldrb/strb [x, #2]); only
+     * the constant synthesis differs. The 0x1C group below is deliberately
+     * left as `u8` for the same reason in reverse: it matches as u8. */
+    u32 sceneExit : 2;
+    u32 flag_02_3 : 5;
+    u8 pad_03[0x19];
     u8 flag_1C_0 : 1;
     u8 flag_1C_1 : 1;
     u8 flag_1C_2 : 1;

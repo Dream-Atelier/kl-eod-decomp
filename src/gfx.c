@@ -1171,7 +1171,29 @@ void StreamCmd_ClearRenderMode(void) {
     *streamPtr += 2;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ToggleDisplayFlag);
+/**
+ * StreamCmd_ToggleDisplayFlag: toggles one of two graphics-control flags,
+ * selected by the command's argument byte, then advances the stream by 3.
+ *
+ * arg == 0 flips GfxControlFlags.sceneExit's low bit (GFX_SCENE_EXITING, byte
+ * 0x02 bit 1) — the same bit the gfx-stream tick watches to stop advancing the
+ * stream and start running ProcessSceneTransitionOut every frame. arg != 0
+ * flips GfxControlFlags.forceWindowsOpen (byte 0x1C bit 6).
+ *
+ * Both arms are agbcc's canonical bitfield read-modify-write (extract with
+ * lsl/lsr, xor, reinsert under a negated mask), so both must be spelled as
+ * struct bitfields rather than hand-written shifts and masks. See the note on
+ * `sceneExit` in include/gfx.h for why its container type is u32 while the
+ * 0x1C group's is u8.
+ */
+void StreamCmd_ToggleDisplayFlag(void) {
+    if (gStreamPtr[2] == 0) {
+        ((struct GfxControlFlags *)gGfxBufferPtr)->sceneExit ^= GFX_SCENE_EXITING;
+    } else {
+        ((struct GfxControlFlags *)gGfxBufferPtr)->forceWindowsOpen ^= 1;
+    }
+    gStreamPtr += 3;
+}
 /**
  * StreamCmd_ToggleFadeDirection: flips GfxControlFlags.blendRampDown (byte 0x1C,
  * bit 5) of the graphics control block, then advances the stream pointer by 2.
