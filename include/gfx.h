@@ -286,9 +286,28 @@ struct GfxStreamAlloc {
  * to an entry index into the BG layer struct and ROM data tables. */
 #define ROM_BG_LOOKUP_TABLE      0x08057ACC
 
+/* Typed view of ROM_BG_LOOKUP_TABLE (0x08057ACC).
+ *
+ *   gBgLayerLookup[levelIdx][sublevel][0] = row index into the ROM sub-tables
+ *   gBgLayerLookup[levelIdx][sublevel][1] = BG layer (2 or 3), also the gBgInfo index
+ *
+ * The stride pair is proven by LoadBGTileData and LoadBGTilemapData, which both
+ * compute `levelIdx*4 + sublevel*2` and then read byte [+1] before byte [+0].
+ * Both bytes must be reached through ONE array object of this exact shape --
+ * that is what makes agbcc fold the `+1` into the symbol (`adds r0, r4, #1`)
+ * instead of using `ldrb r0, [r0, #1]`. */
+extern const u8 gBgLayerLookup[][2][2];
+
 /* BG tile ROM pointer sub-table.
  * Indexed by entry from ROM_BG_LOOKUP_TABLE to select compressed tile data. */
 #define ROM_BG_TILE_SUBTABLE     0x08189BCC
+
+/* Typed view of ROM_BG_TILE_SUBTABLE (0x08189BCC): one row of two compressed
+ * tile-data pointers per lookup row, selected by BG layer.
+ *   gBgTileSubtable[row][layer - 2]
+ * (layer is 2 or 3, so the second index is 0 or 1 -- hence the `- 2` bias that
+ * shows up as `subs r2, r3, #0x2` in both loaders.) */
+extern const u32 gBgTileSubtable[][2];
 
 /* BG tilemap ROM pointer sub-table.
  * Used by LoadBGTilemapData for per-entry tilemap data selection. */

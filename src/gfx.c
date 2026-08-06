@@ -102,8 +102,23 @@ void DecompressAndDmaCopy(void *src, void *dest, u32 size) {
  *
  *   levelIdx: level index (0-based)
  *   sublevel: sublevel / layer pair index
+ *
+ * MATCHING: every lookup is written out in full instead of being cached in a
+ * local. agbcc expands the call's argument trees in source order, so keeping
+ * the table reads inside the argument expression is what materialises both ROM
+ * base addresses at function entry (r4/r5, hence `push {r4, r5, lr}`); hoisting
+ * the two bytes into locals drops the register pressure to four live values,
+ * agbcc then keeps everything in r0-r3 and the prologue loses r4/r5.
+ * The `unk16 * unk18` operand order is also load-bearing: it fixes ldrh-before-
+ * ldrb, and swapping it is the only difference between this and a 3-byte miss.
  */
-INCLUDE_ASM("asm/nonmatchings/gfx", LoadBGTileData);
+void LoadBGTileData(s32 levelIdx, s32 sublevel) {
+    DecompressAndDmaCopy((void *)gBgTileSubtable[gBgLayerLookup[levelIdx][sublevel][0]]
+                                                [gBgLayerLookup[levelIdx][sublevel][1] - 2],
+                         gBgInfo[gBgLayerLookup[levelIdx][sublevel][1]].pTiles,
+                         gBgInfo[gBgLayerLookup[levelIdx][sublevel][1]].unk16 *
+                             gBgInfo[gBgLayerLookup[levelIdx][sublevel][1]].unk18);
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", LoadBGTilemapData);
 INCLUDE_ASM("asm/nonmatchings/gfx", SetupLevelLayerConfig);
 /**
