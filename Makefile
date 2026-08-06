@@ -109,7 +109,20 @@ $(shell mkdir -p $(ASM_BUILDDIR) $(C_BUILDDIR) $(DATA_BUILDDIR))
 
 all: compare
 
-compare: rom
+# Always builds from scratch. Verifying an incremental build is not trustworthy: the ELF and the
+# ROM live outside build/, so make can skip relinking and the SHA1 check then passes against the
+# PREVIOUS ROM. Demonstrated by breaking a source file and running `rm -rf build && make compare` --
+# it still printed "klonoa-eod.gba: OK".
+#
+# A clean build is ~1s here against ~0.1s incremental, and a verification whose answer can be wrong
+# is not worth 0.9s. Use `make rom` when you want a fast incremental build and are not asking
+# whether it matches.
+#
+# Recursive because prerequisites have no guaranteed order under -j, and because each sub-make
+# re-runs the mkdir of the build dirs that tidy just undid. -j is inherited through MAKEFLAGS.
+compare:
+	@$(MAKE) tidy
+	@$(MAKE) rom
 	$(SHA1) $(BUILD_NAME).sha1
 
 rom: $(ROM)
