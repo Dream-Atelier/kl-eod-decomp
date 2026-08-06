@@ -1088,6 +1088,16 @@ extern struct Unk_030034B0 gUnk_030034B0;
  * gWorldMapVisionNode[world - 1][vision - 1] : the node record a vision lives on. */
 extern u8 gWorldMapNodes[6][40][5];
 extern u8 gWorldMapVisionNode[6][8];
+/* gVisionUnlockMask[.][stage] : bitmask of the visions a world offers at world-map
+ * progress stage `stage` (gUnk_030034B0.unk7_4, 0..6); bit N set = vision N+1 exists.
+ * 0x0811765C, six identical 7-byte rows { 02 04 18 60 60 80 80 } ending at 0x08117686
+ * (the next 7-byte row is the zero padding that follows).
+ * FindNextUnlockedVision indexes the row with gUnk_03004C20.world, NOT world - 1, so
+ * world 6 reads the zero row just past the table; the outer bound is deliberately left
+ * incomplete to record that the original code reads one row high. Because every row is
+ * identical the off-by-one is invisible for worlds 1..5, which is presumably why it
+ * survived. */
+extern u8 gVisionUnlockMask[][7];
 extern u8 gUnk_030007C4;
 extern u16 gUnk_030052B8;
 extern u16 gUnk_08057C70;
