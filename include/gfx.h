@@ -297,7 +297,6 @@ struct GfxStreamAlloc {
  * STRUCTURE_SIZE_BOUNDARY is 32 bits, so `struct { u8 a; u8 b; }` is padded to
  * 4 bytes and a struct spelling cannot express the 2-byte slot at all. */
 #define ROM_BG_LOOKUP_TABLE      0x08057ACC
-extern const u8 gBGLookupTable[];
 
 /* Typed view of ROM_BG_LOOKUP_TABLE (0x08057ACC).
  *
@@ -313,7 +312,7 @@ extern const u8 gBgLayerLookup[][2][2];
 
 /* BG tile ROM pointer sub-table.
  * Indexed by entry from ROM_BG_LOOKUP_TABLE to select compressed tile data. */
-#define ROM_BG_TILE_SUBTABLE     0x08189BCC
+#define ROM_BG_TILE_SUBTABLE 0x08189BCC
 
 /* Typed view of ROM_BG_TILE_SUBTABLE (0x08189BCC): one row of two compressed
  * tile-data pointers per lookup row, selected by BG layer.
