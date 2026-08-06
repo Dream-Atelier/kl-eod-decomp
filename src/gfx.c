@@ -1223,7 +1223,24 @@ void EnableVBlankAndDispatchMusic(void) {
 
     gStreamPtr += 3;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_DisableVBlankAndStopMusic);
+/**
+ * StreamCmd_DisableVBlankAndStopMusic: disables the VBlank interrupt, detaches
+ * the m4a VSync hook, stops every music player, and advances the stream by 2.
+ *
+ * Identical to StreamCmd_DisableVBlank above but with m4aMPlayAllStop() added
+ * after m4aSoundVSyncOff(). The two masks are spelled as the literal 16-bit
+ * values 0xFFFE / 0xFFF7 (not ~IE_VBLANK / ~DISPSTAT_VBLANK_IRQ_ENABLE) because
+ * the ROM's literal pool holds the zero-extended words 0x0000FFFE / 0x0000FFF7,
+ * which is what agbcc emits for a positive int constant; the ~ spelling would
+ * produce 0xFFFFFFFE / 0xFFFFFFF7 instead.
+ */
+void StreamCmd_DisableVBlankAndStopMusic(void) {
+    REG_IE &= 0xFFFE; /* clear INT_VBLANK */
+    REG_DISPSTAT &= 0xFFF7; /* clear VBLANK_IRQ */
+    m4aSoundVSyncOff();
+    m4aMPlayAllStop();
+    gStreamPtr += 2;
+}
 /*
  * Enables VBlank interrupt and VBlank IRQ status, then calls two
  * interrupt setup handlers (m4aSoundVSyncOn, m4aMPlayAllContinue).
