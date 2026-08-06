@@ -32,12 +32,20 @@
 # precisely.
 set -eu
 
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$1"
 ASM="$2"
-ELF="${3:-klonoa-eod.elf}"
+# Resolved against the REPO, not the caller's directory: a compiler template is invoked with
+# whatever cwd the caller happens to have, and a relative default silently found nothing.
+ELF="${3:-$REPO/klonoa-eod-syms.elf}"
 TMP="${TMPDIR:-/tmp}/pool_abs_syms.$$"
 
-[ -r "$ELF" ] || exit 0
+# Loud, not silent. Exiting 0 here would quietly restore the very scoring bias this script
+# exists to remove, and the caller would read the resulting number as a real one.
+if [ ! -r "$ELF" ]; then
+    echo "pool_abs_syms.sh: cannot read $ELF (build it with \`make\` / \`make asmlift-elf\`)" >&2
+    exit 1
+fi
 trap 'rm -f "$TMP"' EXIT
 
 arm-none-eabi-nm -u "$OUT" | awk '{print $NF}' | sort -u >"$TMP"

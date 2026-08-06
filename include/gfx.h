@@ -163,8 +163,11 @@ struct GfxControlFlags {
     u32 flag_02_0 : 1;
     /* 0x02 bits 1-2 — the two scene-exit bits GFX_SCENE_EXITING (0x02) and
      * GFX_SCENE_SKIPPABLE (0x04) documented above, spelled as one 2-bit field
-     * because StreamCmd_ToggleDisplayFlag toggles GFX_SCENE_EXITING with
-     * `sceneExit ^= 2`, which reads and rewrites both bits as one unit.
+     * because StreamCmd_ToggleDisplayFlag toggles the field as a unit with
+     * `sceneExit ^= 2`, which reads and rewrites both bits as one unit. Note
+     * that 2 is a value IN THE FIELD, so it toggles the field's high bit --
+     * byte bit 2, GFX_SCENE_SKIPPABLE -- not GFX_SCENE_EXITING. A byte mask is
+     * not a field value; the two only coincide for a field at bit offset 0.
      *
      * The `u32` container is load-bearing, not cosmetic. As `u8 : 2` agbcc
      * materialises the insert's negated mask with `mov #7 / neg`; as `u32 : 2`
@@ -296,9 +299,8 @@ struct GfxStreamAlloc {
  * a flat u8 array rather than a struct: agbcc's ARM default
  * STRUCTURE_SIZE_BOUNDARY is 32 bits, so `struct { u8 a; u8 b; }` is padded to
  * 4 bytes and a struct spelling cannot express the 2-byte slot at all. */
-#define ROM_BG_LOOKUP_TABLE      0x08057ACC
 
-/* Typed view of ROM_BG_LOOKUP_TABLE (0x08057ACC).
+/* The BG layer lookup table at 0x08057ACC.
  *
  *   gBgLayerLookup[levelIdx][sublevel][0] = row index into the ROM sub-tables
  *   gBgLayerLookup[levelIdx][sublevel][1] = BG layer (2 or 3), also the gBgInfo index
@@ -311,10 +313,9 @@ struct GfxStreamAlloc {
 extern const u8 gBgLayerLookup[][2][2];
 
 /* BG tile ROM pointer sub-table.
- * Indexed by entry from ROM_BG_LOOKUP_TABLE to select compressed tile data. */
-#define ROM_BG_TILE_SUBTABLE 0x08189BCC
+ * Indexed by the entry byte from gBgLayerLookup to select compressed tile data. */
 
-/* Typed view of ROM_BG_TILE_SUBTABLE (0x08189BCC): one row of two compressed
+/* The compressed-tile sub-table at 0x08189BCC: one row of two compressed
  * tile-data pointers per lookup row, selected by BG layer.
  *   gBgTileSubtable[row][layer - 2]
  * (layer is 2 or 3, so the second index is 0 or 1 -- hence the `- 2` bias that

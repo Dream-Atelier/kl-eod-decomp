@@ -6480,6 +6480,8 @@ void UpdateWorldMapNodeState(void) {
  * gVisionUnlockMask is identical, so the off-by-one is unobservable for worlds 1..5.
  */
 u8 FindNextUnlockedVision(void) {
+    /* `i` must be u8, and the gVisionUnlockMask row must be re-read inside the
+     * loop rather than hoisted out of it; either change costs the match. */
     u8 i;
 
     for (i = 0; i < 8; i++) {

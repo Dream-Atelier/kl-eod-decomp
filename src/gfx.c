@@ -560,6 +560,8 @@ void StreamCmd_SetBGPriority(void) {
  * Advances the stream pointer by 7.
  */
 void StreamCmd_FillBGTilemap(void) {
+    /* `entry` must be a u16 local, not 0xF002 written inline at both call sites:
+     * inlining it costs the match. */
     u16 entry;
 
     DmaFill32(3, ReadUnalignedU32(gStreamPtr + 3), (u8 *)gBgInfo[gStreamPtr[2]].pTiles + 0x40, 32);
@@ -1224,7 +1226,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
  * StreamCmd_ToggleDisplayFlag: toggles one of two graphics-control flags,
  * selected by the command's argument byte, then advances the stream by 3.
  *
- * arg == 0 flips GfxControlFlags.sceneExit's low bit (GFX_SCENE_EXITING, byte
+ * arg == 0 flips GfxControlFlags.sceneExit's HIGH bit (GFX_SCENE_SKIPPABLE, byte
  * 0x02 bit 1) — the same bit the gfx-stream tick watches to stop advancing the
  * stream and start running ProcessSceneTransitionOut every frame. arg != 0
  * flips GfxControlFlags.forceWindowsOpen (byte 0x1C bit 6).
@@ -1237,7 +1239,9 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
  */
 void StreamCmd_ToggleDisplayFlag(void) {
     if (gStreamPtr[2] == 0) {
-        ((struct GfxControlFlags *)gGfxBufferPtr)->sceneExit ^= GFX_SCENE_EXITING;
+        /* the cast is repeated rather than held in a local: a `struct GfxControlFlags *`
+         * local costs the match */
+        ((struct GfxControlFlags *)gGfxBufferPtr)->sceneExit ^= GFX_SCENE_SKIPPABLE >> 1;
     } else {
         ((struct GfxControlFlags *)gGfxBufferPtr)->forceWindowsOpen ^= 1;
     }
@@ -1297,7 +1301,7 @@ void StreamCmd_SetScrollPosition(void) {
     u8 *p = gStreamPtr;
 
     if (p[2] & 2) {
-        struct LevelWindowBounds *win = gLevelStatePtr;
+        struct LevelWindowBounds *win = gLevelStatePtr; /* declared per arm on purpose: hoisting it above the if costs the match */
 
         win->leftTop[p[2] & 1][0] = p[3] << 4;
         win->leftTop[p[2] & 1][1] = p[4] << 4;
@@ -1401,8 +1405,8 @@ void StreamCmd_StopMusicAndDisableIRQ(void) {
  * m4aSoundVSyncOff. Advances stream by 2.
  */
 void StreamCmd_DisableVBlank(void) {
-    REG_IE &= 0xFFFE; /* clear INT_VBLANK */
-    REG_DISPSTAT &= 0xFFF7; /* clear VBLANK_IRQ */
+    REG_IE &= ~IE_VBLANK;
+    REG_DISPSTAT &= ~DISPSTAT_VBLANK_INTR;
     m4aSoundVSyncOff();
     gStreamPtr += 2;
 }
@@ -1448,15 +1452,13 @@ void EnableVBlankAndDispatchMusic(void) {
  * the m4a VSync hook, stops every music player, and advances the stream by 2.
  *
  * Identical to StreamCmd_DisableVBlank above but with m4aMPlayAllStop() added
- * after m4aSoundVSyncOff(). The two masks are spelled as the literal 16-bit
- * values 0xFFFE / 0xFFF7 (not ~IE_VBLANK / ~DISPSTAT_VBLANK_IRQ_ENABLE) because
- * the ROM's literal pool holds the zero-extended words 0x0000FFFE / 0x0000FFF7,
- * which is what agbcc emits for a positive int constant; the ~ spelling would
- * produce 0xFFFFFFFE / 0xFFFFFFF7 instead.
+ * after m4aSoundVSyncOff(). Both registers are vu16, so the &= narrows to 16
+ * bits and the pool word is 0x0000FFFE / 0x0000FFF7 either way — the named
+ * constants and the literal masks compile to the same bytes.
  */
 void StreamCmd_DisableVBlankAndStopMusic(void) {
-    REG_IE &= 0xFFFE; /* clear INT_VBLANK */
-    REG_DISPSTAT &= 0xFFF7; /* clear VBLANK_IRQ */
+    REG_IE &= ~IE_VBLANK;
+    REG_DISPSTAT &= ~DISPSTAT_VBLANK_INTR;
     m4aSoundVSyncOff();
     m4aMPlayAllStop();
     gStreamPtr += 2;
