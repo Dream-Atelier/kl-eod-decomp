@@ -6466,7 +6466,30 @@ void UpdateWorldMapNodeState(void) {
         gHeldKeys = R_BUTTON;
     }
 }
-INCLUDE_ASM("asm/nonmatchings/code_3", FindNextUnlockedVision);
+/*
+ * FindNextUnlockedVision: pick the world's next vision that is unlocked but not
+ * yet cleared, and return it 1-based (0 = none left).
+ *
+ * gVisionUnlockMask[world][gUnk_030034B0.unk7_4] is the bitmask of visions this
+ * world offers at the current world-map progress stage; bit i set = vision i + 1
+ * exists.  gUnk_03004670->unk8[world - 1][i] is that vision's progress byte, and
+ * 0x7F is the "available, not cleared" value UpdateWorldMapNodeState leaves behind
+ * when it clears the node with `&= 0x80`.
+ *
+ * Note the row index is `world`, not `world - 1`, as in the original: every row of
+ * gVisionUnlockMask is identical, so the off-by-one is unobservable for worlds 1..5.
+ */
+u8 FindNextUnlockedVision(void) {
+    u8 i;
+
+    for (i = 0; i < 8; i++) {
+        if (((gVisionUnlockMask[gUnk_03004C20.world][gUnk_030034B0.unk7_4] >> i) & 1) &&
+            gUnk_03004670->unk8[gUnk_03004C20.world - 1][i] == 0x7F) {
+            return i + 1;
+        }
+    }
+    return 0;
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", SortEntityDrawOrder);
 INCLUDE_ASM("asm/nonmatchings/code_3", SaveGameToSRAM);
 INCLUDE_ASM("asm/nonmatchings/code_3", SaveGameWithVerify);
