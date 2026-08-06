@@ -5,10 +5,11 @@ Guidance for Claude Code when working with this repository.
 ## Quick Reference
 
 ```bash
-make                # Build ROM and verify SHA1 match
+make                # Build from scratch and verify SHA1 match — the only trustworthy check
+make rom            # Incremental build, no verification (fast iteration)
 make tidy           # Clean build artifacts
 make format         # Auto-format C/H files (run before committing)
-make compare        # Same as `make` — build + SHA1 verify
+make compare        # Same as `make`
 make ctx            # Generate ctx.c for decomp.me/m2c/mizuchi
 ```
 
