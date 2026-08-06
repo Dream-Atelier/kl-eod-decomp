@@ -514,13 +514,16 @@ void StreamCmd_SetEntityTransform(void) {
  * All four arms are the same expression; the asymmetry in the ROM (case 0 extracts
  * the nibble with a bare `lsr #4`, the other three with `lsl #24 / lsr #28`) is
  * agbcc's, not the source's. What makes it appear is that gStreamPtr[2] is re-read
- * in every arm rather than cached in a local -- the same house style as the
- * neighbouring stream commands. The re-reads are unified by global CSE, and in the
- * three arms that receive the unified value agbcc has lost the "this came from an
- * LDRB, so it fits in 8 bits" fact, so it cannot prove the 0xF mask redundant and
- * keeps the two-shift extraction. Case 0 still sees the original load and drops the
- * mask. Cache the byte in a `u8` local instead and all four arms collapse to
- * `lsr #4` and cross-jump into one block, which costs the match (score 14).
+ * in every arm rather than cached in a local, which is the same house style as the
+ * neighbouring stream commands. Cache the byte in a local instead and all four arms
+ * collapse to `lsr #4` and cross-jump into one block, which costs the match.
+ *
+ * The discriminator inside agbcc was NOT identified. An earlier version of this
+ * comment blamed a reg-to-reg copy from global CSE evaluated while
+ * nonzero_sign_valid was 0; that is wrong on both counts -- -fno-gcse is
+ * byte-identical, and agbcc's own RTL shows all four arms reading one pseudo that
+ * is set exactly once, directly from the MEM. Do not repeat the explanation; the
+ * behaviour is reproducible, the cause is open.
  */
 void StreamCmd_SetBGPriority(void) {
     switch (gStreamPtr[2] & 3) {
@@ -617,14 +620,13 @@ void LoadBGTilemapData(u32 sceneIdx, u32 layerIdx);
  * for and loading the tilemap of each layer in turn. Finally loads the scene's
  * BG palette from the first slot's entry index.
  *
- * The two-subscript form `gBgLayerLookup[sceneIdx][i]` is load-bearing, as is
- * the fact that the base is a real extern rather than a cast address constant.
- * A flat index written `sceneIdx * 4 + i * 2` lets agbcc strength-reduce the
- * address into a pointer induction variable (`adds rN, #2` per iteration) where
- * the original recomputes it every iteration -- 19 points. And with a CONST_INT
- * base agbcc rematerialises the address from the pool inside the loop instead of
- * keeping it in a callee-saved register, which additionally lets cross-jumping
- * fold the loop guard into the exit test -- 28 points.
+ * The two-subscript form `gBgLayerLookup[sceneIdx][i]` is load-bearing, as is the
+ * fact that the base is a real extern rather than a cast address constant. Both
+ * failures have the same shape: agbcc strength-reduces the table address into a
+ * pointer induction variable (`adds rN, #2` per iteration) and the function
+ * shrinks 100 -> 92 bytes, where the original recomputes the whole address every
+ * iteration. Writing the index flat as `sceneIdx * 4 + i * 2` does it; so does a
+ * CONST_INT base.
  */
 void DispatchLevelLayerSetup(void) {
     s32 sceneIdx;

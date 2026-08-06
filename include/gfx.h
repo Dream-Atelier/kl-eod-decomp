@@ -319,7 +319,7 @@ extern const u8 gBgLayerLookup[][2][2];
  * tile-data pointers per lookup row, selected by BG layer.
  *   gBgTileSubtable[row][layer - 2]
  * (layer is 2 or 3, so the second index is 0 or 1 -- hence the `- 2` bias that
- * shows up as `subs r2, r3, #0x2` in both loaders.) */
+ * shows up as `subs r2, r3, #0x2` here and `subs r0, #0x02` in LoadBGTilemapData.) */
 extern const u32 gBgTileSubtable[][2];
 
 /* BG tilemap ROM pointer sub-table.
