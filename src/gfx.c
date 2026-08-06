@@ -489,7 +489,44 @@ void StreamCmd_SetEntityTransform(void) {
     gOamAffineMatrix[gStreamPtr[3] & 0x1F].pd = MultiplyQ8(0x100, ReciprocalQ8(mag));
     gStreamPtr += 6;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGPriority);
+/**
+ * StreamCmd_SetBGPriority: sets the priority field of one BGxCNT register from
+ * stream byte[2], then advances the stream by 3.
+ *
+ * Byte 2 packs both operands: bits 0-1 pick the layer (0-3 -> REG_BG0CNT..BG3CNT)
+ * and bits 4-7 carry the priority value, which is OR-ed in after the register's
+ * low two bits are cleared (& 0xFFFC). Only bits 4-5 of that nibble can be set in
+ * practice -- bits 6-7 would land on BGxCNT's charblock field.
+ *
+ * All four arms are the same expression; the asymmetry in the ROM (case 0 extracts
+ * the nibble with a bare `lsr #4`, the other three with `lsl #24 / lsr #28`) is
+ * agbcc's, not the source's. What makes it appear is that gStreamPtr[2] is re-read
+ * in every arm rather than cached in a local -- the same house style as the
+ * neighbouring stream commands. The re-reads are unified by global CSE, and in the
+ * three arms that receive the unified value agbcc has lost the "this came from an
+ * LDRB, so it fits in 8 bits" fact, so it cannot prove the 0xF mask redundant and
+ * keeps the two-shift extraction. Case 0 still sees the original load and drops the
+ * mask. Cache the byte in a `u8` local instead and all four arms collapse to
+ * `lsr #4` and cross-jump into one block, which costs the match (score 14).
+ */
+void StreamCmd_SetBGPriority(void) {
+    switch (gStreamPtr[2] & 3) {
+    case 0:
+        REG_BG0CNT = (REG_BG0CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
+        break;
+    case 1:
+        REG_BG1CNT = (REG_BG1CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
+        break;
+    case 2:
+        REG_BG2CNT = (REG_BG2CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
+        break;
+    case 3:
+        REG_BG3CNT = (REG_BG3CNT & 0xFFFC) | ((gStreamPtr[2] >> 4) & 0xF);
+        break;
+    }
+    gStreamPtr += 3;
+}
+
 /**
  * StreamCmd_FillBGTilemap: stream command that clears one BG layer to a single
  * tile, then paints that layer's whole tilemap with that tile.
