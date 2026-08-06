@@ -218,12 +218,12 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB_Alt);
 void InitLevelStateDefaults(void) {
     struct LevelWindowBounds *win = gLevelStatePtr;
 
-    win->win0Left = 0;
-    win->win0Right = 0xE80;
-    win->win0Top = 0x700;
-    win->win0Bottom = 0xA00;
-    win->win1Left = 0x700;
-    win->win1Bottom = 0xA00;
+    win->leftTop[0][0] = 0; /* win0 left */
+    win->rightBottom[0][0] = 0xE80; /* win0 right */
+    win->leftTop[0][1] = 0x700; /* win0 top */
+    win->rightBottom[0][1] = 0xA00; /* win0 bottom */
+    win->leftTop[1][0] = 0x700; /* win1 left */
+    win->rightBottom[1][1] = 0xA00; /* win1 bottom */
     UpdateAffineRegisters();
     REG_WININ = 0x1F23;
     REG_WINOUT = 0x3D;
@@ -1227,7 +1227,40 @@ void StreamCmd_SetBlendMode(void) {
     gUnk_03005498 = gStreamPtr[3];
     gStreamPtr += 4;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetScrollPosition);
+/**
+ * StreamCmd_SetScrollPosition: writes one window-clip edge pair of the current
+ * level's window bounds from the command stream.
+ *
+ * Stream layout: byte[2] = selector, byte[3] = horizontal value, byte[4] =
+ * vertical value; the command is 5 bytes long. Selector bit 1 chooses which
+ * edge group is written (clear -> rightBottom, set -> leftTop) and bit 0
+ * chooses window 0 or window 1. Both values are stored as (byte << 4), i.e. the
+ * 12.4 fixed-point form the HBlank handler packs into REG_WIN0H/WIN1H and
+ * REG_WIN0V/WIN1V; UpdateAffineRegisters() then pushes the whole block out.
+ *
+ * Note that byte[2] is loaded twice: the store to the first halfword may alias
+ * the command stream, so agbcc must re-read it for the second index. Keeping
+ * both edges as 2x2 arrays (see struct LevelWindowBounds) is what makes the
+ * member offset stay out of the store's immediate field, which is required for
+ * this function to match.
+ */
+void StreamCmd_SetScrollPosition(void) {
+    u8 *p = gStreamPtr;
+
+    if (p[2] & 2) {
+        struct LevelWindowBounds *win = gLevelStatePtr;
+
+        win->leftTop[p[2] & 1][0] = p[3] << 4;
+        win->leftTop[p[2] & 1][1] = p[4] << 4;
+    } else {
+        struct LevelWindowBounds *win = gLevelStatePtr;
+
+        win->rightBottom[p[2] & 1][0] = p[3] << 4;
+        win->rightBottom[p[2] & 1][1] = p[4] << 4;
+    }
+    UpdateAffineRegisters();
+    gStreamPtr += 5;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetBGScreenSize);
 /**
  * StreamCmd_SetWindowRegs: writes WIN0H/WIN0V from stream bytes[2-5].
