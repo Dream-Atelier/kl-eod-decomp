@@ -35,15 +35,18 @@ set -eu
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$1"
 ASM="$2"
-# Resolved against the REPO, not the caller's directory: a compiler template is invoked with
-# whatever cwd the caller happens to have, and a relative default silently found nothing.
-ELF="${3:-$REPO/klonoa-eod-syms.elf}"
+# Resolved against the REPO so the default does not depend on the caller's directory. Note the
+# templates in decomp.yaml still invoke this script and agbcc by cwd-relative paths, so they must
+# be run from the repo root regardless; this only stops the ELF from being the thing that breaks.
+# klonoa-eod.elf and not klonoa-eod-syms.elf: the latter is built only by `make asmlift-elf`,
+# which is not part of `all`, and both carry the same .symtab.
+ELF="${3:-$REPO/klonoa-eod.elf}"
 TMP="${TMPDIR:-/tmp}/pool_abs_syms.$$"
 
 # Loud, not silent. Exiting 0 here would quietly restore the very scoring bias this script
 # exists to remove, and the caller would read the resulting number as a real one.
 if [ ! -r "$ELF" ]; then
-    echo "pool_abs_syms.sh: cannot read $ELF (build it with \`make\` / \`make asmlift-elf\`)" >&2
+    echo "pool_abs_syms.sh: cannot read $ELF (run \`make\` first)" >&2
     exit 1
 fi
 trap 'rm -f "$TMP"' EXIT

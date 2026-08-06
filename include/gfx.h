@@ -446,7 +446,7 @@ extern void *volatile gPaletteVramCursor;
  *
  * The eight halfwords are two 2x2 arrays, not eight scalars: the first index is
  * the window number and the second is the axis (0 = horizontal, 1 = vertical).
- * StreamCmd_SetScrollPosition indexes BOTH dimensions at run time from stream
+ * StreamCmd_SetWindowCorner indexes BOTH dimensions at run time from stream
  * byte 2 (bit 1 picks leftTop vs rightBottom, bit 0 picks the window), and only
  * the array spelling reproduces agbcc's address arithmetic for it: with plain
  * scalars agbcc folds the member offset into the store's immediate, and the

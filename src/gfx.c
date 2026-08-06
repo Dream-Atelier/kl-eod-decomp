@@ -520,9 +520,11 @@ void StreamCmd_SetEntityTransform(void) {
  *
  * The discriminator inside agbcc was NOT identified. An earlier version of this
  * comment blamed a reg-to-reg copy from global CSE evaluated while
- * nonzero_sign_valid was 0; that is wrong on both counts -- -fno-gcse is
- * byte-identical, and agbcc's own RTL shows all four arms reading one pseudo that
- * is set exactly once, directly from the MEM. Do not repeat the explanation; the
+ * nonzero_sign_valid was 0. Both halves are wrong: agbcc's own RTL shows all four
+ * arms reading one pseudo set exactly once, directly from the MEM, so there is no
+ * copy; and -fno-gcse leaves the asymmetry untouched (it only drops the
+ * callee-saved copy of gStreamPtr's address, 172 -> 168 bytes), so gcse is not the
+ * discriminator either. Do not repeat the explanation; the
  * behaviour is reproducible, the cause is open.
  */
 void StreamCmd_SetBGPriority(void) {
@@ -1228,10 +1230,12 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
  * StreamCmd_ToggleDisplayFlag: toggles one of two graphics-control flags,
  * selected by the command's argument byte, then advances the stream by 3.
  *
- * arg == 0 flips GfxControlFlags.sceneExit's HIGH bit (GFX_SCENE_SKIPPABLE, byte
- * 0x02 bit 1) — the same bit the gfx-stream tick watches to stop advancing the
- * stream and start running ProcessSceneTransitionOut every frame. arg != 0
- * flips GfxControlFlags.forceWindowsOpen (byte 0x1C bit 6).
+ * arg == 0 flips GfxControlFlags.sceneExit's HIGH bit -- byte bit 2, i.e.
+ * GFX_SCENE_SKIPPABLE, which gates whether a START press ends the scene. It is
+ * NOT GFX_SCENE_EXITING (byte bit 1), which is the bit that stops the stream
+ * advancing and runs ProcessSceneTransitionOut; sub_0804EB64 tests the two
+ * separately. `sceneExit ^= 2` reads as EXITING only if you mistake a byte mask
+ * for a value in a 2-bit field at bit offset 1.
  *
  * Both arms are agbcc's canonical bitfield read-modify-write (extract with
  * lsl/lsr, xor, reinsert under a negated mask), so both must be spelled as
