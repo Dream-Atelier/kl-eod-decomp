@@ -30,6 +30,14 @@ tools:
       arm-none-eabi-as -mcpu=arm7tdmi -mthumb-interwork \
         "$ASM_FILE" -o "{{outputPath}}"
 
+      # Resolve referenced DATA globals to absolute addresses and re-assemble. A target
+      # disassembled from the linked ROM has bare numbers in its literal pool, so without
+      # this every pool row of a candidate that NAMES its globals scores as a mismatch —
+      # penalising the single most productive matching lever in this repo. See the script.
+      ./scripts/pool_abs_syms.sh "{{outputPath}}" "$ASM_FILE"
+      arm-none-eabi-as -mcpu=arm7tdmi -mthumb-interwork \
+        "$ASM_FILE" -o "{{outputPath}}"
+
   # Used by `asmlift <fn.s> --score-against <target.o>`.
   # NOTE: no -Werror here (unlike transmuter's template) — candidates compile self-contained
   # (asmlift synthesizes declarations for value-referenced globals from the ELF's DWARF), and
@@ -61,5 +69,13 @@ tools:
 
       printf ".text\n\t.align\t2, 0\n" >> "$ASM_FILE"
 
+      arm-none-eabi-as -mcpu=arm7tdmi -mthumb-interwork \
+        "$ASM_FILE" -o "{{outputPath}}"
+
+      # Resolve referenced DATA globals to absolute addresses and re-assemble. A target
+      # disassembled from the linked ROM has bare numbers in its literal pool, so without
+      # this every pool row of a candidate that NAMES its globals scores as a mismatch —
+      # penalising the single most productive matching lever in this repo. See the script.
+      ./scripts/pool_abs_syms.sh "{{outputPath}}" "$ASM_FILE"
       arm-none-eabi-as -mcpu=arm7tdmi -mthumb-interwork \
         "$ASM_FILE" -o "{{outputPath}}"
