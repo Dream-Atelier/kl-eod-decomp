@@ -415,7 +415,49 @@ void ProcessStreamCommand_C218(void) {
     SetSpriteTableFromIndex(gStreamPtr[2]);
     gStreamPtr += 3;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ConfigureSprite);
+/**
+ * StreamCmd_ConfigureSprite: place a stream-owned entity on screen.
+ *
+ * Stream layout (7 bytes):
+ *   [2] bits 0-6: entity slot, relative to the stream-owned entity window at
+ *                 index 0xD (the same +0xD bias StreamCmd_SetEntityTransform uses)
+ *       bit 7   : "already on screen" flag, stored verbatim into onScreen; when it
+ *                 is clear the entity is (re)introduced and unkF is primed to 0x1C
+ *   [3..4] unaligned u16 X in pixels
+ *   [5..6] unaligned u16 Y in pixels
+ *
+ * The pixel coordinates land in xPosScreen/yPosScreen and, shifted left by 4,
+ * in the subpixel pair xPosBg2/yPosBg2 -- the same <<4 subpixel convention
+ * StreamCmd_SetBGScroll uses. The two subpixel stores re-read the halfword they
+ * just wrote instead of reusing the value in a register; that is what the
+ * original does and writing it any other way loses the match.
+ *
+ * agbcc matching notes:
+ *   - gUnk_03002920 must be indexed as the ARRAY, never through a local
+ *     `struct Unk_03002920 *` copy. With a pointer local, gcc reassociates
+ *     `(i + 0xD) * 0x1C` into `i * 0x1C + 0x16C`, hoists the 0x16C into a
+ *     callee-saved register and burns r7; indexing the array directly keeps the
+ *     `add #0xD` ahead of the multiply, which is what the ROM does.
+ *   - the first half must NOT cache gStreamPtr in a local: letting each
+ *     statement re-read it lets CSE keep one reload alive across the
+ *     xPosScreen store and the `+5` argument, which is what puts the first
+ *     ReadUnalignedU16 result in r3.
+ */
+void StreamCmd_ConfigureSprite(void) {
+    u8 *p;
+    u16 v;
+
+    gUnk_03002920[(gStreamPtr[2] & 0x7F) + 0xD].onScreen = gStreamPtr[2] >> 7;
+    gUnk_03002920[(gStreamPtr[2] & 0x7F) + 0xD].unkF = (gStreamPtr[2] >> 7) ? 0 : 0x1C;
+    v = ReadUnalignedU16(gStreamPtr + 3);
+    gUnk_03002920[(gStreamPtr[2] & 0x7F) + 0xD].xPosScreen = v;
+    v = ReadUnalignedU16(gStreamPtr + 5);
+    p = gStreamPtr;
+    gUnk_03002920[(p[2] & 0x7F) + 0xD].yPosScreen = v;
+    gUnk_03002920[(p[2] & 0x7F) + 0xD].xPosBg2 = gUnk_03002920[(p[2] & 0x7F) + 0xD].xPosScreen << 4;
+    gUnk_03002920[(p[2] & 0x7F) + 0xD].yPosBg2 = gUnk_03002920[(p[2] & 0x7F) + 0xD].yPosScreen << 4;
+    gStreamPtr = p + 7;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetupOAMSpriteGroup);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetEntityFlags);
 /**
