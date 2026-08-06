@@ -14,6 +14,11 @@ make ctx            # Generate ctx.c for decomp.me/m2c/mizuchi
 
 Setup: `./setup.sh` after cloning with `--recurse-submodules`. Requires `arm-none-eabi` toolchain, Python 3.13+, legally obtained `baserom.gba`.
 
+A `git worktree` needs no special tooling: run `./setup.sh` in it and it builds. Submodules
+initialise normally there, and `baserom.gba` is copied from the main checkout automatically. Expect
+about 90s the first time, most of it rebuilding agbcc — the build cache lives inside the submodule,
+so each worktree builds its own compiler.
+
 ## Project Overview
 
 Matching decompilation of **Klonoa: Empire of Dreams** (GBA, USA). Goal: C source that compiles to a byte-for-byte identical ROM using `agbcc` (GCC 2.95 fork for GBA).

@@ -18,7 +18,21 @@ check_tool arm-none-eabi-ld "Install ARM GNU Toolchain: https://developer.arm.co
 check_tool arm-none-eabi-objcopy "Install ARM GNU Toolchain: https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads"
 check_tool make "Install make via your package manager."
 
-# Check for baserom
+# Check for baserom.
+#
+# In a linked worktree (`git worktree add`) baserom.gba is absent, because it is gitignored --
+# so this, the very first check, is what fails there. The main checkout already has a copy whose
+# SHA1 was verified when it was set up, so borrow it rather than sending the user to find the ROM
+# again. `git rev-parse --git-common-dir` points at the main checkout's .git from anywhere in the
+# repo; in the main checkout it is plain `.git`, so the paths compare equal and nothing happens.
+if [ ! -f baserom.gba ]; then
+    MAIN_CHECKOUT=$(cd "$(dirname "$(git rev-parse --git-common-dir 2>/dev/null || echo .git)")" 2>/dev/null && pwd -P)
+    if [ -n "$MAIN_CHECKOUT" ] && [ "$MAIN_CHECKOUT" != "$(pwd -P)" ] && [ -f "$MAIN_CHECKOUT/baserom.gba" ]; then
+        echo "baserom.gba is not in this worktree; copying it from $MAIN_CHECKOUT"
+        cp "$MAIN_CHECKOUT/baserom.gba" baserom.gba
+    fi
+fi
+
 if [ ! -f baserom.gba ]; then
     echo "Error: baserom.gba not found."
     echo "Place your Klonoa: Empire of Dreams (USA) ROM as baserom.gba in the project root."
