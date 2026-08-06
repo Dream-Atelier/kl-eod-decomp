@@ -1281,7 +1281,7 @@ void StreamCmd_SetBlendMode(void) {
     gStreamPtr += 4;
 }
 /**
- * StreamCmd_SetScrollPosition: writes one window-clip edge pair of the current
+ * StreamCmd_SetWindowCorner: writes one window-clip corner of the current
  * level's window bounds from the command stream.
  *
  * Stream layout: byte[2] = selector, byte[3] = horizontal value, byte[4] =
@@ -1297,7 +1297,7 @@ void StreamCmd_SetBlendMode(void) {
  * member offset stay out of the store's immediate field, which is required for
  * this function to match.
  */
-void StreamCmd_SetScrollPosition(void) {
+void StreamCmd_SetWindowCorner(void) {
     u8 *p = gStreamPtr;
 
     if (p[2] & 2) {
