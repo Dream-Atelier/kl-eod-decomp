@@ -117,7 +117,7 @@ extern const u8 gEntityDataTable[];
  * it from ROM and the entries are exactly Q_8_8 sine —
  *   index    0    32    64    96   128   160   192   224
  *   value    0   181   256   181     0  -181  -256  -181
- * and CalcSinCosVelocity indexes it with ((timer * unk_1E) & 0xFF) to drive the
+ * and CalcSineVelocity indexes it with ((timer * unk_1E) & 0xFF) to drive the
  * gfx-stream oscillation. The stale ROM_ENTITY_ANIM_TABLE alias for the same
  * address had no users and has been removed. */
 extern const s16 gSineTable[];

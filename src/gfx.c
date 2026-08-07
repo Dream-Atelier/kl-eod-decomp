@@ -849,14 +849,18 @@ void UpdateCursorBlink(void) {
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessAnimationSteps);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateLinearInterpolation);
 /**
- * CalcSinCosVelocity: compute one frame of a GfxStreamEntry's sine oscillation.
+ * CalcSineVelocity: compute one frame of a GfxStreamEntry's sine oscillation.
+ *
+ * It was called CalcSinCosVelocity until round 4. There is no cosine: both halves
+ * index the same table at 0x080D8E14 with the same argument and no quarter-turn
+ * offset, differing only in which amplitude they scale by (+0x08 for X, +0x0A for Y).
  *
  * Writes the X and Y velocity for this tick into out[0]/out[1]:
  * amplitude * gSineTable[(timer * angularStep) & 0xFF] >> 8, with the X amplitude
  * at +0x08 and the Y amplitude at +0x0A. Returns 1 once the entry's timer has run
  * out (timer <= 0), which tells ProcessMotionStep to stop the entry.
  */
-u32 CalcSinCosVelocity(struct GfxStreamEntry *entry, s16 *out) {
+u32 CalcSineVelocity(struct GfxStreamEntry *entry, s16 *out) {
     out[0] = ((s16)entry->unk_08 * SIN(((s16)entry->timer * entry->unk_1E) & 0xFF)) >> 8;
     out[1] = ((s16)entry->unk_0A * SIN(((s16)entry->timer * entry->unk_1E) & 0xFF)) >> 8;
 
@@ -865,8 +869,8 @@ u32 CalcSinCosVelocity(struct GfxStreamEntry *entry, s16 *out) {
     return 0;
 }
 /* Stub_0804CAC4: an empty function — 2 bytes of `bx lr` plus 2 bytes of alignment padding — sitting
- * between CalcSinCosVelocity and ProcessMotionStep. Nothing in the ROM references it, which is why
- * it has no symbol and why luvdis folded its bytes into the tail of CalcSinCosVelocity.s. It is a
+ * between CalcSineVelocity and ProcessMotionStep. Nothing in the ROM references it, which is why
+ * it has no symbol and why luvdis folded its bytes into the tail of CalcSineVelocity.s. It is a
  * separate function, not codegen belonging to the one above: its `bx lr` follows the interworking
  * epilogue (`pop {r4, r5, r6}; pop {r1}; bx r1`), which agbcc emits exactly once per function, and
  * `bx r1` followed by `bx lr` occurs nowhere else in the project's disassembly. Without it the ROM
@@ -1639,28 +1643,32 @@ void StreamCmd_SetMusicParams(void) {
     gStreamPtr += 4;
 }
 /**
- * StreamCmd_ConfigureBlend: arms the scene cross-fade run by UpdatePaletteFadeStep.
+ * StreamCmd_ConfigureBlend: arms the MUSIC volume ramp run by UpdatePaletteFadeStep.
  *
- * Stream layout (5 bytes): byte[2] low 2 bits are the fade's mode selector
- * (GfxControlFlags.blendMode, which UpdatePaletteFadeStep switches on), and
- * bytes[3..4] are an unaligned halfword whose low 9 bits are the target level
- * (GfxControlFlags.blendTarget) and whose sign bit is a separate request flag,
- * copied into byte 0x1C bit 3 before the value is masked down. Bit 2 of 0x1C is
- * then set to start the fade; UpdatePaletteFadeStep clears both again when the
- * running level at 0x18 reaches the target.
+ * Not a video blend, despite both function names: UpdatePaletteFadeStep writes no
+ * I/O register at all — its whole literal pool is the four gMPlayInfo_* players and
+ * gSoundVolume, and it calls m4aMPlayVolumeControl five times.
  *
- * gGfxControl rather than the gGfxBufferPtr macro: with the macro spelling this
- * function does not match and `make compare` fails. Why agbcc treats the two
- * differently is not established. See the note on gGfxControl in include/gfx.h.
+ * Stream layout (5 bytes): byte[2] low 2 bits select which m4a player the ramp
+ * drives (GfxControlFlags.soundFadeMPlaySel), and bytes[3..4] are an unaligned
+ * halfword whose low 9 bits are the target volume (GfxControlFlags.soundFadeTarget)
+ * and whose sign bit is a separate request flag, copied into byte 0x1C bit 3 before
+ * the value is masked down. Bit 2 of 0x1C is then set to start the ramp;
+ * UpdatePaletteFadeStep clears both again when the running value at 0x18 reaches
+ * the target.
+ *
+ * A cast of gLevelStatePtr rather than the gGfxBufferPtr macro: with the macro
+ * spelling this function does not match and `make compare` fails. Why agbcc treats
+ * the two differently is not established. Both spell 0x030034A0; see include/gfx.h.
  */
 void StreamCmd_ConfigureBlend(void) {
-    gGfxControl->blendMode = gStreamPtr[2];
-    gGfxControl->blendTarget = ReadUnalignedU16(gStreamPtr + 3);
-    if (gGfxControl->blendTarget & 0x8000) {
-        gGfxControl->flag_1C_3 = 1;
+    ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeMPlaySel = gStreamPtr[2];
+    ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeTarget = ReadUnalignedU16(gStreamPtr + 3);
+    if (((struct GfxControlFlags *)gLevelStatePtr)->soundFadeTarget & 0x8000) {
+        ((struct GfxControlFlags *)gLevelStatePtr)->flag_1C_3 = 1;
     }
-    gGfxControl->blendTarget &= 0x1FF;
-    gGfxControl->flag_1C_2 = 1;
+    ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeTarget &= 0x1FF;
+    ((struct GfxControlFlags *)gLevelStatePtr)->flag_1C_2 = 1;
     gStreamPtr += 5;
 }
 /**
@@ -1682,12 +1690,12 @@ void StreamCmd_ConfigureBlend(void) {
  */
 void VBlankHandlerMinimal(void);
 void StreamCmd_ToggleVBlankHandler(void) {
-    if (gGfxControl->flag_1C_4) {
+    if (((struct GfxControlFlags *)gLevelStatePtr)->flag_1C_4) {
         gVBlankCallback = (u32)VBlankHandlerMinimal;
-        gGfxControl->flag_1C_4 = 0;
+        ((struct GfxControlFlags *)gLevelStatePtr)->flag_1C_4 = 0;
     } else {
         gVBlankCallback = (u32)VBlankHandler_WithWindowScroll;
-        gGfxControl->flag_1C_4 = 1;
+        ((struct GfxControlFlags *)gLevelStatePtr)->flag_1C_4 = 1;
     }
     gStreamPtr += 2;
 }

@@ -46,10 +46,6 @@ gNewKeys      = 0x03004DA0;
 gHeldKeys     = 0x030051E4;
 gAButtonHold  = 0x030034F0;
 gLevelStatePtr = 0x030034A0;
-/* Third name for the same cell as gLevelStatePtr / gGfxBufferPtr, typed as the
- * flags view. It has to be a declared object rather than the *(u32 *)0x030034A0
- * macro: see the note on gGfxControl in include/gfx.h. */
-gGfxControl = 0x030034A0;
 gUnk_03004790 = 0x03004790;
 gUnk_03004DB0 = 0x03004DB0;
 gScrollBounds = 0x03005468;

@@ -56,8 +56,10 @@ void VBlankHandler_OamOnly(void) {
     gIMEAcknowledge = 1;
 }
 /**
- * VBlankHandler_OamOnlyAlt: second copy of VBlankHandler_OamOnly, installed by a
- * different screen. Byte-identical to it in the original ROM.
+ * VBlankHandler_OamOnlyAlt: an unreferenced duplicate of VBlankHandler_OamOnly,
+ * byte-identical to it in the original ROM. A whole-ROM scan for its address finds
+ * no installer, so nothing calls it — it is dead weight the original build emitted,
+ * not a second screen's handler.
  */
 void VBlankHandler_OamOnlyAlt(void) {
     m4aSoundVSync();
@@ -127,9 +129,18 @@ void UpdateWindowCircleEffect(void) {
     }
 }
 INCLUDE_ASM("asm/nonmatchings/engine", UpdateBGScrollWithWave);
-/* Spins until the display is in H-Blank, then clears the brightness-fade level.
- * (The name predates the disassembly: the register cleared is REG_BLDY, not REG_MOSAIC.) */
-void WaitVBlankAndClearMosaic(void) {
+/**
+ * WaitHBlankAndClearBlendY: VCount=143 interrupt handler for the raster split.
+ *
+ * Spins until REG_DISPSTAT reports H-Blank so the store lands outside active
+ * pixels, then zeroes REG_BLDY so the lines below the split are not darkened.
+ * Installed as gIntrTable.vCount by the only site that references it,
+ * src/code_1.c:956, which arms the split at scanline 143.
+ *
+ * It was called WaitVBlankAndClearMosaic until round 4: it waits on H-Blank, not
+ * V-Blank, and clears BLDY (0x04000054), not MOSAIC (0x0400004C).
+ */
+void WaitHBlankAndClearBlendY(void) {
     while ((REG_DISPSTAT & DISPSTAT_HBLANK) == 0)
         ;
     REG_BLDY = 0;

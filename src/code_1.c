@@ -11,7 +11,7 @@ extern void IntroSequenceUpdate();
 extern void VBlankCallback_MinimalHW();
 extern void InitVideoAndBG();
 extern void TransitionFadeOutFull();
-extern void WaitVBlankAndClearMosaic();
+extern void WaitHBlankAndClearBlendY();
 extern void InitWorldMapGfx();
 extern void SavePlayerProgress(void);
 extern void SaveGameWithVerify(s32, s32);
@@ -912,7 +912,7 @@ void TransitionGameOver(void) {
  * Two independent jobs:
  *  1. A 16-step BLDY darken fade driven by gBlendValue. On step 0 it parks every
  *     entity but the player (unkF = 0x1C, onScreen = 0) and marks entity 0 visible.
- *     On step 1 it arms a VCount=143 raster split (WaitVBlankAndClearMosaic on the
+ *     On step 1 it arms a VCount=143 raster split (WaitHBlankAndClearBlendY on the
  *     VCount IRQ) and switches BLDCNT to darken. Every step ramps the m4a master
  *     volume down by 16; on step 16 it stops all players, restores full volume,
  *     starts song 0x78 and refreshes the HUD collectible count. Steps 2..15 only
@@ -953,7 +953,7 @@ void sub_08024D84(void) {
     if (gBlendValue == 1) {
         dispStat = REG_DISPSTAT & 0xFF;
         REG_DISPSTAT = dispStat | (VCOUNT_SPLIT_LINE << 8);
-        gIntrTable.vCount = WaitVBlankAndClearMosaic;
+        gIntrTable.vCount = WaitHBlankAndClearBlendY;
         REG_IE |= INTR_FLAG_VCOUNT;
         REG_DISPSTAT |= DISPSTAT_VCOUNT_INTR;
         REG_BLDCNT = BLDCNT_EFFECT_DARKEN | BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_BD;

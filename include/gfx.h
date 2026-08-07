@@ -155,9 +155,11 @@ extern u8 *gStreamPtr;
  * Bits 5 and 6 are named from runtime evidence — see
  * docs/dynamic-analysis/scripts/prove-gfx-flag-1C-bit5.mjs (an A/B intervention
  * in the gba-kit headless emulator: one bit changed between otherwise identical
- * runs). The other bits are NOT proven: bits 0-1 and bit 3 are read by
- * UpdatePaletteFadeStep and written by StreamCmd_ConfigureBlend, but that is
- * static evidence only, so they keep placeholder names. */
+ * runs). Bits 0-1 are read by UpdatePaletteFadeStep and written by
+ * StreamCmd_ConfigureBlend; that is static evidence, but the reader is short
+ * enough to be exhaustive, so they are named. Bit 2 is written by
+ * StreamCmd_ConfigureBlend and bit 4 by StreamCmd_ToggleVBlankHandler; bit 3
+ * keeps a placeholder name. */
 struct GfxControlFlags {
     u8 pad_00[2];
     u32 flag_02_0 : 1;
@@ -179,17 +181,23 @@ struct GfxControlFlags {
     u32 sceneExit : 2;
     u32 flag_02_3 : 5;
     u8 pad_03[0x17];
-    /* 0x1A — the cross-fade's target level, written by StreamCmd_ConfigureBlend
-     * from the command's unaligned halfword argument and compared against the
-     * running level at 0x18 by UpdatePaletteFadeStep. Signed: both readers load
-     * it with `ldsh` (register-offset), which only a signed halfword produces. */
-    s16 blendTarget;
+    /* 0x1A — target MUSIC volume, written by StreamCmd_ConfigureBlend from the
+     * command's unaligned halfword argument. UpdatePaletteFadeStep steps the
+     * running value at 0x18 toward it in units of 0x10 and passes it as the
+     * `volume` argument of m4aMPlayVolumeControl; StreamCmd_SetMusicParams writes
+     * the same cell and mirrors it into gSoundVolume. The command masks it with
+     * 0x1FF, which fits a 0..0x100 m4a volume and is far wider than any blend
+     * level. Signed: both readers load it with a register-offset `ldsh`. */
+    s16 soundFadeTarget;
     /* 0x1C bits 0-1 — a two-bit field, not two flags: UpdatePaletteFadeStep
-     * extracts it as a unit with `lsl #30 / lsr #30` and switches on 1 vs 2, and
-     * StreamCmd_ConfigureBlend assigns the whole field from the command byte
-     * (`and #3` is the field's own truncation). Still a placeholder name: what
-     * the two values select is static evidence only. */
-    u8 blendMode : 2;
+     * extracts it as a unit with `lsl #30 / lsr #30`, and StreamCmd_ConfigureBlend
+     * assigns the whole field from the command byte (`and #3` is the field's own
+     * truncation). It selects which m4a player the volume ramp drives: 0 ->
+     * gMPlayInfo_0, 1 -> gMPlayInfo_1, 3 -> gSoundVolume and all four players.
+     * 2 falls through and does nothing. Static evidence, but complete: the
+     * function writes no I/O register at all and its whole literal pool is the
+     * four gMPlayInfo_* and gSoundVolume. */
+    u8 soundFadeMPlaySel : 2;
     u8 flag_1C_2 : 1;
     u8 flag_1C_3 : 1;
     u8 flag_1C_4 : 1;
@@ -207,16 +215,11 @@ struct GfxControlFlags {
     u8 flag_1C_7 : 1;
 };
 
-/* The same cell as gGfxBufferPtr (0x030034A0), typed as the flags view above.
- *
- * A declared object, not the `(*(u32 *)0x030034A0)` macro, and the difference is
- * load-bearing rather than cosmetic: respelling StreamCmd_ConfigureBlend's uses
- * through the macro makes `make compare` fail, so the extern is required for that
- * function to match. What agbcc is doing differently is NOT established -- an
- * earlier draft of this comment explained it as alias analysis distinguishing a
- * MEM at a SYMBOL_REF from a MEM at a CONST_INT, and that mechanism was asserted
- * rather than measured. Record the requirement, not a story about it. */
-extern struct GfxControlFlags *gGfxControl;
+/* 0x030034A0 already has two names — gLevelStatePtr (a declared object) and the
+ * gGfxBufferPtr macro — and a third was added here for the flags view before it
+ * was checked whether an existing one would do. It does: casting gLevelStatePtr
+ * keeps StreamCmd_ConfigureBlend byte-exact, while the macro spelling does not.
+ * What agbcc needs is *a* symbol_ref, not a new symbol, so no third name. */
 
 /* BG2 affine magnification (Q_8_8). Used as 1/scale in BG2PA/PD calculations. */
 extern u16 gBg2XMag;
@@ -259,7 +262,8 @@ extern struct GfxStreamAlloc *gGfxStreamAllocs;
 struct GfxStreamTileset {
     const void *pTiles; /* +0x00: compressed 4bpp OBJ tile data, with the 4-byte sub-header DecompressAlloc expects */
     u16 unk_04; /* +0x04: 0 in every row; no reader found */
-    u16 tileCount; /* +0x06: number of 32-byte tiles the tileset occupies */
+    u16 tileCount; /* +0x06: 32-byte OBJ tiles the slot reserves — NOT the tileset's own size:
+                    * rows whose payload is a multi-frame sheet decompress to several times this */
 }; /* total: 8 bytes */
 
 extern const struct GfxStreamTileset gStreamTilesetTable[];
