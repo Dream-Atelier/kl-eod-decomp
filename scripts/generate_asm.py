@@ -29,6 +29,8 @@ Usage:
 import hashlib
 import os
 import re
+import pathlib
+import tempfile
 import shutil
 import struct
 import subprocess
@@ -1197,6 +1199,168 @@ def _convert_trailing_data(func_lines: list[str], addresses: list[int],
     return result if changed else func_lines
 
 
+# `ldr rN, [pc, #imm]` — luvdis emits this form only when it did NOT recognise the load's
+# target as a literal pool word (when it did, it emits `ldr rN, _label`).  The trailing
+# `@ =0xVALUE` comment is luvdis's own decode of that word, which gives us a free check.
+_PC_REL_LDR_RE = re.compile(
+    r"^ldr\s+r(\d+),\s*\[pc,\s*#(0x[0-9A-Fa-f]+|\d+)\]\s*(?:@\s*=(0x[0-9A-Fa-f]+))?")
+
+
+def _assembles_identically(old_lines, new_lines) -> bool:
+    """True if *new_lines* emits exactly the bytes *old_lines* does.
+
+    The pool rewrite is a spelling change and must never be anything more, but proving that
+    from line addresses alone is not possible: addresses are anchored at the function start
+    and accumulate `_line_byte_size`, so one mis-sized line silently shifts everything after
+    it and a correct pool word gets mapped onto the wrong lines.  That still assembles, and
+    it moves every following function in the ROM.
+
+    So rather than trust the arithmetic, assemble both and compare.  This makes the pass
+    safe by construction: a conversion that would change a single byte is discarded.
+    """
+    macros = pathlib.Path(__file__).resolve().parent.parent / "asm" / "macros.inc"
+    if not macros.is_file():
+        return False  # cannot prove it; refuse rather than risk it
+    header = "\t.syntax unified\n\t.text\n\t.align\t2, 0\n" + macros.read_text()
+
+    out = []
+    with tempfile.TemporaryDirectory() as td:
+        for tag, lines in (("a", old_lines), ("b", new_lines)):
+            src = pathlib.Path(td, tag + ".s")
+            obj = pathlib.Path(td, tag + ".o")
+            bin_ = pathlib.Path(td, tag + ".bin")
+            src.write_text(header + "".join(lines))
+            if subprocess.run(["arm-none-eabi-as", "-mcpu=arm7tdmi", "-mthumb-interwork",
+                               str(src), "-o", str(obj)],
+                              capture_output=True).returncode:
+                return False
+            if subprocess.run(["arm-none-eabi-objcopy", "-O", "binary",
+                               "--only-section=.text", str(obj), str(bin_)],
+                              capture_output=True).returncode:
+                return False
+            out.append(bin_.read_bytes())
+    return out[0] == out[1]
+
+
+def _convert_pc_relative_pool(func_lines, addresses, rom_data):
+    """Rewrite literal-pool words the function pc-references but luvdis left as code.
+
+    This is the AUTHORITATIVE pool signal, and it is what the pointer-shape passes above
+    cannot be: a word a function loads with `ldr rN, [pc, #imm]` IS a literal pool word, by
+    definition of the instruction.  `_is_gba_pointer` can only accept words that look like
+    addresses, so a pool word holding a mask (0x0000FFFE), a small constant, or a packed DMA
+    control word is invisible to it no matter how many encodings the passes enumerate.
+
+    Every rewrite is checked twice before it is made: the target must lie inside this
+    function, and the ROM word there must equal the value luvdis itself decoded into the
+    `@ =0x...` comment.  Bytes are never altered -- four bytes of instruction lines become
+    one four-byte directive holding the same four bytes -- so a mistake here cannot change
+    the ROM, only how those bytes are spelled.
+    """
+    rom_base = 0x08000000
+    if not func_lines:
+        return func_lines
+
+    # Byte extent of each line, so a pool word can be matched to the lines covering it.
+    extent = []
+    for i, line in enumerate(func_lines):
+        size = _line_byte_size(line.strip())
+        extent.append((addresses[i], addresses[i] + size) if size else None)
+
+    lo = addresses[0]
+    hi = max((e[1] for e in extent if e), default=lo)
+
+    targets = {}
+    for i, line in enumerate(func_lines):
+        m = _PC_REL_LDR_RE.match(line.strip())
+        if not m or extent[i] is None:
+            continue
+        rd, imm = int(m.group(1)), int(m.group(2), 0)
+
+        # Confirm this line's computed address is right before trusting it, the same way the
+        # halfword passes do: re-encode the instruction and compare against the ROM.  Thumb
+        # LDR(3) is 01001 Rd imm8, with imm8 counting words.  Addresses are anchored at the
+        # function start and can drift, and a drifted address maps a correct pool word onto
+        # the WRONG source lines -- which still assembles, and silently moves every function
+        # after it.
+        if imm % 4 or imm >= 1024:
+            continue
+        if _rom_hw(rom_data, addresses[i] - rom_base) != (0x4800 | (rd << 8) | (imm >> 2)):
+            continue
+
+        # Thumb pc-relative: the base is the instruction's address + 4, word-aligned down.
+        target = ((addresses[i] + 4) & ~3) + imm
+        if not (lo <= target and target + 4 <= hi):
+            continue  # pool lives in a neighbouring function; not ours to rewrite
+        rom_off = target - rom_base
+        if rom_off < 0 or rom_off + 4 > len(rom_data):
+            continue
+        word = _rom_word(rom_data, rom_off)
+        if m.group(3) is not None and int(m.group(3), 16) != word:
+            continue  # luvdis disagrees with the ROM -- addresses drifted, leave it alone
+        targets[target] = word
+
+    if not targets:
+        return func_lines
+
+    # Lines covered by each pool word.  The first becomes the .4byte; the rest are absorbed.
+    absorb, emit = {}, {}
+    for target, word in sorted(targets.items()):
+        # Lines that tile [target, target+4) EXACTLY: contiguous, starting on the word, and
+        # summing to four bytes.  Without the exact-size check a partially overlapping line
+        # gets replaced by a 4-byte directive and every following function shifts -- which is
+        # not a subtle failure, it relocates the rest of the ROM.
+        covering = []
+        cursor = target
+        for i, e in enumerate(extent):
+            if e and e[0] == cursor and e[1] <= target + 4:
+                covering.append(i)
+                cursor = e[1]
+        if cursor != target + 4:
+            continue  # a line straddles the boundary; too risky to rewrite
+        if len(covering) == 1 and ".4byte" in func_lines[covering[0]]:
+            continue  # already data
+        if any(not _is_instruction_line(func_lines[i].strip()) and
+               ".2byte" not in func_lines[i] for i in covering):
+            continue  # something other than code/halfword-data lives here
+        emit[covering[0]] = word
+        for i in covering[1:]:
+            absorb[i] = True
+
+    if not emit:
+        return func_lines
+
+    # Apply one pool word at a time, keeping only those that assemble to the same bytes.
+    # Per-word rather than per-function: a single unprovable word in a long function would
+    # otherwise discard every good conversion alongside it.
+    kept = dict(func_lines=list(func_lines))
+    current = list(func_lines)
+    index = list(range(len(func_lines)))  # current line -> original line index
+
+    for first, word in sorted(emit.items()):
+        absorbed = [i for i in absorb if i > first and
+                    all(j not in emit for j in range(first + 1, i + 1))]
+        try:
+            pos = index.index(first)
+        except ValueError:
+            continue
+        drop = [k for k, orig in enumerate(index) if orig in absorbed]
+        if not drop or drop != list(range(pos + 1, pos + 1 + len(drop))):
+            continue
+
+        line = current[pos]
+        label = re.match(r"\s*(_[0-9A-Fa-f]+):", line)
+        prefix = f"{label.group(1)}: " if label else "\t"
+        trial = (current[:pos] + [f"{prefix}.4byte 0x{word:08X}\n"]
+                 + current[pos + 1 + len(drop):])
+        trial_index = index[:pos] + [first] + index[pos + 1 + len(drop):]
+
+        if _assembles_identically(func_lines, trial):
+            current, index = trial, trial_index
+
+    return current if current != func_lines else func_lines
+
+
 def _apply_data_regions(func_lines: list[str], func_addr: int,
                         rom_data: bytes) -> list[str]:
     """Replace data-as-code instruction mnemonics with data directives.
@@ -1242,7 +1406,12 @@ def _apply_data_regions(func_lines: list[str], func_addr: int,
         addresses = _compute_addresses_anchored(func_lines, func_addr,
                                                 rom_data)
 
-    # Pass 4 (_convert_trailing_data) is disabled — its address computation
+    # Pass 4: literal pool words the function itself pc-references.  Runs last so it only
+    # sees what the pointer-shape passes could not classify, and unlike them it needs no
+    # shape test -- see _convert_pc_relative_pool.
+    func_lines = _convert_pc_relative_pool(func_lines, addresses, rom_data)
+
+    # Pass 5 (_convert_trailing_data) is disabled — its address computation
     # is unreliable for non-word-aligned functions, producing wrong literal
     # pool values.  The pointer-pair passes (1-3) handle the bulk of
     # data-as-code conversion with ROM-verified addresses.
