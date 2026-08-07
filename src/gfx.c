@@ -3,6 +3,7 @@
 #include "globals.h"
 #include "structs/variables.h"
 #include "include_asm.h"
+#include "data/trig.h"
 
 INCLUDE_ASM("asm/nonmatchings/gfx", InitGfxState);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateBGScrollRegisters);
@@ -785,7 +786,30 @@ void UpdateCursorBlink(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessAnimationSteps);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateLinearInterpolation);
-INCLUDE_ASM("asm/nonmatchings/gfx", CalcSinCosVelocity);
+/**
+ * CalcSinCosVelocity: compute one frame of a GfxStreamEntry's sine oscillation.
+ *
+ * Writes the X and Y velocity for this tick into out[0]/out[1]:
+ * amplitude * gSineTable[(timer * angularStep) & 0xFF] >> 8, with the X amplitude
+ * at +0x08 and the Y amplitude at +0x0A. Returns 1 once the entry's timer has run
+ * out (timer <= 0), which tells ProcessMotionStep to stop the entry.
+ */
+u32 CalcSinCosVelocity(struct GfxStreamEntry *entry, s16 *out) {
+    out[0] = ((s16)entry->unk_08 * SIN(((s16)entry->timer * entry->unk_1E) & 0xFF)) >> 8;
+    out[1] = ((s16)entry->unk_0A * SIN(((s16)entry->timer * entry->unk_1E) & 0xFF)) >> 8;
+
+    if ((s16)entry->timer <= 0)
+        return 1;
+    return 0;
+}
+/* Stub_0804CAC4: an empty function — 2 bytes of `bx lr` plus 2 bytes of alignment padding — sitting
+ * between CalcSinCosVelocity and ProcessMotionStep. Nothing in the ROM references it, which is why
+ * it has no symbol and why luvdis folded its bytes into the tail of CalcSinCosVelocity.s. It is a
+ * separate function, not codegen belonging to the one above: its `bx lr` follows the interworking
+ * epilogue (`pop {r4, r5, r6}; pop {r1}; bx r1`), which agbcc emits exactly once per function, and
+ * `bx r1` followed by `bx lr` occurs nowhere else in the project's disassembly. Without it the ROM
+ * is 4 bytes short from here on. */
+void Stub_0804CAC4(void) { }
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessMotionStep);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessMotionStepExtended);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessStaticBGScroll);
