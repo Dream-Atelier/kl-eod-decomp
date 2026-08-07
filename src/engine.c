@@ -54,7 +54,19 @@ void UpdateFadeEffect(void) {
         REG_BLDALPHA = ((u32)fade << 8) | fade;
     }
 }
-INCLUDE_ASM("asm/nonmatchings/engine", HBlankScrollUpdate);
+/**
+ * HBlankScrollUpdate: per-scanline horizontal scroll for BG0 and BG1.
+ *
+ * HBlank handler. Reads the current scanline from REG_VCOUNT and copies that
+ * line's entry from the two IWRAM scroll tables into REG_BG0HOFS / REG_BG1HOFS,
+ * producing a per-line horizontal displacement (raster scroll) effect.
+ */
+void HBlankScrollUpdate(void) {
+    u8 line = REG_VCOUNT_L;
+
+    REG_BG0HOFS = gUnk_03004C40[line];
+    REG_BG1HOFS = gUnk_030052C0[line];
+}
 INCLUDE_ASM("asm/nonmatchings/engine", UpdateAffineBGParams);
 /**
  * UpdateWindowCircleEffect: compute circle window bounds for iris transition.
