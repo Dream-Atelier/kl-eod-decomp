@@ -1638,5 +1638,57 @@ void StreamCmd_SetMusicParams(void) {
     m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, gSceneFadeCounter);
     gStreamPtr += 4;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ConfigureBlend);
+/**
+ * StreamCmd_ConfigureBlend: arms the scene cross-fade run by UpdatePaletteFadeStep.
+ *
+ * Stream layout (5 bytes): byte[2] low 2 bits are the fade's mode selector
+ * (GfxControlFlags.blendMode, which UpdatePaletteFadeStep switches on), and
+ * bytes[3..4] are an unaligned halfword whose low 9 bits are the target level
+ * (GfxControlFlags.blendTarget) and whose sign bit is a separate request flag,
+ * copied into byte 0x1C bit 3 before the value is masked down. Bit 2 of 0x1C is
+ * then set to start the fade; UpdatePaletteFadeStep clears both again when the
+ * running level at 0x18 reaches the target.
+ *
+ * gGfxControl rather than the gGfxBufferPtr macro: through the macro agbcc must
+ * assume each store to the struct clobbers the pointer and reloads it, which
+ * costs two `ldr` here. See the note on gGfxControl in include/gfx.h.
+ */
+void StreamCmd_ConfigureBlend(void) {
+    gGfxControl->blendMode = gStreamPtr[2];
+    gGfxControl->blendTarget = ReadUnalignedU16(gStreamPtr + 3);
+    if (gGfxControl->blendTarget & 0x8000) {
+        gGfxControl->flag_1C_3 = 1;
+    }
+    gGfxControl->blendTarget &= 0x1FF;
+    gGfxControl->flag_1C_2 = 1;
+    gStreamPtr += 5;
+}
+/**
+ * StreamCmd_ToggleVBlankHandler: swaps the VBlank callback between the minimal
+ * handler and the window-scroll handler, tracking which one is installed in
+ * GfxControlFlags bit 0x1C.4, and advances the stream by 2.
+ *
+ * This function had no thumb_func_start of its own: luvdis ran it into the tail
+ * of StreamCmd_ConfigureBlend (see the ROM address in the .s that used to be
+ * INCLUDE_ASM'd here), so it is decompiled together with its parent.
+ *
+ * The flag records which handler is installed, so the arm that tests true is the
+ * one that switches back to VBlankHandlerMinimal.
+ *
+ * Note that the pool words are 0x08000AB1 and 0x08000E69, i.e. the two handlers'
+ * linked addresses with the Thumb bit set -- the `@ 08000AB2` / `@ 08000E6A`
+ * comments in their .s files are two too high (`non_word_aligned_thumb_func_start`
+ * emits no padding, and `nm klonoa-eod.elf` puts both symbols two bytes lower).
+ */
+void VBlankHandlerMinimal(void);
+void StreamCmd_ToggleVBlankHandler(void) {
+    if (gGfxControl->flag_1C_4) {
+        gVBlankCallback = (u32)VBlankHandlerMinimal;
+        gGfxControl->flag_1C_4 = 0;
+    } else {
+        gVBlankCallback = (u32)VBlankHandler_WithWindowScroll;
+        gGfxControl->flag_1C_4 = 1;
+    }
+    gStreamPtr += 2;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_RunScript);

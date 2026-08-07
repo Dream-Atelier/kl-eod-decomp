@@ -178,9 +178,18 @@ struct GfxControlFlags {
      * left as `u8` for the same reason in reverse: it matches as u8. */
     u32 sceneExit : 2;
     u32 flag_02_3 : 5;
-    u8 pad_03[0x19];
-    u8 flag_1C_0 : 1;
-    u8 flag_1C_1 : 1;
+    u8 pad_03[0x17];
+    /* 0x1A — the cross-fade's target level, written by StreamCmd_ConfigureBlend
+     * from the command's unaligned halfword argument and compared against the
+     * running level at 0x18 by UpdatePaletteFadeStep. Signed: both readers load
+     * it with `ldsh` (register-offset), which only a signed halfword produces. */
+    s16 blendTarget;
+    /* 0x1C bits 0-1 — a two-bit field, not two flags: UpdatePaletteFadeStep
+     * extracts it as a unit with `lsl #30 / lsr #30` and switches on 1 vs 2, and
+     * StreamCmd_ConfigureBlend assigns the whole field from the command byte
+     * (`and #3` is the field's own truncation). Still a placeholder name: what
+     * the two values select is static evidence only. */
+    u8 blendMode : 2;
     u8 flag_1C_2 : 1;
     u8 flag_1C_3 : 1;
     u8 flag_1C_4 : 1;
@@ -197,6 +206,20 @@ struct GfxControlFlags {
     u8 forceWindowsOpen : 1;
     u8 flag_1C_7 : 1;
 };
+
+/* The same cell as gGfxBufferPtr (0x030034A0), typed as the flags view above.
+ *
+ * A declared object, not the `(*(u32 *)0x030034A0)` macro, and the difference is
+ * load-bearing rather than cosmetic. Through the macro the pointer is a MEM at a
+ * bare CONST_INT address, and agbcc must assume a store through any
+ * `struct GfxControlFlags *` may clobber it, so it reloads the pointer after
+ * every store to the struct. Through this extern it is a MEM at a SYMBOL_REF,
+ * which agbcc's alias analysis does distinguish from a varying struct access, so
+ * one load serves a whole basic block. StreamCmd_ConfigureBlend needs that: with
+ * the macro spelling it gains two redundant `ldr rN, [r4]` reloads (46 -> 0 on
+ * expected/src/gfx.o). This is the same reason gStreamPtr above is an extern
+ * object rather than a literal-address macro. */
+extern struct GfxControlFlags *gGfxControl;
 
 /* BG2 affine magnification (Q_8_8). Used as 1/scale in BG2PA/PD calculations. */
 extern u16 gBg2XMag;
