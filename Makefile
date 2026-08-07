@@ -224,7 +224,10 @@ asmlift-elf: $(SYMS_ELF)
 MODULES  := $(filter-out m4a libgcc,$(shell sed -n 's/^name = "\(.*\)"/\1/p' $(DECOMP_TOML)))
 EXPECTED := $(patsubst %,expected/src/%.o,$(MODULES))
 
-expected/src/%.o: $(ELF) $(DECOMP_TOML) $(LDSCRIPT_IN)
+# The generator is a prerequisite too.  Without it, editing scripts/generate_expected.py leaves
+# every target object stale and `make expected` reports "Nothing to be done" -- so a fix to the
+# generator silently does not reach the objects anyone then scores against.
+expected/src/%.o: $(ELF) $(DECOMP_TOML) $(LDSCRIPT_IN) scripts/generate_expected.py
 	@mkdir -p expected/src
 	@python3 scripts/generate_expected.py $* $@
 

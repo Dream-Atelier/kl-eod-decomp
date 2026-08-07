@@ -31,8 +31,16 @@ end = next((a for n, a in mods if a > start), None)
 
 # ldscript aliases: luvdis writes `bl sub_080518A4` where the C calls `__divsi3`.  Same bytes,
 # and objdiff pairs on the name, so canonicalise or every such call reads as a mismatch.
-alias = {v: k for k, v in re.findall(r"^([A-Za-z_]\w*)\s*=\s*(sub_[0-9A-Fa-f]+);",
-                                     pathlib.Path("ldscript.in.txt").read_text(), re.M)}
+#
+# The file spells them in BOTH directions -- `__divsi3 = sub_080518A4;` (8 of them) and
+# `sub_0804F8E8 = m4aSoundVSync;` (6 of them, all m4a) -- and either way the luvdis .s uses the
+# `sub_` spelling while the C uses the readable one.  So the rule is simply: whichever side is
+# the `sub_` name maps to the other.  Matching only one direction left a 1-point floor on the
+# 15 functions that call into m4a; found by an agent whose byte-identical VBlankHandler_OamOnly
+# would not score below 2.
+_ld = pathlib.Path("ldscript.in.txt").read_text()
+alias = {b: a for a, b in re.findall(r"^([A-Za-z_]\w*)\s*=\s*(sub_[0-9A-Fa-f]+);", _ld, re.M)}
+alias.update(re.findall(r"^(sub_[0-9A-Fa-f]+)\s*=\s*([A-Za-z_]\w*);", _ld, re.M))
 # ...and the TOML's own [renames].  generate_asm.py applies these when it writes the .s files,
 # but a CROSS-MODULE callee can still be referred to by its sub_ name, and objdiff pairs on the
 # name -- so an unrenamed `bl sub_0804F8E8` reads as a mismatch against the base's
