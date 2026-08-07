@@ -423,7 +423,69 @@ void ShutdownGfxStream(void) {
     ResetGfxStreamEntries();
     thunk_HeapFree(gGfxStreamBuffer);
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", LoadGfxStreamEntry); /* ProcessStreamOpcode */
+/**
+ * LoadGfxStreamEntry: give one OBJ tileset a slot in the stream's tile allocator.
+ *
+ * Finds the first free GfxStreamAlloc slot by walking the table until a slot with
+ * tileCount == 0, accumulating every live slot's tileCount into the OBJ tile index
+ * the new slot gets. The walk starts at gPaletteCursorInit converted from an OBJ
+ * VRAM address to a tile id ((cursor - 0x06010000) / 32), which is the same
+ * tiles-not-bytes convention DmaSpriteToObjVram reverses.
+ *
+ * Then it decompresses the tileset onto the heap and stores buf + 4 (past the heap
+ * header), copies the ROM row's tileCount, and writes the tile index it computed.
+ * With loadPalette set it also DMAs the tileset's 32-byte OBJ palette to
+ * gVramWriteCursor and advances that cursor one palette bank.
+ *
+ *   idx:         tileset id, the low 7 bits of the stream command byte
+ *   loadPalette: the command byte's high bit
+ *
+ * MATCHING: the allocator table must be reached through the `gGfxStreamAllocs`
+ * symbol_ref, and the three post-call stores must index it by name. Measured by
+ * ablation, one change at a time, rebuilding the module each time and scoring
+ * build/src/gfx.o against expected/src/gfx.o:
+ *
+ *     as shipped                                          4
+ *     no pointer local at all, named array everywhere      4
+ *     pointer local used for the post-call stores too     35
+ *     gGfxStreamBuffer macro (a CONST_INT) instead        18
+ *
+ * So the pointer local in the loop is inert -- keep it or drop it -- while reusing
+ * it after the DecompressAlloc call costs 31, and the cast-address spelling costs
+ * 14. The baseline is 4 rather than 0 because a plain module build does not run
+ * scripts/pool_abs_syms.sh, so the four named data globals are still undefined
+ * relocations where the ROM-derived target has bare numbers; only the deltas mean
+ * anything. `make compare` is what says this function is byte-exact.
+ *
+ * The mechanism behind the 31 is not established. What is observed is that after
+ * the call agbcc reloads the base from the pool when the array is named and reuses
+ * the stale local when it is not; do not repeat the earlier draft's claim about
+ * partial redundancy elimination on the loop guard, which the first two rows above
+ * refute.
+ */
+void LoadGfxStreamEntry(u32 idx, u32 loadPalette) {
+    struct GfxStreamAlloc *slot;
+    u32 buf;
+    u16 tileIndex;
+    s32 i;
+
+    i = 0;
+    tileIndex = (gPaletteCursorInit - OBJ_VRAM) >> 5;
+    slot = gGfxStreamAllocs;
+    while (slot[i].tileCount != 0) {
+        tileIndex += slot[i].tileCount;
+        i++;
+    }
+    buf = (u32)DecompressAlloc(gStreamTilesetTable[idx].pTiles);
+    gGfxStreamAllocs[i].pTiles = buf + 4;
+    gGfxStreamAllocs[i].tileCount = gStreamTilesetTable[idx].tileCount;
+    gGfxStreamAllocs[i].tileIndex = tileIndex;
+
+    if (loadPalette != 0) {
+        DmaCopy16Wait(3, gStreamPaletteTable[idx], gVramWriteCursor, 0x20);
+        gVramWriteCursor += 0x20;
+    }
+}
 /*
  * Reads a command byte from the data stream, splits it into a 7-bit value
  * and a 1-bit flag, then dispatches to LoadGfxStreamEntry. Advances stream by 3.

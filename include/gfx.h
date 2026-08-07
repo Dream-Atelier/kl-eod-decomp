@@ -223,6 +223,33 @@ struct GfxStreamAlloc {
     u16 tileCount; /* +0x06: number of 32-byte tiles owned; 0 = slot unused, and it is the stride of tileIndex */
 }; /* total: 8 bytes */
 
+/* The same cell as gGfxStreamBuffer (0x030007C8), typed as what it actually holds.
+ * Both spellings are kept because they are not interchangeable to agbcc: the macro
+ * is a CONST_INT address and this is a symbol_ref, and LoadGfxStreamEntry only
+ * matches through the symbol_ref -- see the note on that function in src/gfx.c. */
+extern struct GfxStreamAlloc *gGfxStreamAllocs;
+
+/* GfxStreamTileset: one row of the stream's OBJ-tileset table at 0x08057954
+ * (46 rows, 8 bytes each), selected by the stream command's 7-bit tileset id.
+ * LoadGfxStreamEntry decompresses `pTiles` onto the heap and copies `tileCount`
+ * verbatim into the GfxStreamAlloc slot it fills, so a row is the ROM-side
+ * template of a slot. The halfword at +0x04 is 0 in all 46 rows and no reader
+ * for it has been found, so it keeps an `unk` name instead of being called a
+ * tile index by analogy with GfxStreamAlloc. */
+struct GfxStreamTileset {
+    const void *pTiles; /* +0x00: compressed 4bpp OBJ tile data, with the 4-byte sub-header DecompressAlloc expects */
+    u16 unk_04; /* +0x04: 0 in every row; no reader found */
+    u16 tileCount; /* +0x06: number of 32-byte tiles the tileset occupies */
+}; /* total: 8 bytes */
+
+extern const struct GfxStreamTileset gStreamTilesetTable[];
+
+/* OBJ palette table at 0x08189DCC: 46 pointers to 32-byte (16-colour) OBJ
+ * palettes, indexed by the same tileset id as gStreamTilesetTable. When the
+ * stream command's high bit is set, LoadGfxStreamEntry DMAs one of these to
+ * gVramWriteCursor and advances that cursor by 0x20. */
+extern void *const gStreamPaletteTable[];
+
 /* Buffer freed by FreeBuffer_52A4. */
 #define gBuffer_52A4             (*(u32 *)0x030052A4)
 

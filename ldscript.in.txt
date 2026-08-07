@@ -482,6 +482,15 @@ gLevelPaletteTable = 0x08189B4C;
 gBgLayerLookup = 0x08057ACC;
 gBgTileSubtable = 0x08189BCC;
 gStreamDataTable = 0x08189AFC;
+/* The graphics stream's OBJ-tileset table and its parallel OBJ-palette table, plus
+ * a typed pointer to the allocator table at 0x030007C8 (the cell gGfxStreamBuffer
+ * also spells as a macro). All three are real extern objects rather than cast
+ * address constants because LoadGfxStreamEntry only matches through symbol_refs:
+ * spelling 0x030007C8 as the macro instead costs 14 points and the function does
+ * not match. The ablation table is in the comment above that function. */
+gGfxStreamAllocs = 0x030007C8;
+gStreamTilesetTable = 0x08057954;
+gStreamPaletteTable = 0x08189DCC;
 gSoundCmdTable = 0x08117C8C;
 gXcmdTable     = 0x08117C8C;  /* kleod-canonical alias of gSoundCmdTable */
 gGameFlagsPtr = 0x03005400;
