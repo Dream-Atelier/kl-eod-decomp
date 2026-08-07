@@ -150,7 +150,15 @@ void FreeDecompStreamBuffer(void) {
     thunk_HeapFree(gDecompBuffer);
 }
 
-INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB);
+/**
+ * ClearScreenBufferB: DMA3-fills the IWRAM screenblock staging buffer B.
+ *
+ * Fills all 0x400 halfwords of gScreenBufferB (0x03001100) with 0xF000 in
+ * fixed-source mode, using the macro's own stack-local halfword as the source.
+ */
+void ClearScreenBufferB(void) {
+    DmaFill16(3, 0xF000, gScreenBufferB, 0x800);
+}
 
 /**
  * AllocAndClearGfxBuffer: allocate and DMA-fill a 32-byte GFX buffer.
@@ -218,7 +226,15 @@ void SetupTextBGLayer(void) {
     REG_BG1HOFS = zero;
     REG_BG1VOFS = zero;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB_Alt);
+/**
+ * ClearScreenBufferB_Alt: second, identical copy of the ClearScreenBufferB fill.
+ *
+ * Byte-for-byte the same routine as ClearScreenBufferB, emitted twice by the
+ * original build.
+ */
+void ClearScreenBufferB_Alt(void) {
+    DmaFill16(3, 0xF000, gScreenBufferB, 0x800);
+}
 /**
  * InitLevelStateDefaults: set the level's default window clip bounds and regs.
  *
