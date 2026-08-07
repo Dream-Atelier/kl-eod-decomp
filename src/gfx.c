@@ -78,7 +78,39 @@ u32 ReadUnalignedU32(u8 *ptr) {
 s32 ReadUnalignedU32_Alt(u8 *ptr) {
     return ptr[0] + (ptr[1] << 8) + (ptr[2] << 0x10) + (ptr[3] << 0x18);
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", CalcBGScrollMapSize);
+/**
+ * CalcBGScrollMapSize: pick the BGCNT screen-size field for a background of
+ * the given tile dimensions.
+ *
+ * Affine backgrounds are square, so the field is the smallest of 16/32/64/128
+ * tiles that holds both dimensions. Text backgrounds encode the two axes
+ * independently: bit 0 marks a map wider than 32 tiles, bit 1 a taller one.
+ */
+u8 CalcBGScrollMapSize(u8 isAffine, u16 width, u16 height) {
+    u8 wideBit;
+    u8 size;
+
+    if (isAffine) {
+        if (width > 16 || height > 16) {
+            if (width > 32 || height > 32) {
+                return (width <= 64 && height <= 64) ? 2 : 3;
+            } else {
+                return 1;
+            }
+        } else {
+            return 0;
+        }
+    } else {
+        wideBit = 0;
+        if (width > 32)
+            wideBit = 1;
+        if (height > 32)
+            size = 2 | wideBit;
+        else
+            size = wideBit;
+        return size;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateAffineRegisters);
 /**
  * DecompressAndDmaCopy: decompress ROM data and DMA to a VRAM destination.
