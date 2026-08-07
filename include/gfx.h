@@ -210,15 +210,12 @@ struct GfxControlFlags {
 /* The same cell as gGfxBufferPtr (0x030034A0), typed as the flags view above.
  *
  * A declared object, not the `(*(u32 *)0x030034A0)` macro, and the difference is
- * load-bearing rather than cosmetic. Through the macro the pointer is a MEM at a
- * bare CONST_INT address, and agbcc must assume a store through any
- * `struct GfxControlFlags *` may clobber it, so it reloads the pointer after
- * every store to the struct. Through this extern it is a MEM at a SYMBOL_REF,
- * which agbcc's alias analysis does distinguish from a varying struct access, so
- * one load serves a whole basic block. StreamCmd_ConfigureBlend needs that: with
- * the macro spelling it gains two redundant `ldr rN, [r4]` reloads (46 -> 0 on
- * expected/src/gfx.o). This is the same reason gStreamPtr above is an extern
- * object rather than a literal-address macro. */
+ * load-bearing rather than cosmetic: respelling StreamCmd_ConfigureBlend's uses
+ * through the macro makes `make compare` fail, so the extern is required for that
+ * function to match. What agbcc is doing differently is NOT established -- an
+ * earlier draft of this comment explained it as alias analysis distinguishing a
+ * MEM at a SYMBOL_REF from a MEM at a CONST_INT, and that mechanism was asserted
+ * rather than measured. Record the requirement, not a story about it. */
 extern struct GfxControlFlags *gGfxControl;
 
 /* BG2 affine magnification (Q_8_8). Used as 1/scale in BG2PA/PD calculations. */

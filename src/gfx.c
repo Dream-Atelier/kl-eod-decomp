@@ -1649,9 +1649,9 @@ void StreamCmd_SetMusicParams(void) {
  * then set to start the fade; UpdatePaletteFadeStep clears both again when the
  * running level at 0x18 reaches the target.
  *
- * gGfxControl rather than the gGfxBufferPtr macro: through the macro agbcc must
- * assume each store to the struct clobbers the pointer and reloads it, which
- * costs two `ldr` here. See the note on gGfxControl in include/gfx.h.
+ * gGfxControl rather than the gGfxBufferPtr macro: with the macro spelling this
+ * function does not match and `make compare` fails. Why agbcc treats the two
+ * differently is not established. See the note on gGfxControl in include/gfx.h.
  */
 void StreamCmd_ConfigureBlend(void) {
     gGfxControl->blendMode = gStreamPtr[2];
