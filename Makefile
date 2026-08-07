@@ -103,7 +103,7 @@ C_HEADERS := $(shell find include -name "*.h" -not -name "include_asm.h")
 
 ### TARGETS ###
 
-.PHONY: all rom compare clean tidy format check_format ctx asmlift-elf
+.PHONY: all rom compare clean tidy format check_format ctx asmlift-elf expected
 
 $(shell mkdir -p $(ASM_BUILDDIR) $(C_BUILDDIR) $(DATA_BUILDDIR))
 
@@ -211,6 +211,24 @@ $(SYMS_ELF): $(ELF) $(CTX_OBJ)
 	@echo "built $@"
 
 asmlift-elf: $(SYMS_ELF)
+
+# objdiff's target side.  objdiff.json declares expected/src/*.o and sets build_target, so it
+# runs `make expected/src/<module>.o`; without this rule that fails and the tool has nothing to
+# compare against.  Depends on the ELF because the generator takes function addresses from its
+# symbol table -- luvdis's `@ ADDR` comments carry the Thumb bit and read two bytes high on
+# half-word-aligned functions.
+# m4a is excluded: it is assembled from several compilation units .include'd into one file
+# (m4a_1.c, m4a_tst_*.c, m4a_nopush_*.c), so its symbols are not one contiguous address run and
+# cannot be laid out at their ROM addresses.  libgcc has no per-function .s at all.
+# `make expected/src/m4a.o` still runs and explains itself rather than failing silently.
+MODULES  := $(filter-out m4a libgcc,$(shell sed -n 's/^name = "\(.*\)"/\1/p' $(DECOMP_TOML)))
+EXPECTED := $(patsubst %,expected/src/%.o,$(MODULES))
+
+expected/src/%.o: $(ELF) $(DECOMP_TOML) $(LDSCRIPT_IN)
+	@mkdir -p expected/src
+	@python3 scripts/generate_expected.py $* $@
+
+expected: $(EXPECTED)
 
 format:
 	$(FORMAT) -i -style=file $(FORMAT_SRCS)
