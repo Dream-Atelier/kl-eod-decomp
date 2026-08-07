@@ -32,12 +32,42 @@ extern void UpdateHUDTimerAndLives(void); /* UpdateHUDTimerAndLives */
 extern void VBlankHandler(void); /* sub_080009D8 — installed for non-cutscene levels */
 extern void VBlankDmaTransfer(void); /* sub_08000CE0 — installed for cutscene levels */
 extern void InitLevelFromROMTable(void); /* InitLevelFromROMTable */
+extern void m4aSoundVSync(void);
+extern void m4aSoundMain(void);
 
 INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_ModeA);
 INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_ModeB);
 INCLUDE_ASM("asm/nonmatchings/engine", VBlankDmaTransfer);
-INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_OamOnly);
-INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_OamOnlyAlt);
+/**
+ * VBlankHandler_OamOnly: VBlank handler for screens that only need sprites.
+ *
+ * Runs the sound VSync update, flushes the live part of the OAM shadow buffer
+ * (gUnk_03005428 entries of 8 bytes) to hardware OAM with DMA3, runs the sound
+ * mixer unless gUnk_03003420 says someone already did it this frame, then
+ * acknowledges the interrupt.
+ */
+void VBlankHandler_OamOnly(void) {
+    m4aSoundVSync();
+    DmaCopy32(3, gOamBuffer, OAM, gUnk_03005428 * 8);
+    if (gUnk_03003420 == 0) {
+        m4aSoundMain();
+    }
+    gUnk_03003420 = 0;
+    gIMEAcknowledge = 1;
+}
+/**
+ * VBlankHandler_OamOnlyAlt: second copy of VBlankHandler_OamOnly, installed by a
+ * different screen. Byte-identical to it in the original ROM.
+ */
+void VBlankHandler_OamOnlyAlt(void) {
+    m4aSoundVSync();
+    DmaCopy32(3, gOamBuffer, OAM, gUnk_03005428 * 8);
+    if (gUnk_03003420 == 0) {
+        m4aSoundMain();
+    }
+    gUnk_03003420 = 0;
+    gIMEAcknowledge = 1;
+}
 INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_WithWindowScroll);
 /**
  * UpdateFadeEffect: applies brightness fade using REG_BLDY.
