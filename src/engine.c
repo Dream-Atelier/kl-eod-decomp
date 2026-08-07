@@ -56,9 +56,12 @@ void VBlankHandler_OamOnly(void) {
     gIMEAcknowledge = 1;
 }
 /**
- * VBlankHandler_OamOnlyAlt: an unreferenced duplicate of VBlankHandler_OamOnly,
- * byte-identical to it in the original ROM. A whole-ROM scan for its address finds
- * no installer, so nothing calls it — it is dead weight the original build emitted,
+ * VBlankHandler_OamOnlyAlt: an unreferenced duplicate of VBlankHandler_OamOnly.
+ *
+ * Same source, same instruction sequence — but NOT the same bytes: the two `bl`
+ * encodings are PC-relative, so at different addresses they differ (+0x04 and
+ * +0x2c of the 84). A whole-ROM scan for this function's address finds no
+ * installer, so nothing calls it; it is dead weight the original build emitted,
  * not a second screen's handler.
  */
 void VBlankHandler_OamOnlyAlt(void) {

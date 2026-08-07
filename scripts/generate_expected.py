@@ -124,12 +124,58 @@ src = out + ".s"
 pathlib.Path(src).write_text("".join(lines))
 r = subprocess.run(["arm-none-eabi-as", "-mcpu=arm7tdmi", "-mthumb-interwork", src, "-o", out],
                    capture_output=True, text=True)
+
+# A backwards `.org` is not necessarily fatal, and treating it as fatal was a bug.
+#
+# `.org` places each function at its ELF address, which is right until a function is
+# decompiled whose literal pool luvdis attributed to the NEXT function's file.  agbcc then
+# emits that pool inside the C, the ELF address of the next symbol moves forward by the pool's
+# size, and that file -- which still carries the pool words at its head -- is asked to start
+# after bytes it already contains.  Measured on WaitHBlankAndClearBlendY / AcknowledgeInterrupt:
+# the ELF says 0x08001144, the .s covers 0x0800113C onwards, 8 bytes of overlap.
+#
+# The files still tile the module exactly; only the boundary between two of them is disputed.
+# So drop the offending `.org` and let those two concatenate, which is what the ROM does.  The
+# MATCH line below is what proves the result is still the right length, and a module that ends
+# up genuinely malformed fails there instead of silently shipping.
+#
+# The luvdis `@ ADDR` comments are NOT an alternative source of truth here: they are +0 on some
+# functions (Abs) and +2 on others (ReturnOne) with no decompilation involved.
+dropped = []
+while r.returncode and "org backwards" in r.stderr:
+    bad = [int(m) for m in re.findall(r"\.s:(\d+): Error: attempt to move \.org backwards",
+                                     r.stderr)]
+    if not bad:
+        break
+    # Remove the `.org` BEFORE the one that errored, not the one that errored.
+    #
+    # The disputed function is the one whose .s already contains the bytes: its own `.org`
+    # jumps FORWARD over them (legal, and it opens a gap the ROM does not have), and the error
+    # only surfaces on the NEXT function, which is then asked to start inside it.  Dropping the
+    # erroring `.org` concatenates the wrong pair and leaves the gap, which is how engine came
+    # out 8 bytes long.  Dropping the preceding one closes the gap at its source.
+    #
+    # One per iteration, because `as` reports only the first failure and later ones may resolve
+    # themselves once it is gone.
+    text = pathlib.Path(src).read_text().split("\n")
+    n = min(bad)
+    prev = next((i for i in range(n - 2, -1, -1) if text[i].lstrip().startswith(".org")), None)
+    if prev is None:
+        break
+    dropped.append(text.pop(prev).strip())
+    pathlib.Path(src).write_text("\n".join(text))
+    r = subprocess.run(["arm-none-eabi-as", "-mcpu=arm7tdmi", "-mthumb-interwork", src, "-o", out],
+                       capture_output=True, text=True)
+if dropped:
+    print(f"  {len(dropped)} function(s) concatenated instead of placed -- a decompiled "
+          f"neighbour absorbed their leading literal pool", file=sys.stderr)
+
 if r.returncode:
     if "org backwards" in r.stderr:
-        sys.exit(f"{mod}: functions overlap, so they cannot be laid out at their ROM addresses. "
-                 f"m4a is built from several compilation units .include'd into one file "
-                 f"(m4a_1.c, m4a_tst_*.c, m4a_nopush_*.c), so its symbols are not a single "
-                 f"contiguous run and this generator does not model it.")
+        sys.exit(f"{mod}: functions overlap and dropping the .org did not resolve it. m4a is "
+                 f"built from several compilation units .include'd into one file (m4a_1.c, "
+                 f"m4a_tst_*.c, m4a_nopush_*.c), so its symbols are not a single contiguous "
+                 f"run and this generator does not model it.")
     sys.exit(f"{mod}: assembly failed\n{r.stderr.strip()}")
 
 size = subprocess.run(["arm-none-eabi-size", out], capture_output=True, text=True)

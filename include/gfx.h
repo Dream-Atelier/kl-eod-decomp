@@ -247,9 +247,11 @@ struct GfxStreamAlloc {
 }; /* total: 8 bytes */
 
 /* The same cell as gGfxStreamBuffer (0x030007C8), typed as what it actually holds.
- * Both spellings are kept because they are not interchangeable to agbcc: the macro
- * is a CONST_INT address and this is a symbol_ref, and LoadGfxStreamEntry only
- * matches through the symbol_ref -- see the note on that function in src/gfx.c. */
+ * Both spellings are kept because they are not interchangeable: through the macro
+ * LoadGfxStreamEntry does not match and `make compare` fails. Why agbcc treats the
+ * two differently is not established -- an earlier draft explained it as CONST_INT
+ * versus symbol_ref, which was asserted rather than measured, and the same story
+ * was already retracted for gLevelStatePtr. See src/gfx.c. */
 extern struct GfxStreamAlloc *gGfxStreamAllocs;
 
 /* GfxStreamTileset: one row of the stream's OBJ-tileset table at 0x08057954
