@@ -141,6 +141,19 @@ Each `src/*.c` file contains `INCLUDE_ASM(...)` macros that inline assembly for 
 
     A successful match prints `klonoa-eod.gba: OK`.
 
+### When it compiles but does not match
+
+agbcc turns semantically identical C into different bytes depending on how the source is
+*spelled*, so most of the remaining work is finding the right spelling. Two catalogues of what
+actually decides matches, each entry measured by reverting one thing and recompiling:
+
+- [`docs/learnings/agbcc-source-shape-levers.md`](docs/learnings/agbcc-source-shape-levers.md)
+  — plain-C levers: named externs vs cast address constants, array shape, bitfield container
+  types, operand order, when *not* to cache a global in a local.
+- [`docs/learnings/agbcc-asm-barriers.md`](docs/learnings/agbcc-asm-barriers.md) — how to get
+  rid of an `asm("")` barrier. A barrier is never genuinely required; it means the right C has
+  not been found yet, so anything still carrying one is unfinished work.
+
 ## Compiler Boundaries
 
 The ROM was not built with a single compiler. Three configurations are needed for matching:
