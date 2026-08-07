@@ -485,9 +485,11 @@ gStreamDataTable = 0x08189AFC;
 /* The graphics stream's OBJ-tileset table and its parallel OBJ-palette table, plus
  * a typed pointer to the allocator table at 0x030007C8 (the cell gGfxStreamBuffer
  * also spells as a macro). All three are real extern objects rather than cast
- * address constants because LoadGfxStreamEntry only matches through symbol_refs:
- * spelling 0x030007C8 as the macro instead costs 14 points and the function does
- * not match. The ablation table is in the comment above that function. */
+ * address constants because LoadGfxStreamEntry does not match without them. All
+ * three were measured, one at a time: the allocator table as the gGfxStreamBuffer
+ * macro costs 14 points, and casting either of the two ROM tables to an address
+ * constant costs 27 (4 -> 31). The ablation table is in the comment above that
+ * function; the baseline of 4 is explained there too. */
 gGfxStreamAllocs = 0x030007C8;
 gStreamTilesetTable = 0x08057954;
 gStreamPaletteTable = 0x08189DCC;

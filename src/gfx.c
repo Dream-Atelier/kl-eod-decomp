@@ -426,11 +426,12 @@ void ShutdownGfxStream(void) {
 /**
  * LoadGfxStreamEntry: give one OBJ tileset a slot in the stream's tile allocator.
  *
- * Finds the first free GfxStreamAlloc slot by walking the table until a slot with
- * tileCount == 0, accumulating every live slot's tileCount into the OBJ tile index
- * the new slot gets. The walk starts at gPaletteCursorInit converted from an OBJ
- * VRAM address to a tile id ((cursor - 0x06010000) / 32), which is the same
- * tiles-not-bytes convention DmaSpriteToObjVram reverses.
+ * Finds the first free GfxStreamAlloc slot by walking the table from slot 0 until a
+ * slot with tileCount == 0, accumulating every live slot's tileCount into the OBJ
+ * tile index the new slot gets. That accumulator -- not the walk -- starts at
+ * gPaletteCursorInit converted from an OBJ VRAM address to a tile id
+ * ((cursor - 0x06010000) / 32), the same tiles-not-bytes convention
+ * DmaSpriteToObjVram reverses.
  *
  * Then it decompresses the tileset onto the heap and stores buf + 4 (past the heap
  * header), copies the ROM row's tileCount, and writes the tile index it computed.

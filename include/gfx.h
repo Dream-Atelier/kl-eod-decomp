@@ -187,7 +187,13 @@ struct GfxControlFlags {
      * `volume` argument of m4aMPlayVolumeControl; StreamCmd_SetMusicParams writes
      * the same cell and mirrors it into gSoundVolume. The command masks it with
      * 0x1FF, which fits a 0..0x100 m4a volume and is far wider than any blend
-     * level. Signed: both readers load it with a register-offset `ldsh`. */
+     * level.
+     *
+     * Declared signed because bit 15 is tested as a flag and the field is compared
+     * against a running value, not because of the `ldsh`: an (s16) cast of an
+     * unsigned member emits the identical instruction -- CalcSineVelocity in this
+     * same file does exactly that. (Nor is "register-offset" evidence: Thumb-1
+     * LDRSH has no immediate-offset form at all.) */
     s16 soundFadeTarget;
     /* 0x1C bits 0-1 — a two-bit field, not two flags: UpdatePaletteFadeStep
      * extracts it as a unit with `lsl #30 / lsr #30`, and StreamCmd_ConfigureBlend
