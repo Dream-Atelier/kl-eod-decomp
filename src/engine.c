@@ -85,8 +85,19 @@ void UpdateWindowCircleEffect(void) {
     }
 }
 INCLUDE_ASM("asm/nonmatchings/engine", UpdateBGScrollWithWave);
-INCLUDE_ASM("asm/nonmatchings/engine", WaitVBlankAndClearMosaic);
-INCLUDE_ASM("asm/nonmatchings/engine", AcknowledgeInterrupt);
+/* Spins until the display is in H-Blank, then clears the brightness-fade level.
+ * (The name predates the disassembly: the register cleared is REG_BLDY, not REG_MOSAIC.) */
+void WaitVBlankAndClearMosaic(void) {
+    while ((REG_DISPSTAT & DISPSTAT_HBLANK) == 0)
+        ;
+    REG_BLDY = 0;
+}
+
+/* Acknowledges every interrupt that is currently enabled. */
+void AcknowledgeInterrupt(void) {
+    REG_IF = REG_IE;
+}
+
 void InitLevelBG(void) {
     s32 sp0;
     s32 temp_r1;
