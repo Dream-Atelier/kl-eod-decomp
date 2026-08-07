@@ -30,7 +30,28 @@ Matching decompilation of **Klonoa: Empire of Dreams** (GBA, USA). Goal: C sourc
 - **Every decompiled function must have a semantic name and docstring.** No `sub_XXXXXXXX` in committed C code. Add rename in `klonoa-eod-decomp.toml` and `/** docstring */` above the function.
 - **Run `make format` before every commit** touching C/H files. CI enforces `make check_format`.
 - **One commit per matched function.** Descriptive message explaining the matching technique.
+- **No `asm("")` barriers in committed C.** A barrier is never load-bearing — it is a workaround for
+  not having found the right C, and it can always be made to work, which is exactly the trap: it ends
+  the search and leaves behind something the original source could not have contained. A function
+  carrying one is unfinished. Try the plain-C levers first:
+  [`docs/learnings/agbcc-source-shape-levers.md`](docs/learnings/agbcc-source-shape-levers.md).
 - **All policies must be public.** Add to this CLAUDE.md, not just memory.
+
+### Verifying a Match
+- **`make compare` is the only verdict**, and it rebuilds from scratch. A score from objdiff or any
+  other differ is evidence, not proof — objdiff cannot see the literal pool, and it compares one
+  symbol rather than the ROM.
+- **A byte-exact function is not sufficient.** agbcc's codegen couples across a whole translation
+  unit, so a change that leaves the function you edited byte-identical can still change a *different*
+  function in the same `.c` and break the ROM. Measured in `src/code_1.c`: spelling the object at
+  `0x03003510` as an extern rather than an address-cast macro leaves `TransitionReturnToWorldMap`
+  byte-identical — same 192 bytes at the same offset — while `VBlankDMA_Level21`, **1833 lines
+  further down**, goes 1644 → 1640 bytes and the ROM fails. No differ can catch that, because the
+  damage is not in the symbol being compared. (This is why `gCallbackQueueAt3510` in that file is a
+  macro and not the extern; the reason is recorded next to it.)
+- **Run `make compare` after every function you add to a branch**, not once at the end, and again
+  after every conflict resolution when merging several functions together. Otherwise you learn which
+  of ten functions broke the ROM only after all ten are in.
 
 ### Workflow
 - **Always use the Python venv.** `source .venv/bin/activate` before `python3`/`pip`.
