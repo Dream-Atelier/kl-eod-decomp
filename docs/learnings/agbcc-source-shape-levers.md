@@ -117,6 +117,13 @@ in a local. `StreamCmd_SetBGPriority` re-reads `gStreamPtr[2]` in all four switc
 the byte collapses all four to `lsr #4`, cross-jumps them into one block, and drops the function
 116 → 104 bytes.
 
+This lever is about **non-volatile** globals, and for MMIO it inverts. A second
+read of a hardware register is a second real load, so the local is *mandatory*:
+in `HBlankScrollUpdate`, reading `REG_VCOUNT_L` at both uses instead of caching it
+in a `u8 line` costs **18 points** — the worst of nine measured variants, worse
+than asmlift's own raw output. The already-matched `UpdateFadeEffect` two lines
+above it caches the same way.
+
 Two refinements worth knowing:
 
 - Only caching the **value** is load-bearing. A *pointer* local (`u8 *p = gStreamPtr; … p[2]`)
