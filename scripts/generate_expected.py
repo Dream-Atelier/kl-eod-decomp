@@ -31,8 +31,16 @@ end = next((a for n, a in mods if a > start), None)
 
 # ldscript aliases: luvdis writes `bl sub_080518A4` where the C calls `__divsi3`.  Same bytes,
 # and objdiff pairs on the name, so canonicalise or every such call reads as a mismatch.
-alias = {v: k for k, v in re.findall(r"^([A-Za-z_]\w*)\s*=\s*(sub_[0-9A-Fa-f]+);",
-                                     pathlib.Path("ldscript.in.txt").read_text(), re.M)}
+#
+# The file spells them in BOTH directions -- `__divsi3 = sub_080518A4;` (8 of them) and
+# `sub_0804F8E8 = m4aSoundVSync;` (6 of them, all m4a) -- and either way the luvdis .s uses the
+# `sub_` spelling while the C uses the readable one.  So the rule is simply: whichever side is
+# the `sub_` name maps to the other.  Matching only one direction left a 1-point floor on the
+# 15 functions that call into m4a; found by an agent whose byte-identical VBlankHandler_OamOnly
+# would not score below 2.
+_ld = pathlib.Path("ldscript.in.txt").read_text()
+alias = {b: a for a, b in re.findall(r"^([A-Za-z_]\w*)\s*=\s*(sub_[0-9A-Fa-f]+);", _ld, re.M)}
+alias.update(re.findall(r"^(sub_[0-9A-Fa-f]+)\s*=\s*([A-Za-z_]\w*);", _ld, re.M))
 # ...and the TOML's own [renames].  generate_asm.py applies these when it writes the .s files,
 # but a CROSS-MODULE callee can still be referred to by its sub_ name, and objdiff pairs on the
 # name -- so an unrenamed `bl sub_0804F8E8` reads as a mismatch against the base's
@@ -116,16 +124,86 @@ src = out + ".s"
 pathlib.Path(src).write_text("".join(lines))
 r = subprocess.run(["arm-none-eabi-as", "-mcpu=arm7tdmi", "-mthumb-interwork", src, "-o", out],
                    capture_output=True, text=True)
+
+# A backwards `.org` is not necessarily fatal, and treating it as fatal was a bug.
+#
+# `.org` places each function at its ELF address, which is right until a function is
+# decompiled whose literal pool luvdis attributed to the NEXT function's file.  agbcc then
+# emits that pool inside the C, the ELF address of the next symbol moves forward by the pool's
+# size, and that file -- which still carries the pool words at its head -- is asked to start
+# after bytes it already contains.  Measured on WaitHBlankAndClearBlendY / AcknowledgeInterrupt:
+# the ELF says 0x08001144, the .s covers 0x0800113C onwards, 8 bytes of overlap.
+#
+# The files still tile the module exactly; only the boundary between two of them is disputed.
+# So drop the offending `.org` and let those two concatenate, which is what the ROM does.  The
+# MATCH line below is what proves the result is still the right length, and a module that ends
+# up genuinely malformed fails there instead of silently shipping.
+#
+# The luvdis `@ ADDR` comments are NOT an alternative source of truth here: they are +0 on some
+# functions (Abs) and +2 on others (ReturnOne) with no decompilation involved.
+dropped = []
+while r.returncode and "org backwards" in r.stderr:
+    bad = [int(m) for m in re.findall(r"\.s:(\d+): Error: attempt to move \.org backwards",
+                                     r.stderr)]
+    if not bad:
+        break
+    # Remove the `.org` BEFORE the one that errored, not the one that errored.
+    #
+    # The disputed function is the one whose .s already contains the bytes: its own `.org`
+    # jumps FORWARD over them (legal, and it opens a gap the ROM does not have), and the error
+    # only surfaces on the NEXT function, which is then asked to start inside it.  Dropping the
+    # erroring `.org` concatenates the wrong pair and leaves the gap, which is how engine came
+    # out 8 bytes long.  Dropping the preceding one closes the gap at its source.
+    #
+    # One per iteration, because `as` reports only the first failure and later ones may resolve
+    # themselves once it is gone.
+    text = pathlib.Path(src).read_text().split("\n")
+    n = min(bad)
+    prev = next((i for i in range(n - 2, -1, -1) if text[i].lstrip().startswith(".org")), None)
+    if prev is None:
+        break
+    dropped.append(text.pop(prev).strip())
+    pathlib.Path(src).write_text("\n".join(text))
+    r = subprocess.run(["arm-none-eabi-as", "-mcpu=arm7tdmi", "-mthumb-interwork", src, "-o", out],
+                       capture_output=True, text=True)
+if dropped:
+    # Say what was done, not why. The cause is usually a decompiled neighbour absorbing this
+    # function's literal pool, but the recovery fires on any overlap and does not know which.
+    print(f"  {len(dropped)} .org placement(s) dropped, functions concatenated instead: "
+          + ", ".join(dropped), file=sys.stderr)
+
 if r.returncode:
     if "org backwards" in r.stderr:
-        sys.exit(f"{mod}: functions overlap, so they cannot be laid out at their ROM addresses. "
-                 f"m4a is built from several compilation units .include'd into one file "
+        sys.exit(f"{mod}: functions overlap and dropping the .org did not resolve it. If this "
+                 f"is m4a: it is built from several compilation units .include'd into one file "
                  f"(m4a_1.c, m4a_tst_*.c, m4a_nopush_*.c), so its symbols are not a single "
-                 f"contiguous run and this generator does not model it.")
+                 f"contiguous run and this generator does not model it. Otherwise the .s files "
+                 f"for this module do not tile its address range.")
     sys.exit(f"{mod}: assembly failed\n{r.stderr.strip()}")
 
-size = subprocess.run(["arm-none-eabi-size", out], capture_output=True, text=True)
-got = int(size.stdout.split("\n")[1].split()[0])
+# Verify the bytes against the ROM. Length alone proves nothing: `.org` places functions
+# absolutely, so the total is fixed by the LAST placement plus its body and any interior gap is
+# invisible by construction. m4a passed the length check with 3823 zero bytes inside it, and
+# objdiff scored against that object because objdiff.json sets build_target on it -- a loud
+# failure turned into a silent wrong answer, which is worse than the failure it replaced.
+rom = pathlib.Path("baserom.gba").read_bytes()
+subprocess.run(["arm-none-eabi-objcopy", "-O", "binary", "--only-section=.text", out, out + ".bin"],
+               check=True)
+got_bytes = pathlib.Path(out + ".bin").read_bytes()
+want_bytes = rom[start - 0x08000000:][:len(got_bytes)]
+# A relocation slot is zero in the object and resolved in the ROM, so mask those four bytes.
+relocs = subprocess.run(["arm-none-eabi-objdump", "-r", out], capture_output=True, text=True).stdout
+masked = {i for m in re.finditer(r"^([0-9a-f]{8})\s", relocs, re.M)
+          for i in range(int(m.group(1), 16), int(m.group(1), 16) + 4)}
+bad = [i for i, (a, b) in enumerate(zip(got_bytes, want_bytes)) if a != b and i not in masked]
+
 want = end - start if end else None
-print(f"{mod}: {len(files)} files -> {got} bytes"
-      + (f", module range {want} ({'MATCH' if got == want else 'MISMATCH'})" if want else ""))
+status = "MATCH" if (want is None or len(got_bytes) == want) and not bad else "WRONG"
+print(f"{mod}: {len(files)} files -> {len(got_bytes)} bytes"
+      + (f", module range {want}" if want else "") + f" ({status})")
+if status == "WRONG":
+    detail = (f"length {len(got_bytes)} != {want}" if want and len(got_bytes) != want
+              else f"{len(bad)} byte(s) differ from the ROM, first at "
+                   f"0x{start + bad[0]:08X}" if bad else "")
+    sys.exit(f"{mod}: this object does not reproduce the ROM ({detail}). It is a TARGET -- "
+             f"anything scored against it would be measured against the wrong bytes.")

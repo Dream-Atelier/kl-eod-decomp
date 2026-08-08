@@ -32,12 +32,47 @@ extern void UpdateHUDTimerAndLives(void); /* UpdateHUDTimerAndLives */
 extern void VBlankHandler(void); /* sub_080009D8 — installed for non-cutscene levels */
 extern void VBlankDmaTransfer(void); /* sub_08000CE0 — installed for cutscene levels */
 extern void InitLevelFromROMTable(void); /* InitLevelFromROMTable */
+extern void m4aSoundVSync(void);
+extern void m4aSoundMain(void);
 
 INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_ModeA);
 INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_ModeB);
 INCLUDE_ASM("asm/nonmatchings/engine", VBlankDmaTransfer);
-INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_OamOnly);
-INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_OamOnlyAlt);
+/**
+ * VBlankHandler_OamOnly: VBlank handler for screens that only need sprites.
+ *
+ * Runs the sound VSync update, flushes the live part of the OAM shadow buffer
+ * (gUnk_03005428 entries of 8 bytes) to hardware OAM with DMA3, runs the sound
+ * mixer unless gUnk_03003420 says someone already did it this frame, then
+ * acknowledges the interrupt.
+ */
+void VBlankHandler_OamOnly(void) {
+    m4aSoundVSync();
+    DmaCopy32(3, gOamBuffer, OAM, gUnk_03005428 * 8);
+    if (gUnk_03003420 == 0) {
+        m4aSoundMain();
+    }
+    gUnk_03003420 = 0;
+    gIMEAcknowledge = 1;
+}
+/**
+ * VBlankHandler_OamOnlyAlt: an unreferenced duplicate of VBlankHandler_OamOnly.
+ *
+ * Same source, same instruction sequence — but NOT the same bytes: the two `bl`
+ * encodings are PC-relative, so at different addresses they differ (+0x04 and
+ * +0x2c of the 84). A whole-ROM scan for this function's address finds no
+ * installer, so nothing calls it; it is dead weight the original build emitted,
+ * not a second screen's handler.
+ */
+void VBlankHandler_OamOnlyAlt(void) {
+    m4aSoundVSync();
+    DmaCopy32(3, gOamBuffer, OAM, gUnk_03005428 * 8);
+    if (gUnk_03003420 == 0) {
+        m4aSoundMain();
+    }
+    gUnk_03003420 = 0;
+    gIMEAcknowledge = 1;
+}
 INCLUDE_ASM("asm/nonmatchings/engine", VBlankHandler_WithWindowScroll);
 /**
  * UpdateFadeEffect: applies brightness fade using REG_BLDY.
@@ -54,7 +89,19 @@ void UpdateFadeEffect(void) {
         REG_BLDALPHA = ((u32)fade << 8) | fade;
     }
 }
-INCLUDE_ASM("asm/nonmatchings/engine", HBlankScrollUpdate);
+/**
+ * HBlankScrollUpdate: per-scanline horizontal scroll for BG0 and BG1.
+ *
+ * HBlank handler. Reads the current scanline from REG_VCOUNT and copies that
+ * line's entry from the two IWRAM scroll tables into REG_BG0HOFS / REG_BG1HOFS,
+ * producing a per-line horizontal displacement (raster scroll) effect.
+ */
+void HBlankScrollUpdate(void) {
+    u8 line = REG_VCOUNT_L;
+
+    REG_BG0HOFS = gUnk_03004C40[line];
+    REG_BG1HOFS = gUnk_030052C0[line];
+}
 INCLUDE_ASM("asm/nonmatchings/engine", UpdateAffineBGParams);
 /**
  * UpdateWindowCircleEffect: compute circle window bounds for iris transition.
@@ -85,8 +132,28 @@ void UpdateWindowCircleEffect(void) {
     }
 }
 INCLUDE_ASM("asm/nonmatchings/engine", UpdateBGScrollWithWave);
-INCLUDE_ASM("asm/nonmatchings/engine", WaitVBlankAndClearMosaic);
-INCLUDE_ASM("asm/nonmatchings/engine", AcknowledgeInterrupt);
+/**
+ * WaitHBlankAndClearBlendY: VCount=143 interrupt handler for the raster split.
+ *
+ * Spins until REG_DISPSTAT reports H-Blank so the store lands outside active
+ * pixels, then zeroes REG_BLDY so the lines below the split are not darkened.
+ * Installed as gIntrTable.vCount by the only site that references it,
+ * src/code_1.c:956, which arms the split at scanline 143.
+ *
+ * It was called WaitVBlankAndClearMosaic until round 4: it waits on H-Blank, not
+ * V-Blank, and clears BLDY (0x04000054), not MOSAIC (0x0400004C).
+ */
+void WaitHBlankAndClearBlendY(void) {
+    while ((REG_DISPSTAT & DISPSTAT_HBLANK) == 0)
+        ;
+    REG_BLDY = 0;
+}
+
+/* Acknowledges every interrupt that is currently enabled. */
+void AcknowledgeInterrupt(void) {
+    REG_IF = REG_IE;
+}
+
 void InitLevelBG(void) {
     s32 sp0;
     s32 temp_r1;

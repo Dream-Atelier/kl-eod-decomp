@@ -3,6 +3,7 @@
 #include "globals.h"
 #include "structs/variables.h"
 #include "include_asm.h"
+#include "data/trig.h"
 
 INCLUDE_ASM("asm/nonmatchings/gfx", InitGfxState);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateBGScrollRegisters);
@@ -78,7 +79,39 @@ u32 ReadUnalignedU32(u8 *ptr) {
 s32 ReadUnalignedU32_Alt(u8 *ptr) {
     return ptr[0] + (ptr[1] << 8) + (ptr[2] << 0x10) + (ptr[3] << 0x18);
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", CalcBGScrollMapSize);
+/**
+ * CalcBGScrollMapSize: pick the BGCNT screen-size field for a background of
+ * the given tile dimensions.
+ *
+ * Affine backgrounds are square, so the field is the smallest of 16/32/64/128
+ * tiles that holds both dimensions. Text backgrounds encode the two axes
+ * independently: bit 0 marks a map wider than 32 tiles, bit 1 a taller one.
+ */
+u8 CalcBGScrollMapSize(u8 isAffine, u16 width, u16 height) {
+    u8 wideBit;
+    u8 size;
+
+    if (isAffine) {
+        if (width > 16 || height > 16) {
+            if (width > 32 || height > 32) {
+                return (width <= 64 && height <= 64) ? 2 : 3;
+            } else {
+                return 1;
+            }
+        } else {
+            return 0;
+        }
+    } else {
+        wideBit = 0;
+        if (width > 32)
+            wideBit = 1;
+        if (height > 32)
+            size = 2 | wideBit;
+        else
+            size = wideBit;
+        return size;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateAffineRegisters);
 /**
  * DecompressAndDmaCopy: decompress ROM data and DMA to a VRAM destination.
@@ -150,7 +183,15 @@ void FreeDecompStreamBuffer(void) {
     thunk_HeapFree(gDecompBuffer);
 }
 
-INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB);
+/**
+ * ClearScreenBufferB: DMA3-fills the IWRAM screenblock staging buffer B.
+ *
+ * Fills all 0x400 halfwords of gScreenBufferB (0x03001100) with 0xF000 in
+ * fixed-source mode, using the macro's own stack-local halfword as the source.
+ */
+void ClearScreenBufferB(void) {
+    DmaFill16(3, 0xF000, gScreenBufferB, 0x800);
+}
 
 /**
  * AllocAndClearGfxBuffer: allocate and DMA-fill a 32-byte GFX buffer.
@@ -218,7 +259,15 @@ void SetupTextBGLayer(void) {
     REG_BG1HOFS = zero;
     REG_BG1VOFS = zero;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", ClearScreenBufferB_Alt);
+/**
+ * ClearScreenBufferB_Alt: second, identical copy of the ClearScreenBufferB fill.
+ *
+ * Byte-for-byte the same routine as ClearScreenBufferB, emitted twice by the
+ * original build.
+ */
+void ClearScreenBufferB_Alt(void) {
+    DmaFill16(3, 0xF000, gScreenBufferB, 0x800);
+}
 /**
  * InitLevelStateDefaults: set the level's default window clip bounds and regs.
  *
@@ -374,7 +423,70 @@ void ShutdownGfxStream(void) {
     ResetGfxStreamEntries();
     thunk_HeapFree(gGfxStreamBuffer);
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", LoadGfxStreamEntry); /* ProcessStreamOpcode */
+/**
+ * LoadGfxStreamEntry: give one OBJ tileset a slot in the stream's tile allocator.
+ *
+ * Finds the first free GfxStreamAlloc slot by walking the table from slot 0 until a
+ * slot with tileCount == 0, accumulating every live slot's tileCount into the OBJ
+ * tile index the new slot gets. That accumulator -- not the walk -- starts at
+ * gPaletteCursorInit converted from an OBJ VRAM address to a tile id
+ * ((cursor - 0x06010000) / 32), the same tiles-not-bytes convention
+ * DmaSpriteToObjVram reverses.
+ *
+ * Then it decompresses the tileset onto the heap and stores buf + 4 (past the heap
+ * header), copies the ROM row's tileCount, and writes the tile index it computed.
+ * With loadPalette set it also DMAs the tileset's 32-byte OBJ palette to
+ * gVramWriteCursor and advances that cursor one palette bank.
+ *
+ *   idx:         tileset id, the low 7 bits of the stream command byte
+ *   loadPalette: the command byte's high bit
+ *
+ * MATCHING: the allocator table must be reached through the `gGfxStreamAllocs`
+ * symbol_ref, and the three post-call stores must index it by name. Measured by
+ * ablation, one change at a time, rebuilding the module each time and scoring
+ * build/src/gfx.o against expected/src/gfx.o:
+ *
+ *     as shipped                                          4
+ *     no pointer local at all, named array everywhere      4
+ *     pointer local used for the post-call stores too     35
+ *     gGfxStreamBuffer macro (a CONST_INT) instead        18
+ *
+ * So the pointer local in the loop is inert -- keep it or drop it -- while reusing
+ * it after the DecompressAlloc call costs 31, and the cast-address spelling costs
+ * 14. The baseline is 4 rather than 0 because a plain module build does not run
+ * scripts/pool_abs_syms.sh, so the four named data globals are still undefined
+ * relocations where the ROM-derived target has bare numbers; only the deltas mean
+ * anything. `make compare` is what says this function is byte-exact.
+ *
+ * The mechanism behind the 31 is not established. What is observed is that after
+ * the call agbcc reloads the base from the pool when the array is named and reuses
+ * the stale local when it is not; do not repeat the earlier draft's claim about
+ * partial redundancy elimination on the loop guard, which the first two rows above
+ * refute.
+ */
+void LoadGfxStreamEntry(u32 idx, u32 loadPalette) {
+    struct GfxStreamAlloc *slot;
+    u32 buf;
+    u16 tileIndex;
+    s32 i;
+
+    i = 0;
+    tileIndex = (gPaletteCursorInit - OBJ_VRAM) >> 5;
+    slot = gGfxStreamAllocs;
+    while (slot[i].tileCount != 0) {
+        tileIndex += slot[i].tileCount;
+        i++;
+    }
+    buf = (u32)DecompressAlloc(gStreamTilesetTable[idx].pTiles);
+    gGfxStreamAllocs[i].pTiles = buf + 4;
+    gGfxStreamAllocs[i].tileCount = gStreamTilesetTable[idx].tileCount;
+    gGfxStreamAllocs[i].tileIndex = tileIndex;
+
+    if (loadPalette != 0) {
+        DmaCopy16Wait(3, gStreamPaletteTable[idx], gVramWriteCursor, 0x20);
+        gVramWriteCursor += 0x20;
+    }
+}
 /*
  * Reads a command byte from the data stream, splits it into a 7-bit value
  * and a 1-bit flag, then dispatches to LoadGfxStreamEntry. Advances stream by 3.
@@ -737,7 +849,34 @@ void UpdateCursorBlink(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessAnimationSteps);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateLinearInterpolation);
-INCLUDE_ASM("asm/nonmatchings/gfx", CalcSinCosVelocity);
+/**
+ * CalcSineVelocity: compute one frame of a GfxStreamEntry's sine oscillation.
+ *
+ * It was called CalcSinCosVelocity until round 4. There is no cosine: both halves
+ * index the same table at 0x080D8E14 with the same argument and no quarter-turn
+ * offset, differing only in which amplitude they scale by (+0x08 for X, +0x0A for Y).
+ *
+ * Writes the X and Y velocity for this tick into out[0]/out[1]:
+ * amplitude * gSineTable[(timer * angularStep) & 0xFF] >> 8, with the X amplitude
+ * at +0x08 and the Y amplitude at +0x0A. Returns 1 once the entry's timer has run
+ * out (timer <= 0), which tells ProcessMotionStep to stop the entry.
+ */
+u32 CalcSineVelocity(struct GfxStreamEntry *entry, s16 *out) {
+    out[0] = ((s16)entry->unk_08 * SIN(((s16)entry->timer * entry->unk_1E) & 0xFF)) >> 8;
+    out[1] = ((s16)entry->unk_0A * SIN(((s16)entry->timer * entry->unk_1E) & 0xFF)) >> 8;
+
+    if ((s16)entry->timer <= 0)
+        return 1;
+    return 0;
+}
+/* Stub_0804CAC4: an empty function — 2 bytes of `bx lr` plus 2 bytes of alignment padding — sitting
+ * between CalcSineVelocity and ProcessMotionStep. Nothing in the ROM references it, which is why
+ * it has no symbol and why luvdis folded its bytes into the tail of CalcSineVelocity.s. It is a
+ * separate function, not codegen belonging to the one above: its `bx lr` follows the interworking
+ * epilogue (`pop {r4, r5, r6}; pop {r1}; bx r1`), which agbcc emits exactly once per function, and
+ * `bx r1` followed by `bx lr` occurs nowhere else in the project's disassembly. Without it the ROM
+ * is 4 bytes short from here on. */
+void Stub_0804CAC4(void) { }
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessMotionStep);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessMotionStepExtended);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessStaticBGScroll);
@@ -1504,5 +1643,62 @@ void StreamCmd_SetMusicParams(void) {
     m4aMPlayVolumeControl(&gMPlayInfo_3, 0xFF, gSceneFadeCounter);
     gStreamPtr += 4;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_ConfigureBlend);
+/**
+ * StreamCmd_ConfigureBlend: arms the MUSIC volume ramp run by UpdatePaletteFadeStep.
+ *
+ * Not a video blend, despite both function names: UpdatePaletteFadeStep writes no
+ * I/O register at all — its whole literal pool is the four gMPlayInfo_* players and
+ * gSoundVolume, and it calls m4aMPlayVolumeControl five times.
+ *
+ * Stream layout (5 bytes): byte[2] low 2 bits select which m4a player the ramp
+ * drives (GfxControlFlags.soundFadeMPlaySel), and bytes[3..4] are an unaligned
+ * halfword whose low 9 bits are the target volume (GfxControlFlags.soundFadeTarget)
+ * and whose bit 15 is the ramp direction, copied into soundFadeRampUp before the
+ * value is masked down. soundFadeActive is then set to start the ramp;
+ * UpdatePaletteFadeStep clears both again when the running value at 0x18 reaches
+ * the target.
+ *
+ * A cast of gLevelStatePtr rather than the gGfxBufferPtr macro: with the macro
+ * spelling this function does not match and `make compare` fails. Why agbcc treats
+ * the two differently is not established. Both spell 0x030034A0; see include/gfx.h.
+ */
+void StreamCmd_ConfigureBlend(void) {
+    ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeSel = gStreamPtr[2];
+    ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeTarget = ReadUnalignedU16(gStreamPtr + 3);
+    /* (s16) so agbcc emits the LDRSH the ROM has; the field itself is unsigned. */
+    if ((s16)((struct GfxControlFlags *)gLevelStatePtr)->soundFadeTarget & 0x8000) {
+        ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeRampUp = 1;
+    }
+    ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeTarget &= 0x1FF;
+    ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeActive = 1;
+    gStreamPtr += 5;
+}
+/**
+ * StreamCmd_ToggleVBlankHandler: swaps the VBlank callback between the minimal
+ * handler and the window-scroll handler, tracking which one is installed in
+ * GfxControlFlags bit 0x1C.4, and advances the stream by 2.
+ *
+ * This function had no thumb_func_start of its own: luvdis ran it into the tail
+ * of StreamCmd_ConfigureBlend (see the ROM address in the .s that used to be
+ * INCLUDE_ASM'd here), so it is decompiled together with its parent.
+ *
+ * The flag records which handler is installed, so the arm that tests true is the
+ * one that switches back to VBlankHandlerMinimal.
+ *
+ * Note that the pool words are 0x08000AB1 and 0x08000E69, i.e. the two handlers'
+ * linked addresses with the Thumb bit set -- the `@ 08000AB2` / `@ 08000E6A`
+ * comments in their .s files are two too high (`non_word_aligned_thumb_func_start`
+ * emits no padding, and `nm klonoa-eod.elf` puts both symbols two bytes lower).
+ */
+void VBlankHandlerMinimal(void);
+void StreamCmd_ToggleVBlankHandler(void) {
+    if (((struct GfxControlFlags *)gLevelStatePtr)->flag_1C_4) {
+        gVBlankCallback = (u32)VBlankHandlerMinimal;
+        ((struct GfxControlFlags *)gLevelStatePtr)->flag_1C_4 = 0;
+    } else {
+        gVBlankCallback = (u32)VBlankHandler_WithWindowScroll;
+        ((struct GfxControlFlags *)gLevelStatePtr)->flag_1C_4 = 1;
+    }
+    gStreamPtr += 2;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_RunScript);

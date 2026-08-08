@@ -48,7 +48,7 @@ const PROCESS_MOTION_STEP = di.symbolToAddress('ProcessMotionStep');
 const READ_UNALIGNED_S16 = di.symbolToAddress('ReadUnalignedS16');
 const BG_LAYER_STATE = di.symbolToAddress('gUnk_03003430'); // == gBGLayerState, stride 28
 const G_BUFFER_52A4 = 0x030052a4; // a `#define`: lives in .debug_macinfo, not .symtab
-const TRIG = 0x080d8e14; // s16 LUT that CalcSinCosVelocity indexes with (0x1E * 0x14) & 0xFF
+const TRIG = 0x080d8e14; // s16 LUT that CalcSineVelocity indexes with (0x1E * 0x14) & 0xFF
 const SCRATCH = 0x0203f000; // scratch entry array (game is frozen; nothing else runs)
 const BG_STRIDE = 28;
 

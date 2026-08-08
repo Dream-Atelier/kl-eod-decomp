@@ -155,9 +155,11 @@ extern u8 *gStreamPtr;
  * Bits 5 and 6 are named from runtime evidence — see
  * docs/dynamic-analysis/scripts/prove-gfx-flag-1C-bit5.mjs (an A/B intervention
  * in the gba-kit headless emulator: one bit changed between otherwise identical
- * runs). The other bits are NOT proven: bits 0-1 and bit 3 are read by
- * UpdatePaletteFadeStep and written by StreamCmd_ConfigureBlend, but that is
- * static evidence only, so they keep placeholder names. */
+ * runs). Bits 0-1 are read by UpdatePaletteFadeStep and written by
+ * StreamCmd_ConfigureBlend; that is static evidence, but the reader is short
+ * enough to be exhaustive, so they are named. Bit 2 is written by
+ * StreamCmd_ConfigureBlend and bit 4 by StreamCmd_ToggleVBlankHandler; bit 3
+ * keeps a placeholder name. */
 struct GfxControlFlags {
     u8 pad_00[2];
     u32 flag_02_0 : 1;
@@ -178,11 +180,44 @@ struct GfxControlFlags {
      * left as `u8` for the same reason in reverse: it matches as u8. */
     u32 sceneExit : 2;
     u32 flag_02_3 : 5;
-    u8 pad_03[0x19];
-    u8 flag_1C_0 : 1;
-    u8 flag_1C_1 : 1;
-    u8 flag_1C_2 : 1;
-    u8 flag_1C_3 : 1;
+    u8 pad_03[0x17];
+    /* 0x1A — target MUSIC volume, written by StreamCmd_ConfigureBlend from the
+     * command's unaligned halfword argument. UpdatePaletteFadeStep steps the running
+     * value at 0x18 toward it in units of 0x10 and passes it as the `volume` argument
+     * of m4aMPlayVolumeControl; sub_0804EB64 zeroes it on scene exit. The command
+     * masks it with 0x1FF, which fits a 0..0x100 m4a volume and is far wider than any
+     * blend level.
+     *
+     * Unsigned, because the datum is: after the mask it is 0..511, and before it bit
+     * 15 is a boolean request flag, not a sign. The one place signedness shows in the
+     * bytes is the bit-15 test, which agbcc emits as LDRSH — so that call site carries
+     * an (s16) cast and this declaration does not lie about the range. Two earlier
+     * drafts declared it s16, first "because only a signed halfword produces ldsh"
+     * (false: an (s16) cast of an unsigned member emits the same instruction, as
+     * CalcSineVelocity does in this file) and then "because bit 15 is tested as a flag
+     * and it is compared against a running value" (also not evidence: `x & 0x8000` has
+     * the same truth value either way, and the comparison lives in UpdatePaletteFadeStep,
+     * which is still INCLUDE_ASM and exerts no pressure on the build). */
+    u16 soundFadeTarget;
+    /* 0x1C bits 0-1 — a two-bit field, not two flags: UpdatePaletteFadeStep
+     * extracts it as a unit with `lsl #30 / lsr #30`, and StreamCmd_ConfigureBlend
+     * assigns the whole field from the command byte (`and #3` is the field's own
+     * truncation). It selects which m4a player the volume ramp drives: 0 ->
+     * gMPlayInfo_0, 1 -> gMPlayInfo_1, 3 -> the master level at 0x03005210 AND all
+     * four players. 2 falls through and does nothing. Deliberately not called an
+     * "MPlay index": 3 is not a player and 2 is not a player, so a reader trusting
+     * that reading would write 2 expecting gMPlayInfo_2. Static evidence, but complete: the
+     * function writes no I/O register at all and its whole literal pool is the
+     * four gMPlayInfo_* and gSoundVolume. */
+    u8 soundFadeSel : 2;
+    /* 0x1C bit 2 — enables the ramp. sub_0804EB64 gates its UpdatePaletteFadeStep
+     * call on it, and UpdatePaletteFadeStep clears it when the level lands. */
+    u8 soundFadeActive : 1;
+    /* 0x1C bit 3 — ramp DIRECTION, not a request flag: set gives +0x10 per step with
+     * a `ble` bound, clear gives -0x10 with `bge`. StreamCmd_ConfigureBlend sets it
+     * from bit 15 of the command's halfword; an up-ramp clears it on completion and
+     * sub_0804EB64 clears it on scene exit. */
+    u8 soundFadeRampUp : 1;
     u8 flag_1C_4 : 1;
     /* 0x1C bit 5 — direction of the scene-transition cross-fade run by
      * ProcessSceneTransitionOut. Clear: ramp gBlendValue (written to both REG_BLDALPHA's EVA and REG_BLDY; under
@@ -197,6 +232,12 @@ struct GfxControlFlags {
     u8 forceWindowsOpen : 1;
     u8 flag_1C_7 : 1;
 };
+
+/* 0x030034A0 already has two names — gLevelStatePtr (a declared object) and the
+ * gGfxBufferPtr macro — and a third was added here for the flags view before it
+ * was checked whether an existing one would do. It does: casting gLevelStatePtr
+ * keeps StreamCmd_ConfigureBlend byte-exact, while the macro spelling does not.
+ * What agbcc needs is *a* symbol_ref, not a new symbol, so no third name. */
 
 /* BG2 affine magnification (Q_8_8). Used as 1/scale in BG2PA/PD calculations. */
 extern u16 gBg2XMag;
@@ -222,6 +263,36 @@ struct GfxStreamAlloc {
     u16 tileIndex; /* +0x04: first OBJ tile this entry owns, in 32-byte tiles from 0x06010000 (an OAM attr2 tile id) */
     u16 tileCount; /* +0x06: number of 32-byte tiles owned; 0 = slot unused, and it is the stride of tileIndex */
 }; /* total: 8 bytes */
+
+/* The same cell as gGfxStreamBuffer (0x030007C8), typed as what it actually holds.
+ * Both spellings are kept because they are not interchangeable: through the macro
+ * LoadGfxStreamEntry does not match and `make compare` fails. Why agbcc treats the
+ * two differently is not established -- an earlier draft explained it as CONST_INT
+ * versus symbol_ref, which was asserted rather than measured, and the same story
+ * was already retracted for gLevelStatePtr. See src/gfx.c. */
+extern struct GfxStreamAlloc *gGfxStreamAllocs;
+
+/* GfxStreamTileset: one row of the stream's OBJ-tileset table at 0x08057954
+ * (46 rows, 8 bytes each), selected by the stream command's 7-bit tileset id.
+ * LoadGfxStreamEntry decompresses `pTiles` onto the heap and copies `tileCount`
+ * verbatim into the GfxStreamAlloc slot it fills, so a row is the ROM-side
+ * template of a slot. The halfword at +0x04 is 0 in all 46 rows and no reader
+ * for it has been found, so it keeps an `unk` name instead of being called a
+ * tile index by analogy with GfxStreamAlloc. */
+struct GfxStreamTileset {
+    const void *pTiles; /* +0x00: compressed 4bpp OBJ tile data, with the 4-byte sub-header DecompressAlloc expects */
+    u16 unk_04; /* +0x04: 0 in every row; no reader found */
+    u16 tileCount; /* +0x06: 32-byte OBJ tiles the slot reserves — NOT the tileset's own size:
+                    * rows whose payload is a multi-frame sheet decompress to several times this */
+}; /* total: 8 bytes */
+
+extern const struct GfxStreamTileset gStreamTilesetTable[];
+
+/* OBJ palette table at 0x08189DCC: 46 pointers to 32-byte (16-colour) OBJ
+ * palettes, indexed by the same tileset id as gStreamTilesetTable. When the
+ * stream command's high bit is set, LoadGfxStreamEntry DMAs one of these to
+ * gVramWriteCursor and advances that cursor by 0x20. */
+extern void *const gStreamPaletteTable[];
 
 /* Buffer freed by FreeBuffer_52A4. */
 #define gBuffer_52A4             (*(u32 *)0x030052A4)
