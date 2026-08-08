@@ -167,19 +167,43 @@ while r.returncode and "org backwards" in r.stderr:
     r = subprocess.run(["arm-none-eabi-as", "-mcpu=arm7tdmi", "-mthumb-interwork", src, "-o", out],
                        capture_output=True, text=True)
 if dropped:
-    print(f"  {len(dropped)} function(s) concatenated instead of placed -- a decompiled "
-          f"neighbour absorbed their leading literal pool", file=sys.stderr)
+    # Say what was done, not why. The cause is usually a decompiled neighbour absorbing this
+    # function's literal pool, but the recovery fires on any overlap and does not know which.
+    print(f"  {len(dropped)} .org placement(s) dropped, functions concatenated instead: "
+          + ", ".join(dropped), file=sys.stderr)
 
 if r.returncode:
     if "org backwards" in r.stderr:
-        sys.exit(f"{mod}: functions overlap and dropping the .org did not resolve it. m4a is "
-                 f"built from several compilation units .include'd into one file (m4a_1.c, "
-                 f"m4a_tst_*.c, m4a_nopush_*.c), so its symbols are not a single contiguous "
-                 f"run and this generator does not model it.")
+        sys.exit(f"{mod}: functions overlap and dropping the .org did not resolve it. If this "
+                 f"is m4a: it is built from several compilation units .include'd into one file "
+                 f"(m4a_1.c, m4a_tst_*.c, m4a_nopush_*.c), so its symbols are not a single "
+                 f"contiguous run and this generator does not model it. Otherwise the .s files "
+                 f"for this module do not tile its address range.")
     sys.exit(f"{mod}: assembly failed\n{r.stderr.strip()}")
 
-size = subprocess.run(["arm-none-eabi-size", out], capture_output=True, text=True)
-got = int(size.stdout.split("\n")[1].split()[0])
+# Verify the bytes against the ROM. Length alone proves nothing: `.org` places functions
+# absolutely, so the total is fixed by the LAST placement plus its body and any interior gap is
+# invisible by construction. m4a passed the length check with 3823 zero bytes inside it, and
+# objdiff scored against that object because objdiff.json sets build_target on it -- a loud
+# failure turned into a silent wrong answer, which is worse than the failure it replaced.
+rom = pathlib.Path("baserom.gba").read_bytes()
+subprocess.run(["arm-none-eabi-objcopy", "-O", "binary", "--only-section=.text", out, out + ".bin"],
+               check=True)
+got_bytes = pathlib.Path(out + ".bin").read_bytes()
+want_bytes = rom[start - 0x08000000:][:len(got_bytes)]
+# A relocation slot is zero in the object and resolved in the ROM, so mask those four bytes.
+relocs = subprocess.run(["arm-none-eabi-objdump", "-r", out], capture_output=True, text=True).stdout
+masked = {i for m in re.finditer(r"^([0-9a-f]{8})\s", relocs, re.M)
+          for i in range(int(m.group(1), 16), int(m.group(1), 16) + 4)}
+bad = [i for i, (a, b) in enumerate(zip(got_bytes, want_bytes)) if a != b and i not in masked]
+
 want = end - start if end else None
-print(f"{mod}: {len(files)} files -> {got} bytes"
-      + (f", module range {want} ({'MATCH' if got == want else 'MISMATCH'})" if want else ""))
+status = "MATCH" if (want is None or len(got_bytes) == want) and not bad else "WRONG"
+print(f"{mod}: {len(files)} files -> {len(got_bytes)} bytes"
+      + (f", module range {want}" if want else "") + f" ({status})")
+if status == "WRONG":
+    detail = (f"length {len(got_bytes)} != {want}" if want and len(got_bytes) != want
+              else f"{len(bad)} byte(s) differ from the ROM, first at "
+                   f"0x{start + bad[0]:08X}" if bad else "")
+    sys.exit(f"{mod}: this object does not reproduce the ROM ({detail}). It is a TARGET -- "
+             f"anything scored against it would be measured against the wrong bytes.")
