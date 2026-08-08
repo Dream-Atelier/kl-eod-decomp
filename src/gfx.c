@@ -1653,8 +1653,8 @@ void StreamCmd_SetMusicParams(void) {
  * Stream layout (5 bytes): byte[2] low 2 bits select which m4a player the ramp
  * drives (GfxControlFlags.soundFadeMPlaySel), and bytes[3..4] are an unaligned
  * halfword whose low 9 bits are the target volume (GfxControlFlags.soundFadeTarget)
- * and whose sign bit is a separate request flag, copied into byte 0x1C bit 3 before
- * the value is masked down. Bit 2 of 0x1C is then set to start the ramp;
+ * and whose bit 15 is the ramp direction, copied into soundFadeRampUp before the
+ * value is masked down. soundFadeActive is then set to start the ramp;
  * UpdatePaletteFadeStep clears both again when the running value at 0x18 reaches
  * the target.
  *
@@ -1663,13 +1663,14 @@ void StreamCmd_SetMusicParams(void) {
  * the two differently is not established. Both spell 0x030034A0; see include/gfx.h.
  */
 void StreamCmd_ConfigureBlend(void) {
-    ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeMPlaySel = gStreamPtr[2];
+    ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeSel = gStreamPtr[2];
     ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeTarget = ReadUnalignedU16(gStreamPtr + 3);
-    if (((struct GfxControlFlags *)gLevelStatePtr)->soundFadeTarget & 0x8000) {
-        ((struct GfxControlFlags *)gLevelStatePtr)->flag_1C_3 = 1;
+    /* (s16) so agbcc emits the LDRSH the ROM has; the field itself is unsigned. */
+    if ((s16)((struct GfxControlFlags *)gLevelStatePtr)->soundFadeTarget & 0x8000) {
+        ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeRampUp = 1;
     }
     ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeTarget &= 0x1FF;
-    ((struct GfxControlFlags *)gLevelStatePtr)->flag_1C_2 = 1;
+    ((struct GfxControlFlags *)gLevelStatePtr)->soundFadeActive = 1;
     gStreamPtr += 5;
 }
 /**

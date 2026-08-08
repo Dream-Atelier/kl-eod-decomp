@@ -182,30 +182,42 @@ struct GfxControlFlags {
     u32 flag_02_3 : 5;
     u8 pad_03[0x17];
     /* 0x1A — target MUSIC volume, written by StreamCmd_ConfigureBlend from the
-     * command's unaligned halfword argument. UpdatePaletteFadeStep steps the
-     * running value at 0x18 toward it in units of 0x10 and passes it as the
-     * `volume` argument of m4aMPlayVolumeControl; StreamCmd_SetMusicParams writes
-     * the same cell and mirrors it into gSoundVolume. The command masks it with
-     * 0x1FF, which fits a 0..0x100 m4a volume and is far wider than any blend
-     * level.
+     * command's unaligned halfword argument. UpdatePaletteFadeStep steps the running
+     * value at 0x18 toward it in units of 0x10 and passes it as the `volume` argument
+     * of m4aMPlayVolumeControl; sub_0804EB64 zeroes it on scene exit. The command
+     * masks it with 0x1FF, which fits a 0..0x100 m4a volume and is far wider than any
+     * blend level.
      *
-     * Declared signed because bit 15 is tested as a flag and the field is compared
-     * against a running value, not because of the `ldsh`: an (s16) cast of an
-     * unsigned member emits the identical instruction -- CalcSineVelocity in this
-     * same file does exactly that. (Nor is "register-offset" evidence: Thumb-1
-     * LDRSH has no immediate-offset form at all.) */
-    s16 soundFadeTarget;
+     * Unsigned, because the datum is: after the mask it is 0..511, and before it bit
+     * 15 is a boolean request flag, not a sign. The one place signedness shows in the
+     * bytes is the bit-15 test, which agbcc emits as LDRSH — so that call site carries
+     * an (s16) cast and this declaration does not lie about the range. Two earlier
+     * drafts declared it s16, first "because only a signed halfword produces ldsh"
+     * (false: an (s16) cast of an unsigned member emits the same instruction, as
+     * CalcSineVelocity does in this file) and then "because bit 15 is tested as a flag
+     * and it is compared against a running value" (also not evidence: `x & 0x8000` has
+     * the same truth value either way, and the comparison lives in UpdatePaletteFadeStep,
+     * which is still INCLUDE_ASM and exerts no pressure on the build). */
+    u16 soundFadeTarget;
     /* 0x1C bits 0-1 — a two-bit field, not two flags: UpdatePaletteFadeStep
      * extracts it as a unit with `lsl #30 / lsr #30`, and StreamCmd_ConfigureBlend
      * assigns the whole field from the command byte (`and #3` is the field's own
      * truncation). It selects which m4a player the volume ramp drives: 0 ->
-     * gMPlayInfo_0, 1 -> gMPlayInfo_1, 3 -> gSoundVolume and all four players.
-     * 2 falls through and does nothing. Static evidence, but complete: the
+     * gMPlayInfo_0, 1 -> gMPlayInfo_1, 3 -> the master level at 0x03005210 AND all
+     * four players. 2 falls through and does nothing. Deliberately not called an
+     * "MPlay index": 3 is not a player and 2 is not a player, so a reader trusting
+     * that reading would write 2 expecting gMPlayInfo_2. Static evidence, but complete: the
      * function writes no I/O register at all and its whole literal pool is the
      * four gMPlayInfo_* and gSoundVolume. */
-    u8 soundFadeMPlaySel : 2;
-    u8 flag_1C_2 : 1;
-    u8 flag_1C_3 : 1;
+    u8 soundFadeSel : 2;
+    /* 0x1C bit 2 — enables the ramp. sub_0804EB64 gates its UpdatePaletteFadeStep
+     * call on it, and UpdatePaletteFadeStep clears it when the level lands. */
+    u8 soundFadeActive : 1;
+    /* 0x1C bit 3 — ramp DIRECTION, not a request flag: set gives +0x10 per step with
+     * a `ble` bound, clear gives -0x10 with `bge`. StreamCmd_ConfigureBlend sets it
+     * from bit 15 of the command's halfword; an up-ramp clears it on completion and
+     * sub_0804EB64 clears it on scene exit. */
+    u8 soundFadeRampUp : 1;
     u8 flag_1C_4 : 1;
     /* 0x1C bit 5 — direction of the scene-transition cross-fade run by
      * ProcessSceneTransitionOut. Clear: ramp gBlendValue (written to both REG_BLDALPHA's EVA and REG_BLDY; under

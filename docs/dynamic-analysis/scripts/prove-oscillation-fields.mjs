@@ -175,8 +175,7 @@ for (const index of [0, 3, 7]) {
 
 console.log('\n================ E7: the table ProcessMotionStep indexes is gSineTable');
 console.log('CalcSineVelocity (0x0804CA6C) indexes 0x080D8E14 with ((+0x14 * +0x1E) & 0xFF)');
-console.log('and multiplies by the amplitude, >>8.  entity.h also aliases 0x080D8E14 as');
-console.log('ROM_ENTITY_ANIM_TABLE -- the values below say which alias is right:');
+console.log('and multiplies by the amplitude, >>8.  The values below identify the table:');
 {
   const T = di.symbolToAddress('gSineTable');
   console.log('  gSineTable (ldscript symbol) = 0x' + T.toString(16), T === 0x080d8e14 ? '(== 0x080D8E14)' : '(MISMATCH)');
