@@ -1577,23 +1577,52 @@ void UpdateHUDCollectibleCountAlt(void) {
     gBgTilemapBufs[0][0x27C] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives % 10) + 0x2B3];
 }
 /**
- * UpdateHUDTimerAndLives: refreshes the two-row HUD clock/counter panel in BG0's
- * tilemap buffer.
+ * UpdateHUDTimePanel: redraws the two-row time panel of the timed stages.
  *
- * First it re-blits the panel frame: two rows of 10 tiles from the off-screen
- * template at row 0x16 col 0x12 to the visible panel at row 0/1 col 0x14.
+ * Called from exactly one site, InitLevelBG (src/engine.c), under
+ * `world == 6 && (level == 1 || level == 3)` -- the same branch that opens WIN1
+ * over the top-right 80x16 pixels (10 tiles x 2 rows) and sets
+ * gUnk_03004C20.unk10 = 1, the flag that lets the stage clock run.
  *
- * Then it renders a three-field "NN:NN:NN" readout from gUnk_03004670. Which
- * triple of bytes is shown depends on the level: level 1 uses unk1..unk3, every
- * other level uses unk4..unk6. If the selected triple is all-zero the counter is
- * re-armed to 99:59:99 (the writes always target unk1..unk3, even on the
- * unk4..unk6 path -- reproduced as in the ROM). Each byte is split into tens and
- * units with __udivsi3 / __umodsi3 and drawn from the digit tile run at 0x312.
+ * It first re-blits the panel frame: two DmaCopy16 of 0x14 bytes = 10 tilemap
+ * entries, from the off-screen template at gBgTilemapBufs[0] rows 0x16/0x17 col
+ * 0x12 to the visible rows 0/1 at col 0x14. The digit tile runs the readouts
+ * index, 0x312 and 0x332, are the next two rows of that same off-screen block
+ * (rows 0x18/0x19, col 0x12).
  *
- * Finally it draws three more two-digit fields from gUnk_03005220.unk4D..unk4F
- * into the second panel row, using the digit tile run at 0x332.
+ * Row 0 shows the stage's stored best time, from the save record behind
+ * gUnk_03004670: unk1/unk2/unk3 for level 1, unk4/unk5/unk6 for the other timed
+ * stage. Row 1 shows the run in progress, gUnk_03005220.unk4D/unk4E/unk4F. Both
+ * are minutes:seconds:hundredths, two digits per field, split with __udivsi3 /
+ * __umodsi3. All of this is verified at runtime by planting marker tiles in the
+ * template and in both digit runs and reading the twelve slots back
+ * (docs/dynamic-analysis/scripts/prove-hud-time-panel.mjs).
+ *
+ * The clock fields themselves are proven there too: unk4E steps once every 59
+ * frames and wraps at 60 into unk4D (seconds), unk4D caps at 99 (minutes), unk4F
+ * is floor(gUnk_03005220.unk60 / 100) with unk60 advancing 167 per frame
+ * (hundredths). A stored time of 0:0:0 means "no record" and is re-armed to the
+ * ceiling 99:59:99 -- the same value at which the stage clock stops counting.
+ * Nothing here reads gUnk_03005220.lives (offset 0x4C).
+ *
+ * ROM BUG, reproduced deliberately -- do not "fix" it: the non-level-1 path TESTS
+ * unk4..unk6 but RE-ARMS unk1..unk3. Reaching it with an empty record wipes the
+ * OTHER stage's stored best time to 99:59:99 and leaves its own slot at 0:0:0,
+ * where no finish time can ever beat it. Confirmed at runtime: with unk4..6 =
+ * 0,0,0 and unk1..3 = 11,22,33 the function leaves unk4..6 at 0,0,0 and rewrites
+ * unk1..3 to 99,59,99, while the level-1 path re-arms its own triple. The
+ * scene-setup code at src/code_3.c:2200-2208 arms each triple from its own test,
+ * which is what normally keeps this latent.
+ *
+ * NOT verified at runtime: that unk1..3 / unk4..6 are BEST times. That reading
+ * comes from the stage-completion code at ROM 0x080267CE (inside the blob named
+ * IntroSequenceUpdate), which compares unk4D/unk4E/unk4F against the stored triple
+ * field by field and stores the current time only when it is smaller, keyed on the
+ * same unk10 == 1 and level == 1 / else split. Nor was the panel ever seen on
+ * screen: every shipped savestate is world 1, so the function was exercised by
+ * appending it to the game's own frame-callback queue.
  */
-void UpdateHUDTimerAndLives(void) {
+void UpdateHUDTimePanel(void) {
     u32 i;
     struct Unk_03004670 *p;
     struct Unk_03004670 *q;

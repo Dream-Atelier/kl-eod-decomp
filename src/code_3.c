@@ -1479,13 +1479,13 @@ void UpdateOamSortOrder(void) {
         REG_WINOUT = WINOUT_WIN01_BG_ALL | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR;
         REG_DISPCNT = DISPCNT_MODE_1 | DISPCNT_OBJ_1D_MAP | DISPCNT_BG0_ON | DISPCNT_BG1_ON | DISPCNT_BG2_ON | DISPCNT_OBJ_ON
             | DISPCNT_WIN0_ON | DISPCNT_WIN1_ON;
-        UpdateHUDTimerAndLives();
+        UpdateHUDTimePanel();
     }
 
     DmaCopy16(3, &gBgTilemapBufs[gUnk_030034BC], gBgInfo[gUnk_030034BC].pTilemap, 0x800);
 
     if (gUnk_03004C20.unk10 == 1) {
-        UpdateHUDTimerAndLives();
+        UpdateHUDTimePanel();
     }
 
     REG_IE |= INTR_FLAG_VBLANK;

@@ -19,7 +19,7 @@ extern s16 MultiplyQ8(s16 a, s16 b);
  * its result before returning (the trailing `lsls #16 / asrs #16` in its ROM code),
  * so an s32-returning declaration observes exactly the same values. It has to be
  * declared that way here: with an s16 return type agbcc re-narrows the returned
- * value in the CALLER, and StreamCmd_InitAngleMotion feeds the result to two u16
+ * value in the CALLER, and StreamCmd_InitBg2Zoom feeds the result to two u16
  * stores, so that conversion has two uses, combine cannot fold it into a store, and
  * the function carries two instructions the ROM does not have. The parameters must
  * still be prototyped as s16 — that is what produces the narrowing of the arguments
@@ -29,6 +29,68 @@ void m4aSoundVSyncOff(void);
 void m4aMPlayAllStop(void);
 void m4aSoundVSyncOn(void);
 void m4aSongNumStart(u16 n);
+/**
+ * UpdateSceneTransition: per-frame driver of a fixed 0x140-frame fade sequence
+ * that ends by handing the screen to the title-screen callbacks.
+ *
+ * It is a generic driver, not one destination's transition: four sites install
+ * it in a callback slot -- FadeOutController (the boot path; AgbMain installs
+ * [ReadKeyInput, FadeOutController, VBlankCallback_Gameplay]),
+ * ProcessSceneTransitionOut, RunSceneScript and TransitionToSceneSelect. That
+ * is every literal-pool reference to it in the ROM; the scan is in the proof
+ * script. Only the boot instance was OBSERVED running: there the sequence
+ * presents the Namco logo for ~5.3 s and hands over to the KLONOA title screen.
+ * What the other three installers leave on screen is NOT verified.
+ *
+ * It runs off gUnk_03004C20.sceneFrameCounter (gControlBlock[0], 0x03004C20),
+ * which the VBlank callback increments once per frame. The installers do NOT
+ * reset it to 0: FadeOutController and TransitionToSceneSelect both store -1,
+ * and the next VBlank increment makes that 0 -- which is also how this function
+ * ends the sequence.
+ *
+ *   counter == 0            : run one UpdateBGTileAnimation() step.
+ *   0x11 <= counter <= 0x2F : fade IN -- gUnk_03005498 = (0x30 - counter) >> 1,
+ *                             i.e. 15 down to 0 (0 = no darkening).
+ *   counter == 0x20         : re-arm the VBlank interrupt (REG_IE bit 0 =
+ *                             INTR_FLAG_VBLANK, REG_DISPSTAT bit 3 =
+ *                             DISPSTAT_VBLANK_INTR), restart the m4a VSync hook
+ *                             and kick song 0x21 -- the music starts 32 frames
+ *                             in, while the picture is still fading up. All
+ *                             three were observed firing at counter 0x20 and
+ *                             nowhere else.
+ *   0x101 <= c <= 0x13F     : fade OUT -- gUnk_03005498 = (counter - 0x100) >> 2,
+ *                             i.e. 0 up to 15 over 63 frames.
+ *   counter > 0x13F         : done -- stop the counter (-1), install
+ *                             LoadBGPalette and VBlankCallback_TitleScreen into
+ *                             callback slots 1 and 2, clear gUnk_03004D9C, park
+ *                             the blend level at 0x10 (fully black) and set
+ *                             REG_BLDCNT = 0xFF, which is
+ *                             BLDCNT_TGT1_ALL | BLDCNT_EFFECT_DARKEN.
+ *
+ * gUnk_03005498 is the BLDY darken level, and is the same cell as code_1.c's
+ * gBlendValue and game.h's gFrameCounter -- three names for 0x03005498, of
+ * which only the blend reading survives measurement. The VBlank callback copies
+ * it into REG_BLDY every frame; forcing it to 15 through the hold window puts
+ * 15 in REG_BLDY and blacks the picture out (mean luminance 6.5 -> 0.4) while
+ * the untouched control stays bright, and forcing it to 0 through the fade-out
+ * window keeps the picture bright where the control fades to black. Evidence:
+ * docs/dynamic-analysis/scripts/prove-scene-transition-fade.mjs. Do NOT swap
+ * the spelling here for gBlendValue without re-running `make compare`: a macro
+ * over a literal address and a declared symbol are not interchangeable to agbcc
+ * (see the gLevelStatePtr / gGfxBufferPtr note in include/gfx.h).
+ *
+ * The two callback stores go through gCallbackStateArray, which is the SAME
+ * address as gCallbackQueue (both 0x03003510), so [1] and [2] are
+ * gCallbackQueue.current[1] / current[2] -- the LIVE list, not the next[] half
+ * (+0x28) that the neighbouring transitions in src/code_1.c write.
+ *
+ * The counter is *not* cached in a local: the three trailing tests each spell
+ * `sceneCtrl[0]`, which agbcc's CSE collapses to one load plus a register copy
+ * (`ldr r3` / `adds r2, r3, #0`) and a five-register push. Hoisting it into a
+ * `u32 t` local gives one live pseudo, a `push {r4, lr}` prologue, and costs 25
+ * points. The second read is `vu32` for the same reason as in FadeOutController
+ * above: without it the non-call path reuses the first read.
+ */
 void UpdateSceneTransition(void);
 void UpdateBGTileAnimation(void);
 extern void LoadBGPalette();
@@ -725,14 +787,38 @@ extern void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 ar
 /**
  * StreamCmd_SetupOAMSpriteGroup: spawn a whole canned group of OBJ sprites.
  *
- * Stream layout (4 bytes):
+ * Stream layout (4 bytes). Bytes [0]/[1] are the dispatcher's, not this
+ * function's -- StreamCmd_RunScript (0x0804EA94) reads them:
+ *   [0]    0xFF        marks a command; any other value is music data
+ *   [1]    0x24        bit 5 selects the handler table at 0x08117854 and the low
+ *                      nibble picks entry 4 in it, which is this function
  *   [2..3] unaligned u16 group id
  *
  * gUnk_08189F04 is a table of sprite groups, each 16 entries of 0xC bytes
- * (0xC0 per group), terminated by an entry whose unk0 halfword is 0xFFFF. Every
- * live entry becomes one SetupOAMSprite call into the next free OAM slot,
- * gUnk_03005428++ -- the same running slot cursor RenderCharacterTiles uses, so
- * a group appends to whatever the room already spawned rather than replacing it.
+ * (0xC0 per group), terminated by an entry whose unk0 halfword is 0xFFFF. It
+ * runs to the next symbol, gUnk_0818B704: 0x1800 bytes = 32 group slots, of
+ * which only ids 0..19 carry data (4..13 live rows each). Ids 20..31 are all
+ * zeros and hold no terminator, and this loop has no bound, so such an id runs
+ * on past its group -- measured at runtime: 290 iterations, the u8 cursor wraps
+ * (13 -> 47) and descriptor slots are written far beyond the table.
+ *
+ * Every live entry becomes one SetupOAMSprite call at gUnk_03005428++ -- the
+ * same running slot cursor RenderCharacterTiles uses, so a group appends to
+ * whatever the room already spawned rather than replacing it. Each row lands in
+ * the descriptor as unk0 -> xPosScreen, unk2 -> yPosScreen, unk4 -> unk8,
+ * unk6 -> unkF, unk7 -> unkA, unk8 -> kind. Every kind in the table is >= 0x4A,
+ * which is the branch of SetupOAMSprite that stores the coordinates as screen
+ * space; what the groups DEPICT is not established, so nothing here names them.
+ *
+ * Despite the "OAM" in the name it writes NEITHER hardware OAM (0x07000000) NOR
+ * the OAM shadow buffer gOamBuffer (0x03004800): it writes the sprite
+ * descriptor table gUnk_03002920, and a later pass turns descriptors into OAM
+ * entries. Proven at runtime by injecting the command into the EWRAM stream and
+ * comparing against a do-nothing control and an opcode-nibble control:
+ * docs/dynamic-analysis/scripts/prove-streamcmd-spritegroup.mjs, which records
+ * every write made from inside this call tree across all of IWRAM (gOamBuffer
+ * is inside the watched range and never appears) and shows OAM being written
+ * only by DMA3 out of the VBlank handler.
  *
  * agbcc matching notes:
  *   - gUnk_08189F04 must be the named extern ARRAY indexed as
@@ -1062,38 +1148,66 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitRotationMotion);
 u32 ProcessMotionStepExtended(u32 idx);
 extern s16 DivideQ4(s16 num1, s16 num2);
 /**
- * StreamCmd_InitMotionWithPalette: start a fixed-duration linear move on a
- * gfx-stream target.
+ * StreamCmd_InitWindowCornerMotion: tween one corner of one hardware window.
  *
- * The command carries a displacement and a frame count; the handler turns them
- * into a per-frame velocity and installs ProcessMotionStepExtended as the
- * entry's per-frame callback.
+ * The animated twin of StreamCmd_SetWindowCorner, which sets the same corner
+ * instantly and uses the identical selector encoding. This handler turns a pixel
+ * displacement and a frame count into a per-frame velocity and installs
+ * ProcessMotionStepExtended with param = 4 — the arm of that callback's jump table at
+ * 0x0804CCB0 that advances the level's window-clip bounds through gLevelStatePtr.
  *
- * Stream layout (10 bytes, dispatched from the `FF <cmd>` gfx-stream escape by
- * StreamCmd_RunScript through the handler table at 0x08117854, slot 14):
- *   [2]     GfxStreamEntry index
- *   [3]     low nibble -> targetIndex: which object the motion drives
- *   [4..5]  unaligned s16 dX       -> unk_04 = dX << 4 (1/16-pixel units)
- *   [6..7]  unaligned s16 dY       -> unk_06 = dY << 4
- *   [8..9]  unaligned s16 duration -> the divisor, also scaled by 16
+ * Stream layout (10 bytes; opcode `FF 44`, i.e. StreamCmd_RunScript's `c & 0x40`
+ * table at 0x0811787C, slot 4):
+ *   [2]      GfxStreamEntry index
+ *   [3]      low nibble -> targetIndex, which corner is driven:
+ *              bit 1 clear -> rightBottom, set -> leftTop
+ *              bit 0       -> window 0 or window 1
+ *            so 0 = win0 right/bottom, 1 = win1 right/bottom, 2 = win0 left/top,
+ *            3 = win1 left/top. All four appear in the shipped scripts.
+ *   [4..5]   unaligned s16 dX in PIXELS -> unk_04 = dX << 4 (the 12.4 fixed-point
+ *            form the bounds are kept in, the same << 4 StreamCmd_SetWindowCorner uses)
+ *   [6..7]   unaligned s16 dY in pixels -> unk_06 = dY << 4
+ *   [8..9]   unaligned s16 duration in frames
  *
- * unk_08/unk_0A then get DivideQ4(unk_04, duration << 4) and
- * DivideQ4(unk_06, duration << 4), i.e. (dX << 4) / duration — the per-frame
- * step in 1/16-pixel units, so the target travels dX/dY pixels over `duration`
- * frames. The two accumulators at +0x0C/+0x0E are cleared, `param` is set to 4
- * (the siblings use 0 and 2; it is the word-0 target-mode selector), the entry
- * type nibble is set to 1 (active) and the stream advances by 10.
+ * unk_08/unk_0A then get DivideQ4(unk_04, duration << 4) and DivideQ4(unk_06,
+ * duration << 4) — the per-frame step in 1/16 px, so the edge travels dX/dY pixels
+ * over `duration` frames (measured: dX = 40 px over 20 frames gives unk_04 = 640 and
+ * a step of 32 = 2 px/frame, and the bound lands on exactly +640). The accumulators
+ * at +0x0C/+0x0E are cleared, the entry type nibble is set to 1 (active), and the
+ * stream advances by 10.
+ *
+ * dX drives the HORIZONTAL component of the chosen corner and dY the VERTICAL one, so
+ * dX reaches REG_WIN0H or REG_WIN1H and dY reaches REG_WIN0V or REG_WIN1V
+ * (include/io_reg.h: 0x04000040, 0x04000042, 0x04000044, 0x04000046). Proven at
+ * runtime, one corner and one axis per trial, each against a dX = dY = 0 control that
+ * moves no register at all.
+ *
+ * The old name (StreamCmd_InitWindowCornerMotion) was wrong: the command touches NO
+ * palette RAM and no blend or mosaic register. Ten trials changed 0 bytes of palette
+ * RAM and left REG_BLDCNT, REG_BLDALPHA, REG_BLDY, REG_MOSAIC, REG_WININ and
+ * REG_WINOUT bit-identical.
+ *
+ * The scripts use it in pairs — one corner out, the matching corner in — to wipe a
+ * window open or shut: e.g. `target 3 dX +40` with `target 1 dX -40` over 40 frames
+ * closes window 1 horizontally by 40 px a side, and `target 2 dY -96` / `+96` over 48
+ * frames runs a vertical letterbox on window 0.
+ *
+ * Note: the handler is also reachable as `FF 2E` through the 0x08117854 table, which
+ * holds the same function pointer. No shipped script uses that spelling.
  *
  * Same shape as the other StreamCmd_Init* handlers: one `cmd`/`entries` pair per
  * short run of stores, because the original re-reads gStreamPtr and gBuffer_52A4
  * instead of caching them. The two paired stores (`unk_0C = unk_0E = 0`) are one
- * chained assignment: written as two statements agbcc recomputes the entry
- * address, which the ROM does not.
+ * chained assignment: written as two statements agbcc recomputes the entry address,
+ * which the ROM does not. The divisions read unk_04/unk_06 back out of the entry
+ * rather than using the local, so the `<< 4` truncation to u16 is observable.
  *
- * Note the divisions read unk_04/unk_06 back out of the entry rather than using
- * the local, so the `<< 4` truncation to u16 is observable.
+ * Evidence: docs/dynamic-analysis/scripts/prove-window-corner-tween.mjs (the
+ * UpdateAffineRegisters register-pointer walk labelled from include/io_reg.h by
+ * address, then one causal trial per corner and axis with dX = dY = 0 controls) and
+ * docs/dynamic-analysis/scripts/scan-gfx-stream-commands.mjs (all 62 shipped uses).
  */
-void StreamCmd_InitMotionWithPalette(void) {
+void StreamCmd_InitWindowCornerMotion(void) {
     s16 dx;
     s16 dy;
     s16 duration;
@@ -1159,40 +1273,56 @@ void StreamCmd_InitMotionWithPalette(void) {
     gStreamPtr += 10;
 }
 /**
- * StreamCmd_InitAngleMotion: start a linear tween on the GfxStreamEntry selected by
- * stream byte[2], driving it with ProcessMotionStepExtended in target mode 1.
+ * StreamCmd_InitBg2Zoom: start a uniform BG2 magnification tween.
  *
- * Stream layout (7 bytes):
- *   [2]      entry index
- *   [3..4]   total delta, unaligned s16 — written to BOTH axis targets (unk_04 = X,
- *            unk_06 = Y), so the tween moves both axes by the same amount
- *   [5]      duration in frames; the per-frame step is total/frames
- *   [6]      read (the handler fetches [5..6] as an unaligned s16) but DEAD: the
- *            result is shifted left by 8 and narrowed to s16 for DivideQ8's second
- *            parameter, which discards the high byte. Only byte[5] survives.
+ * Installs ProcessMotionStepExtended on the GfxStreamEntry named by stream byte[2]
+ * with param = 1 — the arm of that callback's jump table at 0x0804CCB0 that steps
+ * gBg2XMag (0x030034AC) and gBg2YMag (0x03005420). Both axes are written from the
+ * SAME delta and stepped by the SAME per-frame amount, so the zoom is always uniform;
+ * the command cannot produce a non-square scale.
  *
- * The per-frame step is `DivideQ8(unk_06, byte[5] << 8)` — i.e. (total << 8) /
- * (frames << 8) = total / frames — and it is written to both unk_08 (X step) and
- * unk_0A (Y step). unk_0C/unk_0E (the accumulated distance UpdateLinearInterpolation
- * compares against unk_04/unk_06) are cleared, `param` is set to 1, the callback is
- * ProcessMotionStepExtended, the entry type is 1 (active), and the stream advances 7.
+ * Stream layout (7 bytes; opcode `FF 46`, i.e. StreamCmd_RunScript's `c & 0x40` table
+ * at 0x0811787C, slot 6 — this handler appears in no other dispatch table):
+ *   [2]      GfxStreamEntry index
+ *   [3..4]   unaligned s16 total delta, stored in BOTH unk_04 (X target) and unk_06
+ *            (Y target)
+ *   [5]      duration in frames. The per-frame step is DivideQ8(unk_06, byte[5] << 8),
+ *            i.e. (total << 8) / (frames << 8) = total/frames, stored in BOTH unk_08
+ *            (X step) and unk_0A (Y step).
+ *   [6]      DEAD. The handler fetches [5..6] as one unaligned s16 and shifts it left
+ *            by 8 for DivideQ8's second parameter, which narrows back to s16 and drops
+ *            the high byte. Confirmed at runtime: sweeping byte[6] over 00/01/7F/AB/FF
+ *            leaves the installed step at -17 in all five runs.
+ *
+ * unk_0C/unk_0E (the accumulators UpdateLinearInterpolation compares against
+ * unk_04/unk_06) are cleared, the entry type nibble is set to 1 (active), and the
+ * stream advances by 7.
+ *
+ * gBg2XMag/gBg2YMag are magnifications with 0x100 = 1x. The VBlank handlers turn each
+ * into its reciprocal and write the BG2 affine matrix: gBg2XMag reaches REG_BG2PA and
+ * REG_BG2PB, gBg2YMag reaches REG_BG2PC and REG_BG2PD (include/io_reg.h,
+ * 0x04000020..0x04000026). Verified at runtime one axis at a time against a no-write
+ * control: doubling gBg2XMag halved REG_BG2PA (0x0100 -> 0x007F) and REG_BG2PB and
+ * left REG_BG2PC/PD untouched; doubling gBg2YMag did the mirror image.
+ *
+ * The two uses in the shipped scripts are both zoom-outs: `FF 34` sets
+ * gBg2XMag = gBg2YMag = 0x200, then `FF 46 02 00 FF 0F 00` walks both back to 0x101
+ * over 15 frames (one short of 0x100, because the per-frame step truncates:
+ * -17 x 15 = -255). The other sets 0x250 and eases down by 224 over 60 frames.
+ *
+ * The old name (StreamCmd_InitBg2Zoom) was wrong: the command never touches
+ * gBg2Alpha (0x03002910), and the value it moves is a linear magnification delta.
  *
  * Note the step is recomputed from the entry's own unk_06 rather than from the local
  * copy of the stream value — the handler stores the total, then reads it back as a
  * signed halfword (the `ldsh` in the ROM) to divide it.
  *
- * What mode 1 drives (read off ProcessMotionStepExtended's jump table at 0x0804CCB0,
- * which switches on `param`, cases 0..4): case 1 adds the X step to the halfword at
- * 0x030034AC and the Y step to the halfword at 0x03005420 — gBg2XMag and gBg2YMag,
- * named by WriteStreamValue_Dual above. So this command ramps the BG2 magnification
- * pair by `total` over `frames` frames; since both axes get the same delta and step,
- * it is a uniform BG2 zoom tween. (Runtime confirmation of the two globals' effect is
- * still owed; the field roles come from UpdateLinearInterpolation at 0x0804C9A8,
- * which uses unk_04/unk_06 as the per-axis targets, unk_08/unk_0A as the per-axis
- * steps, unk_0C/unk_0E as the accumulators, and reports "finished" when the two steps
- * read as one word are 0.)
+ * Evidence: docs/dynamic-analysis/scripts/prove-bg2-magnification.mjs (register
+ * isolation with a control, the shipped commands executed on the real CPU, the
+ * param=0 control, and the byte[6] sweep) and
+ * docs/dynamic-analysis/scripts/scan-gfx-stream-commands.mjs (the two shipped uses).
  */
-void StreamCmd_InitAngleMotion(void) {
+void StreamCmd_InitBg2Zoom(void) {
     s32 total = ReadUnalignedS16(gStreamPtr + 3);
     s32 step;
 
@@ -1573,37 +1703,56 @@ void StreamCmd_InitHBlankWait(void) {
     *streamPP += 5;
 }
 /**
- * StreamCmd_InitSpriteWave: initialize a table-driven object wobble from stream data.
+ * StreamCmd_InitSpriteWave: start a slow VERTICAL oscillation of one stream-owned
+ * sprite.
  *
  * Fills the GfxStreamEntry selected by stream byte[2] and installs
- * ProcessSpriteOscillation as its per-frame callback, then advances the stream
- * by 8. Dispatched from the 0x40 command table at 0x0811787C, slot 12, i.e. the
- * stream bytes `FF 4C ...` (StreamCmd_RunScript masks byte[1] with 0x3F when
- * bit 6 is set).
+ * ProcessSpriteOscillation as its per-frame callback, then advances the stream by 8.
+ * Opcode `FF 4C`, i.e. StreamCmd_RunScript's `c & 0x40` table at 0x0811787C, slot 12;
+ * this handler appears in no other dispatch table.
  *
  * Stream layout (8 bytes):
- *   [0]    0xFF          escape byte
- *   [1]    0x4C          opcode
  *   [2]    entry index into gGfxStreamEntries
- *   [3]    objIndex (7 bits) — ProcessSpriteOscillation biases it by +13 and uses
- *          it to index the 0x03002920 object table (stride 0x1C)
- *   [4] hi nibble -> unk_1F: which 16-byte row of the signed-byte wave table at
- *          0x081177F4 to play. Row 0 is a 1,1,2,-2,-1,-1,0,0 jitter played twice,
- *          row 1 is a single -1,-1,-2,-2,-1,-1,0,0,1,1,2,2,1,1,0,0 sweep, rows 2
- *          and 3 are all zeroes (no motion).
+ *   [3]    objIndex (7 bits). ProcessSpriteOscillation biases it by +13 and uses it to
+ *          index gEntityArray (0x03002920, struct Unk_03002920, stride 0x1C). The bias
+ *          is the stream-owned entity window: slots 0..12 belong to the engine
+ *          (TransformSingleEntityToScreen switches sprite-template tables at
+ *          arg0 > 0xC), and every gfx-stream command that names a sprite adds 13 —
+ *          StreamCmd_SetEntityTransform spells the same thing as
+ *          `gUnk_03002920[gStreamPtr[2] + 0xD]`.
+ *   [4] hi nibble -> unk_1F: which 16-byte row of the table at 0x081177F4 to play.
  *   [4] lo nibble -> unk_1A: right shift applied to the frame counter before it
- *          indexes the row, i.e. the wave period (bigger = slower).
- *   [5]    -> unk_1C: amplitude the signed wave sample is multiplied by.
- *   [6..7] -> timer (unaligned s16): how many frames the wave runs.
+ *          indexes the row, i.e. the period (bigger = slower).
+ *   [5]    -> unk_1C: amplitude each signed sample is multiplied by.
+ *   [6..7] -> timer (unaligned s16): how many frames the wave runs; -1 = forever.
  *
- * It also zeroes unk_0E (the frame counter ProcessSpriteOscillation increments
- * and compares against timer), sets the entry type nibble to 1 (active) and
- * latches `timer != -1` into unk_1E. ProcessSpriteOscillation only stops once the
- * counter reaches timer AND unk_1E is set, so a duration of -1 means "run
- * forever".
+ * It also zeroes unk_0E (the frame counter ProcessSpriteOscillation increments and
+ * compares against timer), sets the entry type nibble to 1 (active), and latches
+ * `timer != -1` into unk_1E. The callback only retires once the counter reaches timer
+ * AND unk_1E is set, so -1 really does mean "run forever" — verified: with -1 the
+ * callback still returned 1 after 140 ticks; with 20 it returned 0 on tick 20.
  *
- * Everything above is static analysis of ProcessSpriteOscillation and
- * StreamCmd_RunScript; no runtime evidence yet.
+ * The 0x081177F4 table is 4 rows x 16 signed bytes of per-frame VELOCITY, not
+ * position: each frame the callback does
+ *     entity.yPosBg2   += unk_1C * (s8)row[(counter >> unk_1A) & 0xF];
+ *     entity.yPosScreen = entity.yPosBg2 >> 4;
+ * so the shape on screen is the row's running sum. Only Y moves; X is never touched.
+ *   row 0  velocity  1, 1, 2,-2,-1,-1, 0, 0  (twice)  -> position 1,2,4,2,1,0,0,0
+ *   row 1  velocity -1,-1,-2,-2,-1,-1,0,0,1,1,2,2,1,1,0,0 -> a one-shot dip to -8
+ *   rows 2 and 3 are all zeroes, so selecting them is a no-op.
+ * Reading row 0 as a jitter is a mistake: integrated, it is a smooth hump.
+ *
+ * All five uses in the shipped scripts select row 0, amplitude 2, duration -1, with a
+ * shift of 3 (four of them) or 2 (one), on entity slots 14, 16 and 18. Measured on the
+ * real callback: shift 3 gives a 4-pixel rise and fall with a 64-frame period
+ * (~1.07 s), peaking at ticks 24 and 88 and flat at 48..64 and 112..128. That is a
+ * float or bob, not a shake. Rows 1..3 are dead data.
+ *
+ * Evidence: docs/dynamic-analysis/scripts/prove-sprite-wave.mjs (the table and its
+ * integral read out of the cartridge, the shipped command executed on the real CPU and
+ * ticked 140 times, amplitude-0 and row-2/row-3 controls that produce no motion, and an
+ * objIndex sweep showing only slot objIndex+13 ever moves) and
+ * docs/dynamic-analysis/scripts/scan-gfx-stream-commands.mjs (all five shipped uses).
  */
 void StreamCmd_InitSpriteWave(void) {
     s16 duration;
