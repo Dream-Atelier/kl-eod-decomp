@@ -25,10 +25,50 @@ extern s16 MultiplyQ8(s16 a, s16 b);
  * still be prototyped as s16 — that is what produces the narrowing of the arguments
  * at the call site. */
 extern s32 DivideQ8(s16 num1, s16 num2);
+/* ReadUnalignedS16 (defined below in this file) was widened the same way and for the
+ * same reason. Its DEFINITION returns s32 and that IS load-bearing: narrow it back to
+ * `s16 ReadUnalignedS16(u8 *ptr)` and `make compare` FAILS. The consumer is
+ * StreamCmd_InitBg2Zoom, and only that one — build both spellings and diff
+ * `arm-none-eabi-objdump -d build/src/gfx.o`: the entire delta is inside
+ * StreamCmd_InitBg2Zoom, which is the only caller that feeds the result straight into
+ * DivideQ8's s16 parameter. With an s16 return agbcc emits the re-narrowing
+ * `lsls #16 / asrs #16` in the caller and the rest of the body reassociates around it,
+ * so the function stops matching. Unlike DivideQ8 this pair cannot drift silently: a
+ * conflicting declaration makes agbcc exit 1 and `make` stop. */
 void m4aSoundVSyncOff(void);
 void m4aMPlayAllStop(void);
 void m4aSoundVSyncOn(void);
 void m4aSongNumStart(u16 n);
+void UpdateSceneTransition(void);
+void UpdateBGTileAnimation(void);
+extern void LoadBGPalette();
+extern void VBlankCallback_TitleScreen();
+/**
+ * FadeOutController: manages screen fade-out, updating fade counter
+ * and switching to scene transition when complete.
+ */
+void FadeOutController(void) {
+    u32 *sceneCtrl = (u32 *)gControlBlock;
+    u32 fadeTimer;
+    u8 *fadeCounter;
+
+    if (sceneCtrl[0] == 0)
+        UpdateBGScrollRegisters();
+
+    fadeTimer = *(vu32 *)sceneCtrl;
+    fadeCounter = &gFrameCounter;
+
+    if (fadeTimer > 0x0F)
+        *fadeCounter = (fadeTimer - 0x10) >> 1;
+
+    if (*fadeCounter > 0x0F) {
+        sceneCtrl[0] = (u32)-1;
+        gCallbackStateArray[1] = (u32)UpdateSceneTransition;
+    }
+
+    m4aSoundVSyncOff();
+    m4aMPlayAllStop();
+}
 /**
  * UpdateSceneTransition: per-frame driver of a fixed 0x140-frame fade sequence
  * that ends by handing the screen to the title-screen callbacks.
@@ -74,10 +114,18 @@ void m4aSongNumStart(u16 n);
  * 15 in REG_BLDY and blacks the picture out (mean luminance 6.5 -> 0.4) while
  * the untouched control stays bright, and forcing it to 0 through the fade-out
  * window keeps the picture bright where the control fades to black. Evidence:
- * docs/dynamic-analysis/scripts/prove-scene-transition-fade.mjs. Do NOT swap
- * the spelling here for gBlendValue without re-running `make compare`: a macro
- * over a literal address and a declared symbol are not interchangeable to agbcc
- * (see the gLevelStatePtr / gGfxBufferPtr note in include/gfx.h).
+ * docs/dynamic-analysis/scripts/prove-scene-transition-fade.mjs.
+ *
+ * In THIS function the two spellings ARE interchangeable: replacing all three
+ * gUnk_03005498 in the body with an `extern u8 gBlendValue` leaves the whole ROM
+ * byte-exact (`make compare` still prints `klonoa-eod.gba: OK`) -- measured, not
+ * assumed. The macro spelling is kept only because it is what the function was
+ * written with. That is not a general licence, though: re-run `make compare`
+ * before changing the spelling of a global anywhere, because sometimes a macro
+ * over a literal address and a declared symbol are NOT interchangeable to agbcc.
+ * The counter-examples are the gLevelStatePtr / gGfxBufferPtr and
+ * gGfxStreamBuffer / gGfxStreamAllocs notes in include/gfx.h, where picking the
+ * wrong one of the pair costs the match.
  *
  * The two callback stores go through gCallbackStateArray, which is the SAME
  * address as gCallbackQueue (both 0x03003510), so [1] and [2] are
@@ -88,63 +136,9 @@ void m4aSongNumStart(u16 n);
  * `sceneCtrl[0]`, which agbcc's CSE collapses to one load plus a register copy
  * (`ldr r3` / `adds r2, r3, #0`) and a five-register push. Hoisting it into a
  * `u32 t` local gives one live pseudo, a `push {r4, lr}` prologue, and costs 25
- * points. The second read is `vu32` for the same reason as in FadeOutController
- * above: without it the non-call path reuses the first read.
- */
-void UpdateSceneTransition(void);
-void UpdateBGTileAnimation(void);
-extern void LoadBGPalette();
-extern void VBlankCallback_TitleScreen();
-/**
- * FadeOutController: manages screen fade-out, updating fade counter
- * and switching to scene transition when complete.
- */
-void FadeOutController(void) {
-    u32 *sceneCtrl = (u32 *)gControlBlock;
-    u32 fadeTimer;
-    u8 *fadeCounter;
-
-    if (sceneCtrl[0] == 0)
-        UpdateBGScrollRegisters();
-
-    fadeTimer = *(vu32 *)sceneCtrl;
-    fadeCounter = &gFrameCounter;
-
-    if (fadeTimer > 0x0F)
-        *fadeCounter = (fadeTimer - 0x10) >> 1;
-
-    if (*fadeCounter > 0x0F) {
-        sceneCtrl[0] = (u32)-1;
-        gCallbackStateArray[1] = (u32)UpdateSceneTransition;
-    }
-
-    m4aSoundVSyncOff();
-    m4aMPlayAllStop();
-}
-/**
- * UpdateSceneTransition: per-frame driver of the timed scene-transition sequence.
- *
- * Runs off the scene frame counter at gControlBlock[0], which the caller resets to
- * 0 on entry and this function terminates by setting to -1:
- *
- *   counter == 0            : run one UpdateBGTileAnimation() step.
- *   counter == 0x20         : re-arm the VBlank interrupt (REG_IE bit 0 +
- *                             REG_DISPSTAT bit 3), restart the m4a VSync hook and
- *                             kick song 0x21 -- i.e. the sequence's music starts
- *                             32 frames in.
- *   0x11 <= counter <= 0x2F : fade-in ramp, gUnk_03005498 = (0x30 - counter) >> 1.
- *   0x101 <= c <= 0x13F     : fade-out ramp, gUnk_03005498 = (counter - 0x100) >> 2.
- *   counter > 0x13F         : done -- stop the counter, install LoadBGPalette and
- *                             VBlankCallback_TitleScreen as the next callbacks,
- *                             clear gUnk_03004D9C, park the blend level at 0x10 and
- *                             force REG_BLDCNT to full darken (0xFF).
- *
- * The counter is *not* cached in a local: the three trailing tests each spell
- * `sceneCtrl[0]`, which agbcc's CSE collapses to one load plus a register copy
- * (`ldr r3` / `adds r2, r3, #0`) and a five-register push. Hoisting it into a
- * `u32 t` local gives one live pseudo, a `push {r4, lr}` prologue, and costs 25
- * points. The second read is `vu32` for the same reason as in FadeOutController
- * above: without it the non-call path reuses the first read.
+ * points. (The second read is spelled `vu32`; that is NOT load-bearing -- replacing it
+ * with a plain `sceneCtrl[0]` leaves the whole ROM byte-exact. An earlier version of
+ * this comment claimed it prevented a CSE on the non-call path; no such CSE occurs.)
  */
 void UpdateSceneTransition(void) {
     u32 *sceneCtrl = (u32 *)gControlBlock;
@@ -192,8 +186,14 @@ u32 ReadUnalignedU16(u8 *ptr) {
 }
 
 /**
- * ReadUnalignedS16: reads a signed 16-bit value from a potentially
- * unaligned address. Assembles two bytes in little-endian order with sign extension.
+ * ReadUnalignedS16: reads two bytes from a potentially unaligned address, assembles
+ * them in little-endian order, sign-extends the result as a 16-bit quantity and
+ * returns it WIDENED TO s32.
+ *
+ * The s32 return type is deliberate and load-bearing -- do not "correct" it to s16 to
+ * match the name. Narrowing it fails `make compare`; see the note beside the DivideQ8
+ * declaration at the top of this file for the measurement and the single consumer
+ * (StreamCmd_InitBg2Zoom) that depends on it.
  */
 s32 ReadUnalignedS16(u8 *ptr) {
     return (s16)(ptr[0] + (ptr[1] << 8));
@@ -331,7 +331,7 @@ void SetupLevelLayerConfig(u32 sceneIdx, u32 layerIdx) {
     gBgInfo[layer].hLength = gLayerMapWidth[row][layer - 2];
     gBgInfo[layer].vLength = gLayerMapHeight[row][layer - 2];
     gBgInfo[layer].unk16 = gLayerTileCount[row][layer - 2];
-    gBgInfo[layer].unk18 = gLayerRowSize[row][layer - 2];
+    gBgInfo[layer].unk18 = gLayerTileByteSize[row][layer - 2];
     gBgInfo[layer].unk14 = 0;
 
     ((struct GfxControlFlags *)gLevelStatePtr)->bgAffine = gLayerColorMode[row][layer - 2] == BGCNT_256COLOR;
@@ -785,7 +785,7 @@ void StreamCmd_ConfigureSprite(void) {
 }
 extern void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 arg6, u8 arg7, u8 arg8);
 /**
- * StreamCmd_SetupOAMSpriteGroup: spawn a whole canned group of OBJ sprites.
+ * StreamCmd_SetupSpriteGroup: spawn a whole canned group of OBJ sprites.
  *
  * Stream layout (4 bytes). Bytes [0]/[1] are the dispatcher's, not this
  * function's -- StreamCmd_RunScript (0x0804EA94) reads them:
@@ -798,23 +798,31 @@ extern void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 ar
  * (0xC0 per group), terminated by an entry whose unk0 halfword is 0xFFFF. It
  * runs to the next symbol, gUnk_0818B704: 0x1800 bytes = 32 group slots, of
  * which only ids 0..19 carry data (4..13 live rows each). Ids 20..31 are all
- * zeros and hold no terminator, and this loop has no bound, so such an id runs
- * on past its group -- measured at runtime: 290 iterations, the u8 cursor wraps
- * (13 -> 47) and descriptor slots are written far beyond the table.
+ * zeros -- every one of the 0xC00 bytes from 0x0818AE04 to 0x0818B704 reads back
+ * 0x00 out of baserom.gba -- so they hold no terminator either, and this loop has
+ * no bound, so such an id runs on past its group: measured at runtime, 290
+ * iterations, the u8 cursor wraps (13 -> 47) and descriptor slots are written far
+ * beyond the table.
  *
- * Every live entry becomes one SetupOAMSprite call at gUnk_03005428++ -- the
- * same running slot cursor RenderCharacterTiles uses, so a group appends to
- * whatever the room already spawned rather than replacing it. Each row lands in
- * the descriptor as unk0 -> xPosScreen, unk2 -> yPosScreen, unk4 -> unk8,
- * unk6 -> unkF, unk7 -> unkA, unk8 -> kind. Every kind in the table is >= 0x4A,
- * which is the branch of SetupOAMSprite that stores the coordinates as screen
- * space; what the groups DEPICT is not established, so nothing here names them.
+ * Every live entry becomes one SetupOAMSprite call at gUnk_03005428++ -- the same
+ * running slot cursor RenderCharacterTiles uses (src/code_0.c, which resets it to
+ * 0xD and then spawns with `SetupOAMSprite(gUnk_03005428++, ...)`), so a group
+ * appends to whatever the room already spawned rather than replacing it. Each row
+ * lands in the descriptor as unk0 -> xPosScreen, unk2 -> yPosScreen, unk4 -> unk8,
+ * unk6 -> unkF, unk7 -> unkA, unk8 -> kind. Every kind in the table is 0x4A..0x50,
+ * and SetupOAMSprite splits on `(u8)(kind - 1) <= 0x48` at 0x08003E10: kinds
+ * 1..0x49 take the arm that treats the pair as BG2/world coordinates (stored to
+ * xPosBg2/yPosBg2, with xPosScreen/yPosScreen derived by subtracting the halfword
+ * pair at gBgInfo+0x40/+0x42), while kind 0 and kind >= 0x4A fall through to the arm that
+ * stores the pair straight into xPosScreen/yPosScreen. So every shipped group is
+ * placed in screen space. What the groups DEPICT is not established, so nothing
+ * here names them.
  *
- * Despite the "OAM" in the name it writes NEITHER hardware OAM (0x07000000) NOR
- * the OAM shadow buffer gOamBuffer (0x03004800): it writes the sprite
- * descriptor table gUnk_03002920, and a later pass turns descriptors into OAM
- * entries. Proven at runtime by injecting the command into the EWRAM stream and
- * comparing against a do-nothing control and an opcode-nibble control:
+ * It writes NEITHER hardware OAM (0x07000000) NOR the OAM shadow buffer gOamBuffer
+ * (0x03004800): it fills sprite DESCRIPTORS in gUnk_03002920, and a later pass
+ * turns descriptors into OAM entries. Proven at runtime by injecting the command
+ * into the EWRAM stream and comparing against a do-nothing control and an
+ * opcode-nibble control:
  * docs/dynamic-analysis/scripts/prove-streamcmd-spritegroup.mjs, which records
  * every write made from inside this call tree across all of IWRAM (gOamBuffer
  * is inside the watched range and never appears) and shows OAM being written
@@ -830,7 +838,7 @@ extern void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 ar
  *     ReadUnalignedU16 call is the truncation, and it also gives the loop the
  *     `group * 2` it CSEs out of the guard.
  */
-void StreamCmd_SetupOAMSpriteGroup(void) {
+void StreamCmd_SetupSpriteGroup(void) {
     u16 group;
     s32 i;
 
@@ -1056,10 +1064,29 @@ void WritePaletteColor(void) {
     *gp = ptr + 5;
 }
 /*
- * Reads a 16-bit value from the data stream and writes it to two destinations:
- * the palette/color register at 0x03005420 and the mirror at 0x030034AC.
- * Advances the data stream pointer by 4.
- *   no parameters (reads from global data stream pointer at 0x03004D84)
+ * WriteStreamValue_Dual: set a uniform BG2 zoom.
+ *
+ * Reads an unaligned u16 from stream bytes [2..3] and writes it to BOTH BG2
+ * magnifications -- gBg2YMag (0x03005420) and gBg2XMag (0x030034AC) -- then advances
+ * the stream by 4. Opcode `FF 34`.
+ *
+ * Neither destination is a palette or colour register, and neither is a mirror of the
+ * other: they are the two axes of the BG2 affine scale, and they drive different
+ * register pairs (gBg2XMag -> REG_BG2PA/PB, gBg2YMag -> REG_BG2PC/PD), which is
+ * measured one axis at a time against a control in
+ * docs/dynamic-analysis/scripts/prove-bg2-magnification.mjs. An earlier version of
+ * this comment called 0x03005420 "the palette/color register" and 0x030034AC "the
+ * mirror"; both halves were wrong.
+ *
+ * The magnifications are Q_8_8 with 0x100 = 1x, and larger means smaller on screen
+ * (the hardware matrix maps screen space back to texture space). Five uses in the
+ * shipped scripts, from scan-gfx-stream-commands.mjs: two of them arm the starting
+ * zoom immediately before an `FF 46` StreamCmd_InitBg2Zoom tween (0x250 then eased
+ * down by 224 over 60 frames; 0x200 then walked back towards 0x100 over 15), and the
+ * other three set a static zoom with no tween after it -- 0x100 twice, i.e. reset to
+ * 1x, and 0x130.
+ *
+ *   no parameters (reads from the global data stream pointer at 0x03004D84)
  *   no return value
  */
 void WriteStreamValue_Dual(void) {
@@ -1180,17 +1207,27 @@ extern s16 DivideQ4(s16 num1, s16 num2);
  * dX reaches REG_WIN0H or REG_WIN1H and dY reaches REG_WIN0V or REG_WIN1V
  * (include/io_reg.h: 0x04000040, 0x04000042, 0x04000044, 0x04000046). Proven at
  * runtime, one corner and one axis per trial, each against a dX = dY = 0 control that
- * moves no register at all.
+ * moves no register at all. The selector POLARITY is proven by the same trials, not
+ * assumed: targets 0 and 1 move rightBottom[win][axis] and targets 2 and 3 move
+ * leftTop[win][axis], so bit 1 clear is rightBottom and bit 1 set is leftTop.
  *
- * The old name (StreamCmd_InitWindowCornerMotion) was wrong: the command touches NO
+ * The old name (StreamCmd_InitMotionWithPalette) was wrong: the command touches NO
  * palette RAM and no blend or mosaic register. Ten trials changed 0 bytes of palette
  * RAM and left REG_BLDCNT, REG_BLDALPHA, REG_BLDY, REG_MOSAIC, REG_WININ and
  * REG_WINOUT bit-identical.
  *
- * The scripts use it in pairs — one corner out, the matching corner in — to wipe a
- * window open or shut: e.g. `target 3 dX +40` with `target 1 dX -40` over 40 frames
- * closes window 1 horizontally by 40 px a side, and `target 2 dY -96` / `+96` over 48
- * frames runs a vertical letterbox on window 0.
+ * The scripts use it two ways. Sometimes in genuine pairs — one edge of a window and
+ * the OPPOSITE edge of the same window, moving towards or away from each other, which
+ * wipes that window shut or open: `target 3 dX +40` with `target 1 dX -40` over 40
+ * frames (script[0] @0x0e46/@0x0e50) walks window 1's left edge right and its right
+ * edge left, closing it by 40 px a side, and `target 2 dX -80` with `target 0 dX +80`
+ * over 40 frames (script[1] @0x1f43/@0x1f4d) is the same shape on window 0, opening
+ * it. Sometimes it is ONE corner driven out and then back, which is not a pair at all
+ * even though the two commands look symmetric: `target 2 dY -96` then `target 2 dY
+ * +96` over 48 frames each (script[1] @0x13d3/@0x13ea) moves window 0's top edge 96 px
+ * and returns it, and one edge cannot letterbox. Both spellings are common; read the
+ * target byte before assuming which one you are looking at. All 62 uses are listed by
+ * docs/dynamic-analysis/scripts/scan-gfx-stream-commands.mjs.
  *
  * Note: the handler is also reachable as `FF 2E` through the 0x08117854 table, which
  * holds the same function pointer. No shipped script uses that spelling.
@@ -1278,8 +1315,15 @@ void StreamCmd_InitWindowCornerMotion(void) {
  * Installs ProcessMotionStepExtended on the GfxStreamEntry named by stream byte[2]
  * with param = 1 — the arm of that callback's jump table at 0x0804CCB0 that steps
  * gBg2XMag (0x030034AC) and gBg2YMag (0x03005420). Both axes are written from the
- * SAME delta and stepped by the SAME per-frame amount, so the zoom is always uniform;
- * the command cannot produce a non-square scale.
+ * SAME delta and stepped by the SAME per-frame amount.
+ *
+ * That makes it a symmetric tween, not a guarantee of a square scale: the callback
+ * ADDS the per-frame step to each magnification rather than assigning it, so a
+ * non-square starting state stays non-square by exactly the same margin all the way
+ * through. What the command cannot do is INTRODUCE anisotropy from a square start.
+ * In practice the question does not arise, because both shipped uses are preceded by
+ * a `FF 34` (WriteStreamValue_Dual) that writes one value to both magnifications and
+ * so squares them first.
  *
  * Stream layout (7 bytes; opcode `FF 46`, i.e. StreamCmd_RunScript's `c & 0x40` table
  * at 0x0811787C, slot 6 — this handler appears in no other dispatch table):
@@ -1302,7 +1346,7 @@ void StreamCmd_InitWindowCornerMotion(void) {
  * into its reciprocal and write the BG2 affine matrix: gBg2XMag reaches REG_BG2PA and
  * REG_BG2PB, gBg2YMag reaches REG_BG2PC and REG_BG2PD (include/io_reg.h,
  * 0x04000020..0x04000026). Verified at runtime one axis at a time against a no-write
- * control: doubling gBg2XMag halved REG_BG2PA (0x0100 -> 0x007F) and REG_BG2PB and
+ * control: doubling gBg2XMag halved REG_BG2PA (0x00FF -> 0x007F) and REG_BG2PB and
  * left REG_BG2PC/PD untouched; doubling gBg2YMag did the mirror image.
  *
  * The two uses in the shipped scripts are both zoom-outs: `FF 34` sets
@@ -1310,7 +1354,7 @@ void StreamCmd_InitWindowCornerMotion(void) {
  * over 15 frames (one short of 0x100, because the per-frame step truncates:
  * -17 x 15 = -255). The other sets 0x250 and eases down by 224 over 60 frames.
  *
- * The old name (StreamCmd_InitBg2Zoom) was wrong: the command never touches
+ * The old name (StreamCmd_InitAngleMotion) was wrong: the command never touches
  * gBg2Alpha (0x03002910), and the value it moves is a linear magnification delta.
  *
  * Note the step is recomputed from the entry's own unk_06 rather than from the local

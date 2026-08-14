@@ -1579,10 +1579,18 @@ void UpdateHUDCollectibleCountAlt(void) {
 /**
  * UpdateHUDTimePanel: redraws the two-row time panel of the timed stages.
  *
- * Called from exactly one site, InitLevelBG (src/engine.c), under
- * `world == 6 && (level == 1 || level == 3)` -- the same branch that opens WIN1
- * over the top-right 80x16 pixels (10 tiles x 2 rows) and sets
- * gUnk_03004C20.unk10 = 1, the flag that lets the stage clock run.
+ * Called from three sites (`git grep -n "UpdateHUDTimePanel();" -- src`), all of
+ * them on the timed-stage path:
+ *   - InitLevelBG (src/engine.c), under `world == 6 && (level == 1 || level == 3)`
+ *     -- the branch that opens WIN1 over the top-right 80x16 pixels (10 tiles x 2
+ *     rows) and sets gUnk_03004C20.unk10 = 1, the flag that lets the stage clock
+ *     run.
+ *   - UpdateOamSortOrder (src/code_3.c), TWICE per call: once under that same
+ *     `world == 6 && (level == 1 || level == 3)` test, in the block that re-opens
+ *     WIN1 and rewrites REG_DISPCNT to the same values as InitLevelBG does, and
+ *     again after the tilemap DMA under `gUnk_03004C20.unk10 == 1` -- i.e. keyed on
+ *     the flag the other sites set rather than on the world/level pair directly.
+ *     That second call is why the panel keeps redrawing after level restore.
  *
  * It first re-blits the panel frame: two DmaCopy16 of 0x14 bytes = 10 tilemap
  * entries, from the off-screen template at gBgTilemapBufs[0] rows 0x16/0x17 col

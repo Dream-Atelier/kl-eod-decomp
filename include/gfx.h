@@ -20,8 +20,12 @@ struct BGLayerState {
     u16 mapWidth; /* +0x10: tilemap width in tiles */
     u16 mapHeight; /* +0x12: tilemap height in tiles */
     u16 flags; /* +0x14: layer flags */
-    u16 dmaTileCount; /* +0x16: number of tile rows for DMA */
-    u8 dmaRowSize; /* +0x18: bytes per DMA row */
+    u16 dmaTileCount; /* +0x16: number of 8x8 TILES to DMA (not tile rows) */
+    u8 dmaRowSize; /* +0x18: bytes per 8x8 TILE -- 32 (4bpp) or 64 (8bpp), NOT bytes per pixel row.
+                    * Both field names are misnomers inherited from the first pass and are left
+                    * alone only to keep the blast radius small; see gLayerTileByteSize below,
+                    * the ROM table SetupLevelLayerConfig copies these two from, for the
+                    * measurement that settles it. */
     u8 pad_19; /* +0x19: padding */
     u16 pad_1A; /* +0x1A: padding */
 }; /* total: 0x1C = 28 bytes */
@@ -445,8 +449,14 @@ extern const u32 gBgTileSubtable[][2];
 extern const u8 gLayerColorMode[][2]; /* 0x080576D4: 0x80 = 256-colour, and 256-colour means affine */
 extern const u16 gLayerMapWidth[][2]; /* 0x08057714: tilemap width in tiles */
 extern const u16 gLayerMapHeight[][2]; /* 0x08057794: tilemap height in tiles */
-extern const u16 gLayerTileCount[][2]; /* 0x08057814: tile rows to DMA */
-extern const u8 gLayerRowSize[][2]; /* 0x08057894: bytes per DMA row */
+extern const u16 gLayerTileCount[][2]; /* 0x08057814: number of 8x8 tiles to DMA */
+/* 0x08057894: bytes per 8x8 TILE -- 32 for 4bpp, 64 for 8bpp. NOT bytes per row: a 4bpp
+ * pixel row is 4 bytes, so no reading of "row" can produce 32. Read straight out of
+ * baserom.gba: gLayerColorMode (0x080576D4) has exactly one non-zero entry in the whole
+ * table, 0x80 = BGCNT_256COLOR at flat index 4, and this table has exactly one 0x40 at
+ * that same index 4; every other populated entry is 0x20. 8bpp tile = 64 bytes, 4bpp
+ * tile = 32, and the one 8bpp layer is the one 64. */
+extern const u8 gLayerTileByteSize[][2];
 extern const u8 gLayerCharBlock[][2]; /* 0x080578D4: charblock index; << 14 from VRAM base */
 extern const u8 gLayerScreenBlock[][2]; /* 0x08057914: screenblock index; << 11 from VRAM base */
 
