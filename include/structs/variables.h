@@ -1181,4 +1181,23 @@ extern struct Unk_03005294_03005418 *gUnk_03005418;
 extern struct Unk_03005294_03005418 *gUnk_03005294;
 extern u16 gUnk_080D927C[];
 extern u16 gUnk_080D947C[];
+/* Stream-command OAM sprite groups (0x08189F04), indexed [group][entry].
+ * A group is 16 entries of 12 bytes (0xC0 apart); the entry whose unk0 reads
+ * 0xFFFF terminates the group. Each live entry is one SetupOAMSprite call, so
+ * the member roles line up with that function's parameters:
+ *   unk0/unk2 -> x/y, unk4 -> arg4, unk9 -> arg5, unk5 -> arg6, unk6 -> arg7,
+ *   unk7 -> arg1 (the same role gUnk_080E2B64::unk28 fills),
+ *   unk8 -> arg8 (the sprite kind, the same role unk29 fills). */
+struct Unk_08189F04 {
+    /* 0x0 */ u16 unk0;
+    /* 0x2 */ u16 unk2;
+    /* 0x4 */ u8 unk4;
+    /* 0x5 */ u8 unk5;
+    /* 0x6 */ u8 unk6;
+    /* 0x7 */ u8 unk7;
+    /* 0x8 */ u8 unk8;
+    /* 0x9 */ u8 unk9;
+    /* 0xA */ u8 padA[0xC - 0xA];
+}; /* size = 0xC */
+extern struct Unk_08189F04 gUnk_08189F04[][16];
 #endif /* GUARD_STRUCTS_VARIABLES_H */

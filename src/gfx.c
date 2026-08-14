@@ -584,7 +584,41 @@ void StreamCmd_ConfigureSprite(void) {
     gUnk_03002920[(p[2] & 0x7F) + 0xD].yPosBg2 = gUnk_03002920[(p[2] & 0x7F) + 0xD].yPosScreen << 4;
     gStreamPtr = p + 7;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetupOAMSpriteGroup);
+extern void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 arg5, u8 arg6, u8 arg7, u8 arg8);
+/**
+ * StreamCmd_SetupOAMSpriteGroup: spawn a whole canned group of OBJ sprites.
+ *
+ * Stream layout (4 bytes):
+ *   [2..3] unaligned u16 group id
+ *
+ * gUnk_08189F04 is a table of sprite groups, each 16 entries of 0xC bytes
+ * (0xC0 per group), terminated by an entry whose unk0 halfword is 0xFFFF. Every
+ * live entry becomes one SetupOAMSprite call into the next free OAM slot,
+ * gUnk_03005428++ -- the same running slot cursor RenderCharacterTiles uses, so
+ * a group appends to whatever the room already spawned rather than replacing it.
+ *
+ * agbcc matching notes:
+ *   - gUnk_08189F04 must be the named extern ARRAY indexed as
+ *     gUnk_08189F04[group][i] in every operand, never a `struct Unk_08189F04 *`
+ *     local: the original recomputes `group * 0xC0` inside the loop and keeps
+ *     only the scaled `i * 0xC` in a register, which is what indexing the array
+ *     directly produces.
+ *   - `group` is a u16, not a u32 -- the lsl/lsr #0x10 pair after the
+ *     ReadUnalignedU16 call is the truncation, and it also gives the loop the
+ *     `group * 2` it CSEs out of the guard.
+ */
+void StreamCmd_SetupOAMSpriteGroup(void) {
+    u16 group;
+    s32 i;
+
+    group = ReadUnalignedU16(gStreamPtr + 2);
+    for (i = 0; gUnk_08189F04[group][i].unk0 != 0xFFFF; i++) {
+        SetupOAMSprite(gUnk_03005428++, gUnk_08189F04[group][i].unk7, gUnk_08189F04[group][i].unk0, gUnk_08189F04[group][i].unk2,
+                       gUnk_08189F04[group][i].unk4, gUnk_08189F04[group][i].unk9, gUnk_08189F04[group][i].unk5,
+                       gUnk_08189F04[group][i].unk6, gUnk_08189F04[group][i].unk8);
+    }
+    gStreamPtr += 4;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetEntityFlags);
 /**
  * StreamCmd_SetEntityTransform: point an entity at an OBJ affine matrix and
