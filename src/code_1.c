@@ -49,6 +49,8 @@ void SoftResetRom(u32);
 void ResetEntityScrollState(s32 arg0);
 void SpawnEntityAtPosition(u16, u16, u8, u8);
 void EntityHitReaction(u8);
+void EntitySpriteFlipAndLoad(u8);
+void UpdateHUDCollectibleCount(void);
 void SetPaletteAnimEntry(s32, u8);
 void CopyBGScrollTiles(void);
 
@@ -497,8 +499,181 @@ void EntityDeathAnimation(u8 slot) {
 }
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityBounceOffWall);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityFloatPath);
-INCLUDE_ASM("asm/nonmatchings/code_1", EntityPickupCollect);
-INCLUDE_ASM("asm/nonmatchings/code_1", EntityProjectileUpdate);
+/**
+ * EntityPickupCollect: per-frame update for one collectible entity slot.
+ *
+ * Once the entity has passed the visible band (screen Y > 0x8F with the 0x8000
+ * "wrapped/negative" bit clear) it counts as collected: the bit indexed by the
+ * entity's unk8 id is set in gUnk_03005220.unk4, the counter at offset 0x4C is
+ * bumped (saturating at 0x63) with a HUD refresh, and the slot is retired
+ * (onScreen = 0, unkF = 0x1C "inactive").
+ *
+ * Otherwise it animates: unk9 (the pickup's phase clock) advances one step, Y
+ * moves down 3 while the 0x8000 bit is set and otherwise by (unk9 - 0xC) / 2,
+ * and X is pulled toward the BG2 scroll origin by a twelfth of the remaining
+ * distance.
+ *
+ * agbcc note: the `(d = ...)` inside the X expression is deliberate. Spelled
+ * plainly, `bg2HOfs - (x - 0xEC)` is reassociated by agbcc into
+ * `(bg2HOfs + 0xEC) - x`, which is two bytes short of the target; the embedded
+ * assignment keeps `x - 0xEC` as a value of its own. Plain C, no barrier.
+ */
+void EntityPickupCollect(u8 slot) {
+    u8 lives;
+    s32 d;
+
+    if (gUnk_03002920[slot].yPosScreen > 0x8F && (u16)(gUnk_03002920[slot].yPosScreen & 0x8000) == 0) {
+        gUnk_03005220.unk4 |= 1 << gUnk_03002920[slot].unk8;
+        lives = gUnk_03005220.lives;
+        if (lives <= 0x62) {
+            gUnk_03005220.lives = lives + 1;
+            UpdateHUDCollectibleCount();
+        }
+        gUnk_03002920[slot].onScreen = 0;
+        gUnk_03002920[slot].unkF = 0x1C;
+        return;
+    }
+
+    gUnk_03002920[slot].unk9++;
+    if (gUnk_03002920[slot].yPosScreen & 0x8000) {
+        gUnk_03002920[slot].yPosBg2 = gUnk_03002920[slot].yPosBg2 + 3;
+    } else {
+        gUnk_03002920[slot].yPosBg2 = ((gUnk_03002920[slot].unk9 - 0xC) >> 1) + gUnk_03002920[slot].yPosBg2;
+    }
+    gUnk_03002920[slot].xPosBg2
+        = gUnk_03002920[slot].xPosBg2 + (gUnk_03003430.bg2HOfs - (d = gUnk_03002920[slot].xPosBg2 - 0xEC)) / 0xC;
+}
+/**
+ * EntityProjectileUpdate: collision sweep of the eight projectile slots
+ * (gUnk_03002920[1..8]) against every live entity, once per frame.
+ *
+ * A projectile slot participates only while it is active (unkF != 0x1C) and its
+ * gUnk_03000830 sidecar reads state 6 ("in flight"). For each such slot the
+ * inner loop walks entity 0 (the player) and then the live range
+ * [gUnk_030052B4 .. gUnk_030051C4] — entity 0 is visited first and the index is
+ * then jumped forward at the bottom of the body, so a `continue` inside the
+ * body deliberately skips that jump.
+ *
+ * Entities are skipped unless unkF <= 0x1A and != 0x19 (dying//inactive states)
+ * and kind > 0x6D. The hit test is an axis-aligned box overlap: the projectile
+ * box is +-0xC by +-0x18, the entity's horizontal half-extents come from its
+ * kind (0x70 -> 15/15, 0x6F -> 15/7, otherwise 12/12, all stored as the u16 two's
+ * complement so the sums wrap in 16 bits).
+ *
+ * On a hit, the entity's kind selects the reaction:
+ *   0x6E KLONOA  - kill the player (PlayerRespawnOrDeath(1)) unless the death
+ *                  sequence is already running (unk3E && unk5B).
+ *   0x6F BOX     - break it: only when unk8 > 1 and its cooldown unk9 is 0;
+ *                  retires it (unkF = 0x1B, onScreen = 0, unk9 = 0x46), clears
+ *                  the palette-anim slot it owned, and drops the two tracking
+ *                  ids at gUnk_03005220.unk3F / .unk42 that pointed at it.
+ *   0x70         - flag it: set cooldown unk9 = 0x64 and OR its unk8 bit into
+ *                  gUnk_03005220.unk2E.
+ *   0x71..0x74   - EntityHitReaction(entity), cooldown unk8 = 0x87.
+ *   0x75         - EntitySpriteFlipAndLoad(entity), cooldown unk8 = 0xC8.
+ *   default      - spawn effect type 2 at the entity's position.
+ */
+void EntityProjectileUpdate(void) {
+    u32 i;
+    u32 j;
+    u16 left;
+    u16 right;
+
+    for (i = 1; i <= 8; i++) {
+        if (gUnk_03002920[i].unkF == 0x1C) {
+            continue;
+        }
+        if (gUnk_03000830[i].unk0 != 6) {
+            continue;
+        }
+        for (j = 0; j <= gUnk_030051C4; j++) {
+            if (gUnk_03002920[j].unkF > 0x1A || gUnk_03002920[j].unkF == 0x19) {
+                continue;
+            }
+            if (gUnk_03002920[j].kind > 0x6D) {
+                if (gUnk_03002920[j].kind == 0x70) {
+                    right = 0xFFF1;
+                    left = right;
+                } else if (gUnk_03002920[j].kind == 0x6F) {
+                    left = 0xFFF1;
+                    right = 0xFFF9;
+                } else {
+                    right = 0xFFF4;
+                    left = right;
+                }
+                if ((u16)(gUnk_03002920[j].xPosBg2 + left) < gUnk_03002920[i].xPosBg2 + 0xC
+                    && (u16)(gUnk_03002920[j].xPosBg2 - right) > gUnk_03002920[i].xPosBg2 - 0xC
+                    && gUnk_03002920[j].yPosBg2 - 0x18 < gUnk_03002920[i].yPosBg2
+                    && gUnk_03002920[j].yPosBg2 > gUnk_03002920[i].yPosBg2 - 0x18) {
+                    switch (gUnk_03002920[j].kind - 0x6E) {
+                        case 0:
+                            if (gUnk_03005220.unk3E != 0 && gUnk_03005220.unk5B != 0) {
+                                continue;
+                            }
+                            PlayerRespawnOrDeath(1);
+                            break;
+
+                        case 2:
+                            if (gUnk_03002920[j].unk9 != 0) {
+                                break;
+                            }
+                            gUnk_03002920[j].unk9 = 0x64;
+                            gUnk_03005220.unk2E |= 1 << gUnk_03002920[j].unk8;
+                            break;
+
+                        case 1:
+                            if (gUnk_03002920[j].unk8 <= 1) {
+                                break;
+                            }
+                            if (gUnk_03002920[j].unk9 != 0) {
+                                break;
+                            }
+                            gUnk_03002920[j].unkF = 0x1B;
+                            gUnk_03002920[j].onScreen = 0;
+                            gUnk_03002920[j].unk9 = 0x46;
+                            if (j == gUnk_03003610[1].unk2) {
+                                SetPaletteAnimEntry(gUnk_03003610[1].unk3, 0);
+                                gUnk_03003610[1].unk2 = 0;
+                            }
+                            if (gUnk_03005220.unk3F == j) {
+                                gUnk_03005220.unk3F = 0;
+                            }
+                            if (gUnk_03005220.unk42 == j) {
+                                ResetEntityScrollState(1);
+                            }
+                            break;
+
+                        case 3:
+                        case 4:
+                        case 5:
+                        case 6:
+                            if (gUnk_03002920[j].unk8 != 0) {
+                                break;
+                            }
+                            EntityHitReaction((u8)j);
+                            gUnk_03002920[j].unk8 = 0x87;
+                            break;
+
+                        case 7:
+                            if (gUnk_03002920[j].unk8 != 0) {
+                                break;
+                            }
+                            EntitySpriteFlipAndLoad((u8)j);
+                            gUnk_03002920[j].unk8 = 0xC8;
+                            break;
+
+                        default:
+                            SpawnEntityAtPosition(gUnk_03002920[j].xPosBg2, gUnk_03002920[j].yPosBg2, 2, (u8)j);
+                            break;
+                    }
+                }
+            }
+            if (j == 0) {
+                j = gUnk_030052B4 - 1;
+            }
+        }
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", SpawnEntityAtPosition);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityHitReaction);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntitySpriteFlipAndLoad);
