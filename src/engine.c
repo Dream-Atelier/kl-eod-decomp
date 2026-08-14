@@ -102,7 +102,26 @@ void HBlankScrollUpdate(void) {
     REG_BG0HOFS = gUnk_03004C40[line];
     REG_BG1HOFS = gUnk_030052C0[line];
 }
-INCLUDE_ASM("asm/nonmatchings/engine", UpdateAffineBGParams);
+/**
+ * UpdateAffineBGParams: per-scanline BG2 affine reference point.
+ *
+ * Reads the current scanline from REG_VCOUNT and displaces the BG2 affine
+ * reference point by (3 * line - 180) steps of the two cached Q-format deltas
+ * gUnk_03004678 / gUnk_030051B0, i.e. zero displacement at line 60 and a linear
+ * ramp either side of it. The two 32-bit results are written to REG_BG2X and
+ * REG_BG2Y (io_reg.h: 0x04000028 and 0x0400002C) as low/high halfword pairs.
+ * Only those two registers are touched.
+ */
+void UpdateAffineBGParams(void) {
+    u8 line = REG_VCOUNT_L;
+    s32 x = gBg2X + gUnk_03004678 * (line * 3 - 180);
+    s32 y = gBg2Y + gUnk_030051B0 * (line * 3 - 180);
+
+    REG_BG2X_L = x;
+    REG_BG2X_H = x >> 0x10;
+    REG_BG2Y_L = y;
+    REG_BG2Y_H = y >> 0x10;
+}
 /**
  * UpdateWindowCircleEffect: compute circle window bounds for iris transition.
  *
