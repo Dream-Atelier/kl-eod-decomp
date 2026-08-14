@@ -12,6 +12,7 @@ void UpdateBGScrollRegisters(void);
 void ProcessFrameAnimation(void);
 u32 ProcessMotionStep(u32 idx);
 void ProcessStaticBGScroll(void);
+void ProcessSpriteOscillation(void);
 extern s16 ReciprocalQ8(s16 a);
 extern s16 MultiplyQ8(s16 a, s16 b);
 void m4aSoundVSyncOff(void);
@@ -1240,7 +1241,82 @@ void StreamCmd_InitHBlankWait(void) {
 
     *streamPP += 5;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitSpriteWave);
+/**
+ * StreamCmd_InitSpriteWave: initialize a table-driven object wobble from stream data.
+ *
+ * Fills the GfxStreamEntry selected by stream byte[2] and installs
+ * ProcessSpriteOscillation as its per-frame callback, then advances the stream
+ * by 8. Dispatched from the 0x40 command table at 0x0811787C, slot 12, i.e. the
+ * stream bytes `FF 4C ...` (StreamCmd_RunScript masks byte[1] with 0x3F when
+ * bit 6 is set).
+ *
+ * Stream layout (8 bytes):
+ *   [0]    0xFF          escape byte
+ *   [1]    0x4C          opcode
+ *   [2]    entry index into gGfxStreamEntries
+ *   [3]    objIndex (7 bits) — ProcessSpriteOscillation biases it by +13 and uses
+ *          it to index the 0x03002920 object table (stride 0x1C)
+ *   [4] hi nibble -> unk_1F: which 16-byte row of the signed-byte wave table at
+ *          0x081177F4 to play. Row 0 is a 1,1,2,-2,-1,-1,0,0 jitter played twice,
+ *          row 1 is a single -1,-1,-2,-2,-1,-1,0,0,1,1,2,2,1,1,0,0 sweep, rows 2
+ *          and 3 are all zeroes (no motion).
+ *   [4] lo nibble -> unk_1A: right shift applied to the frame counter before it
+ *          indexes the row, i.e. the wave period (bigger = slower).
+ *   [5]    -> unk_1C: amplitude the signed wave sample is multiplied by.
+ *   [6..7] -> timer (unaligned s16): how many frames the wave runs.
+ *
+ * It also zeroes unk_0E (the frame counter ProcessSpriteOscillation increments
+ * and compares against timer), sets the entry type nibble to 1 (active) and
+ * latches `timer != -1` into unk_1E. ProcessSpriteOscillation only stops once the
+ * counter reaches timer AND unk_1E is set, so a duration of -1 means "run
+ * forever".
+ *
+ * Everything above is static analysis of ProcessSpriteOscillation and
+ * StreamCmd_RunScript; no runtime evidence yet.
+ */
+void StreamCmd_InitSpriteWave(void) {
+    s16 duration;
+
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+        struct GfxStreamEntry *entry;
+        u8 target;
+
+        entry = (struct GfxStreamEntry *)(idx * sizeof(struct GfxStreamEntry) + (u32)entries);
+        target = cmd[3];
+        entry->objIndex = target;
+        entries[cmd[2]].unk_1F = cmd[4] >> 4;
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_1A = cmd[4] & 0x0F;
+        entries[cmd[2]].unk_1C = cmd[5];
+        duration = ReadUnalignedS16(cmd + 6);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].timer = duration;
+        entries[cmd[2]].callback = (u32)ProcessSpriteOscillation;
+        entries[cmd[2]].unk_0E = 0;
+        entries[cmd[2]].type = 1;
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_1E = ~*(s16 *)&entries[idx].timer != 0;
+    }
+    gStreamPtr += 8;
+}
 /**
  * StreamCmd_InitButtonWait: initialize a button-wait entry from stream data.
  *
