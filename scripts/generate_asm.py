@@ -1890,40 +1890,11 @@ def _apply_fixups(module_funcs=None):
     else:
         print("  WARNING: Could not find bx r0 SBZ fixup target")
 
-    # DeadCode_0804bb86 is the high halfword of FreeGfxBuffer's literal
-    # pool (0x0300, the upper 16 bits of 0x030034A0).  FreeGfxBuffer.s
-    # already emits the full .4byte, so this "function" must be an empty
-    # stub — using thumb_func_start would force a $t mapping symbol in
-    # the middle of the literal pool data, causing objdiff to disassemble
-    # the data as Thumb instructions.
-    # At this stage, renames haven't been applied yet → use original name.
-    # The stub must still define the .global symbol because the linker
-    # script references it, but emit no code/data bytes (FreeGfxBuffer's
-    # .4byte already covers the literal pool word).
-    dc_path = os.path.join(nm_root, "gfx", "sub_0804BB86.s")
-    if os.path.exists(dc_path):
-        # Check if FreeGfxBuffer is compiled from C (not INCLUDE_ASM).
-        # If so, the C compiler emits the full .4byte 0x030034A0 and
-        # this stub must be empty.  If FreeGfxBuffer is still INCLUDE_ASM,
-        # its .byte only covers 2 bytes and we need .2byte 0x0300 here.
-        gfx_c = os.path.join(ROOT, "src", "gfx.c")
-        freegfx_is_c = False
-        if os.path.exists(gfx_c):
-            with open(gfx_c) as f:
-                for line in f:
-                    if "void FreeGfxBuffer" in line and "{" in line:
-                        freegfx_is_c = True
-                        break
-
-        with open(dc_path, "w") as f:
-            if freegfx_is_c:
-                f.write("\t.global sub_0804BB86\n"
-                        "sub_0804BB86:\n")
-            else:
-                f.write("\t.global sub_0804BB86\n"
-                        "sub_0804BB86:\n"
-                        "\t.2byte 0x0300\n")
-        print("  Fixed sub_0804BB86.s (literal pool stub)")
+    # (The sub_0804BB86 "DeadCode" literal-pool stub used to be patched here.
+    # It existed only because functions_merged.cfg declared a function boundary
+    # at 0x0804BB86, i.e. strictly inside the literal-pool word at 0x0804BB84
+    # that FreeGfxBuffer pc-references.  That declaration is gone, luvdis now
+    # keeps the word whole inside FreeGfxBuffer, and there is nothing to stub.)
 
     # Fix misplaced literal pools: when a sub-function's first content
     # is a .4byte that is actually the preceding function's literal pool,

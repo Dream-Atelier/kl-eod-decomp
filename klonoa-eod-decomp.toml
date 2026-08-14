@@ -214,7 +214,9 @@ sub_0804F004 = "StreamCmd_SetSoundReverb"
 sub_0804F180 = "StreamCmd_SetSoundFreqs"
 sub_0804F0D0 = "StreamCmd_StopSoundAndSync"
 sub_0804B28A = "ReadUnalignedU32_Alt"
-sub_0804BB86 = "DeadCode_0804bb86"
+# sub_0804BB86 = "DeadCode_0804bb86" -- removed: 0x0804BB86 was never a
+# function, only the high halfword of FreeGfxBuffer's literal-pool word at
+# 0x0804BB84.  See the note at that address in functions_merged.cfg.
 sub_080507E0 = "MPlayStop"
 sub_0804ED68 = "SoundDmaInit"
 sub_0804EE34 = "SoundReset"

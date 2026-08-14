@@ -282,8 +282,6 @@ void FreeGfxBuffer(void) {
     thunk_HeapFree((void *)gGfxBufferPtr);
 }
 
-INCLUDE_ASM("asm/nonmatchings/gfx", DeadCode_0804bb86);
-
 /**
  * AllocAndClearBuffer_52A4: allocate and DMA-fill a 1152-byte buffer.
  *

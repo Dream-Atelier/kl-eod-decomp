@@ -78,10 +78,15 @@ lines = ["\t.syntax unified\n", "\t.text\n", "\t.align\t2, 0\n",
 prev_addr = None
 for addr, f in files:
     name = f.stem
-    # Several .s files can share one address -- the repo has alias pairs where one file holds
-    # the body and the other is an empty `.global` + label stub (AllocAndClearBuffer_52A4 and
-    # DeadCode_0804bb86 both sit at 0x0804bb88).  Position once per address and let the bodies
-    # concatenate, or the second `.org` tries to move backwards.
+    # Several .s files can share one address, when one holds the body and the other is an empty
+    # `.global` + label stub.  Position once per address and let the bodies concatenate, or the
+    # second `.org` tries to move backwards.
+    #
+    # No such pair exists today: the only one there ever was, AllocAndClearBuffer_52A4 and the
+    # empty DeadCode_0804bb86 stub both at 0x0804bb88, is gone now that 0x0804BB86 is no longer
+    # declared a function (it was the high halfword of FreeGfxBuffer's literal-pool word).  This
+    # stays as a safety net -- an empty stub is the natural shape for any future alias pair --
+    # but it is currently unexercised, so do not treat it as tested.
     if addr == prev_addr:
         lines += [l + "\n" for l in f.read_text().split("\n")]
         lines.append(f"\t.size\t{name}, .-{name}\n")
