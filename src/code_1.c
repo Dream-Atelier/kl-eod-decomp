@@ -1401,7 +1401,69 @@ void UpdateHUDCollectibleCountAlt(void) {
     gBgTilemapBufs[0][0x25C] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives % 10) + 0x293];
     gBgTilemapBufs[0][0x27C] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives % 10) + 0x2B3];
 }
-INCLUDE_ASM("asm/nonmatchings/code_1", UpdateHUDTimerAndLives);
+/**
+ * UpdateHUDTimerAndLives: refreshes the two-row HUD clock/counter panel in BG0's
+ * tilemap buffer.
+ *
+ * First it re-blits the panel frame: two rows of 10 tiles from the off-screen
+ * template at row 0x16 col 0x12 to the visible panel at row 0/1 col 0x14.
+ *
+ * Then it renders a three-field "NN:NN:NN" readout from gUnk_03004670. Which
+ * triple of bytes is shown depends on the level: level 1 uses unk1..unk3, every
+ * other level uses unk4..unk6. If the selected triple is all-zero the counter is
+ * re-armed to 99:59:99 (the writes always target unk1..unk3, even on the
+ * unk4..unk6 path -- reproduced as in the ROM). Each byte is split into tens and
+ * units with __udivsi3 / __umodsi3 and drawn from the digit tile run at 0x312.
+ *
+ * Finally it draws three more two-digit fields from gUnk_03005220.unk4D..unk4F
+ * into the second panel row, using the digit tile run at 0x332.
+ */
+void UpdateHUDTimerAndLives(void) {
+    u32 i;
+    struct Unk_03004670 *p;
+    struct Unk_03004670 *q;
+
+    for (i = 0; i < 2; i++) {
+        DmaCopy16(3, &gBgTilemapBufs[0][(0x16 + i) * 0x20 + 0x12], &gBgTilemapBufs[0][(i * 0x20) + 0x14], 0x14);
+    }
+
+    if (gUnk_03004C20.level == 1) {
+        p = gUnk_03004670;
+        if ((p->unk1 | p->unk2 | p->unk3) == 0) {
+            p->unk3 = 99;
+            p->unk1 = 99;
+            gUnk_03004670->unk2 = 59;
+        }
+        q = gUnk_03004670;
+        gBgTilemapBufs[0][0x15] = gBgTilemapBufs[0][(u8)(q->unk1 / 10) + 0x312];
+        gBgTilemapBufs[0][0x16] = gBgTilemapBufs[0][(u8)(q->unk1 % 10) + 0x312];
+        gBgTilemapBufs[0][0x18] = gBgTilemapBufs[0][(u8)(q->unk2 / 10) + 0x312];
+        gBgTilemapBufs[0][0x19] = gBgTilemapBufs[0][(u8)(q->unk2 % 10) + 0x312];
+        gBgTilemapBufs[0][0x1B] = gBgTilemapBufs[0][(u8)(q->unk3 / 10) + 0x312];
+        gBgTilemapBufs[0][0x1C] = gBgTilemapBufs[0][(u8)(q->unk3 % 10) + 0x312];
+    } else {
+        p = gUnk_03004670;
+        if ((p->unk4 | p->unk5 | p->unk6) == 0) {
+            p->unk3 = 99;
+            p->unk1 = 99;
+            gUnk_03004670->unk2 = 59;
+        }
+        q = gUnk_03004670;
+        gBgTilemapBufs[0][0x15] = gBgTilemapBufs[0][(u8)(q->unk4 / 10) + 0x312];
+        gBgTilemapBufs[0][0x16] = gBgTilemapBufs[0][(u8)(q->unk4 % 10) + 0x312];
+        gBgTilemapBufs[0][0x18] = gBgTilemapBufs[0][(u8)(q->unk5 / 10) + 0x312];
+        gBgTilemapBufs[0][0x19] = gBgTilemapBufs[0][(u8)(q->unk5 % 10) + 0x312];
+        gBgTilemapBufs[0][0x1B] = gBgTilemapBufs[0][(u8)(q->unk6 / 10) + 0x312];
+        gBgTilemapBufs[0][0x1C] = gBgTilemapBufs[0][(u8)(q->unk6 % 10) + 0x312];
+    }
+
+    gBgTilemapBufs[0][0x35] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4D / 10) + 0x332];
+    gBgTilemapBufs[0][0x36] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4D % 10) + 0x332];
+    gBgTilemapBufs[0][0x38] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4E / 10) + 0x332];
+    gBgTilemapBufs[0][0x39] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4E % 10) + 0x332];
+    gBgTilemapBufs[0][0x3B] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4F / 10) + 0x332];
+    gBgTilemapBufs[0][0x3C] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4F % 10) + 0x332];
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", IntroScrollAnimation);
 INCLUDE_ASM("asm/nonmatchings/code_1", IntroSequenceUpdate);
 
