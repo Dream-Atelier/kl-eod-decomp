@@ -482,6 +482,15 @@ gLevelPaletteTable = 0x08189B4C;
  * See src/gfx.c. */
 gBgLayerLookup = 0x08057ACC;
 gBgTileSubtable = 0x08189BCC;
+/* The seven per-layer configuration sub-tables SetupLevelLayerConfig reads, each
+ * indexed [row][layer - 2] with two entries per row. See include/gfx.h. */
+gLayerColorMode = 0x080576D4;
+gLayerMapWidth = 0x08057714;
+gLayerMapHeight = 0x08057794;
+gLayerTileCount = 0x08057814;
+gLayerRowSize = 0x08057894;
+gLayerCharBlock = 0x080578D4;
+gLayerScreenBlock = 0x08057914;
 gStreamDataTable = 0x08189AFC;
 /* The graphics stream's OBJ-tileset table and its parallel OBJ-palette table, plus
  * a typed pointer to the allocator table at 0x030007C8 (the cell gGfxStreamBuffer

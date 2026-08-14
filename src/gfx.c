@@ -219,7 +219,79 @@ void LoadBGTileData(s32 levelIdx, s32 sublevel) {
                          gBgInfo[gBgLayerLookup[levelIdx][sublevel][1]].unk16 * gBgInfo[gBgLayerLookup[levelIdx][sublevel][1]].unk18);
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", LoadBGTilemapData);
-INCLUDE_ASM("asm/nonmatchings/gfx", SetupLevelLayerConfig);
+/**
+ * SetupLevelLayerConfig: configure one BG layer of a scene.
+ *
+ * `sceneIdx`/`layerIdx` select a slot in gBgLayerLookup, whose two bytes are the
+ * sub-table row and the BG layer number (2 or 3). Every per-layer table is then
+ * read at [row][layer - 2]: charblock and screenblock become the layer's VRAM
+ * tile and tilemap destinations, the three u16 tables give its tilemap width,
+ * height and DMA tile count, and the colour-depth byte decides whether the
+ * screen runs in text or affine mode. Scroll and flags are reset, the video mode
+ * is written into REG_DISPCNT's mode field, CalcBGScrollMapSize turns the tilemap
+ * size into a BGCNT screen-size field, and REG_BG2CNT or REG_BG3CNT is composed
+ * from all of it. Called per layer by DispatchLevelLayerSetup, ahead of
+ * LoadBGTileData and LoadBGTilemapData.
+ *
+ * MATCHING. Three spellings decide this one. Each number below is a single-lever
+ * ablation off the matching source (score against the ROM-disassembled target;
+ * asmlift e0c1dce raw output scores 157 with the symbol map, 166 without):
+ *
+ *  - The seven sub-tables are declared `extern const uN [][2]` (see gfx.h and
+ *    ldscript.in.txt) and indexed [row][layer - 2] EVERYWHERE, including inside
+ *    the two BGxCNT arms where `layer` is a known constant. Spelling those arms
+ *    `[row][0]` / `[row][1]` costs 59: it leaves one table base CSE'd into a
+ *    callee-saved register across the CalcBGScrollMapSize call -- one long-lived
+ *    value more than the ROM has -- and the whole register file shifts. Casting
+ *    all seven tables to address constants instead costs 94.
+ *
+ *  - The affine flag is assigned straight from the comparison rather than through
+ *    an `if` and a local. The assignment expands its destination address first,
+ *    so gLevelStatePtr is loaded before the comparison, which is what the ROM
+ *    does; the `if` form loads it after and costs 51.
+ *
+ *  - `& 0xFFFF` on the screenbase group is load-bearing, not cosmetic. agbcc's
+ *    fold reassociates `X | (S | CONST)` into `(X | CONST) | S`, which ORs
+ *    0x2040 into the accumulator before the screenblock byte; the mask puts a
+ *    BIT_AND node between the two BIT_IORs so the group survives as a subtree,
+ *    and the truncation it leaves behind is the extra register copy the ROM has.
+ *    Dropping it costs 39. A `(u16)` cast does NOT substitute -- it folds away
+ *    before that pass and the group is reassociated anyway.
+ */
+void SetupLevelLayerConfig(u32 sceneIdx, u32 layerIdx) {
+    u32 layer = gBgLayerLookup[sceneIdx][layerIdx][1];
+    u32 row = gBgLayerLookup[sceneIdx][layerIdx][0];
+
+    gBgInfo[layer].pTiles = (void *)(0x06000000 + (gLayerCharBlock[row][layer - 2] << 14));
+    gBgInfo[layer].pTilemap = (void *)(0x06000000 + (gLayerScreenBlock[row][layer - 2] << 11));
+    gBgInfo[layer].hOfs = 0;
+    gBgInfo[layer].vOfs = 0;
+    gBgInfo[layer].hLength = gLayerMapWidth[row][layer - 2];
+    gBgInfo[layer].vLength = gLayerMapHeight[row][layer - 2];
+    gBgInfo[layer].unk16 = gLayerTileCount[row][layer - 2];
+    gBgInfo[layer].unk18 = gLayerRowSize[row][layer - 2];
+    gBgInfo[layer].unk14 = 0;
+
+    ((struct GfxControlFlags *)gLevelStatePtr)->bgAffine = gLayerColorMode[row][layer - 2] == BGCNT_256COLOR;
+    REG_DISPCNT = (REG_DISPCNT & 0xFFF8) | ((struct GfxControlFlags *)gLevelStatePtr)->bgAffine;
+    ((struct GfxControlFlags *)gLevelStatePtr)->bgMapSize[layer - 2]
+        = CalcBGScrollMapSize(((struct GfxControlFlags *)gLevelStatePtr)->bgAffine, gBgInfo[layer].hLength, gBgInfo[layer].vLength);
+
+    switch (layer) {
+        case 2:
+            REG_BG2CNT = BGCNT_PRIORITY(2) | gLayerColorMode[row][layer - 2]
+                | (((struct GfxControlFlags *)gLevelStatePtr)->bgMapSize[0] << 14)
+                | ((BGCNT_SCREENBASE(gLayerScreenBlock[row][layer - 2]) | BGCNT_WRAP | BGCNT_MOSAIC) & 0xFFFF)
+                | BGCNT_CHARBASE(gLayerCharBlock[row][layer - 2]);
+            break;
+        case 3:
+            REG_BG3CNT = BGCNT_PRIORITY(2) | gLayerColorMode[row][layer - 2]
+                | (((struct GfxControlFlags *)gLevelStatePtr)->bgMapSize[1] << 14)
+                | ((BGCNT_SCREENBASE(gLayerScreenBlock[row][layer - 2]) | BGCNT_WRAP | BGCNT_MOSAIC) & 0xFFFF)
+                | BGCNT_CHARBASE(gLayerCharBlock[row][layer - 2]);
+            break;
+    }
+}
 /**
  * FinalizeLevelLayerSetup: loads the level's BG palette into palette RAM.
  *
