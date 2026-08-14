@@ -517,6 +517,46 @@ INCLUDE_ASM("asm/nonmatchings/code_1", EntityFloatPath);
  * plainly, `bg2HOfs - (x - 0xEC)` is reassociated by agbcc into
  * `(bg2HOfs + 0xEC) - x`, which is two bytes short of the target; the embedded
  * assignment keeps `x - 0xEC` as a value of its own. Plain C, no barrier.
+ *
+ * -- TRANSLATION-UNIT COUPLING: OBSERVATION EXACT, EXPLANATION OPEN --
+ *
+ * This function is decompiled here partly because of a coupling in agbcc's
+ * codegen across the whole .c. The OBSERVATION is exact and reproduces on demand:
+ * with exactly ONE of EntityPickupCollect / EntityProjectileUpdate present in
+ * src/code_1.c, VBlankDMA_Level25 (~2900 lines further down) makes the other
+ * r9/r10 choice and six bytes change -- at function offsets 0x2E, 0x36, 0xEA,
+ * 0x3F6, 0x41E and 0x446, in a 1628-byte function. With BOTH present (the shipped
+ * state) or BOTH absent it has the ROM's shape.
+ *
+ *   Reproduce: delete one of the two functions from this file, then
+ *     make build/src/code_1.o && arm-none-eabi-objdump -d build/src/code_1.o
+ *   and diff VBlankDMA_Level25 against the same dump with both present.
+ *
+ * The RULE the decompiling commit (ecd8c07) inferred from that observation is
+ * REFUTED. It said the coupling is a strict parity toggle, that the trigger is
+ * register pressure (4+ simultaneously live locals), and that any function
+ * reaching the global register allocator flips it. All three are false. Measured
+ * here, each probe inserted immediately ahead of VBlankDMA_Level25 unless noted,
+ * each leaving it BIT-IDENTICAL:
+ *   - an EXACT renamed clone of EntityPickupCollect -- the very function claimed
+ *     to be the toggle, so it is not a parity over "such functions";
+ *   - a probe with 4 simultaneously live locals, the stated threshold;
+ *   - a probe with 12 live locals that genuinely allocates r8/r9 and spills
+ *     (`sub sp, #16`), so it is neither register pressure nor "reaches the
+ *     global allocator";
+ *   - a probe with a body but no locals, and a probe with one local;
+ *   - 1 and 4 blank lines, which rules out a line-number effect;
+ *   - deleting EITHER TransitionSoftReset OR CopyBGScrollTiles on its own.
+ * And these DO flip it, which no monotone "pressure" or "count parity" story
+ * survives: inserting 1, 2 or 3 empty `void ProbeEmpty(void) {}` functions here
+ * (all three flip; it does not toggle back), while the same empty function
+ * inserted ~2900 lines earlier does not; and deleting TransitionSoftReset and
+ * CopyBGScrollTiles TOGETHER, though neither alone changes anything.
+ *
+ * So the coupling is real, the six bytes are real, and the CAUSE IS OPEN. Do not
+ * act on the old rule: "add any 4-local function to restore parity" is false and
+ * sends you on a search that cannot terminate. If VBlankDMA_Level25 goes six bytes
+ * wrong, put this file back as it was rather than hunting for a counterweight.
  */
 void EntityPickupCollect(u8 slot) {
     u8 lives;
@@ -1640,6 +1680,29 @@ void UpdateHUDCollectibleCountAlt(void) {
  * same unk10 == 1 and level == 1 / else split. Nor was the panel ever seen on
  * screen: every shipped savestate is world 1, so the function was exercised by
  * appending it to the game's own frame-callback queue.
+ *
+ * MATCHING. Three source shapes decide this one, and each was re-checked here as a
+ * single-lever ablation OFF the matching source (change one thing, rebuild
+ * build/src/code_1.o, diff this function's disassembly):
+ *   - the DMA loop's counter is `u32`, not `u8`: a u8 makes agbcc wrap `i++` in
+ *     lsl/lsr #24 and blocks strength reduction of the two address givs. The
+ *     function grows from 264 to 269 instructions and almost every line moves.
+ *   - TWO pointer locals `p` and `q`, not one. Both start from gUnk_03004670, but
+ *     the ROM keeps them as separate live ranges (r2, dead before the calls, vs r5,
+ *     live across them), and agbcc has no live-range splitting, so one C variable
+ *     would mean one hard register for both. Collapsing them to one keeps the
+ *     length but moves 14 instructions.
+ *   - the blit uses the row/column index form, `[(0x16 + i) * 0x20 + 0x12]` and
+ *     `[(i * 0x20) + 0x14]`. The flat form `[0x2D2 + i * 0x20]` folds to the same
+ *     addresses but changes which pseudo the global allocator ranks first, so the
+ *     DMA src/dst registers come out in the wrong order: same length, 14
+ *     instructions moved.
+ *
+ * The commit that matched this (6066726, under its old name UpdateHUDTimerAndLives)
+ * quoted `201 -> 55 -> 24 -> 10 -> 0`. Read that as a FORWARD chain -- each number
+ * is the score after adding one more lever on the way in -- not as per-lever
+ * ablation costs off the finished source. The two are different measurements and
+ * the commit did not say which it was reporting.
  */
 void UpdateHUDTimePanel(void) {
     u32 i;

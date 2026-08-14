@@ -135,9 +135,22 @@ void FadeOutController(void) {
  *
  * The counter is *not* cached in a local: the three trailing tests each spell
  * `sceneCtrl[0]`, which agbcc's CSE collapses to one load plus a register copy
- * (`ldr r3` / `adds r2, r3, #0`) and a five-register push. Hoisting it into a
- * `u32 t` local gives one live pseudo, a `push {r4, lr}` prologue, and costs 25
- * points. (The second read is spelled `vu32`; that is NOT load-bearing -- replacing it
+ * (`ldr r3` / `adds r2, r3, #0`). Hoisting it into a `u32 t` local deletes that
+ * second copy (two `adds rX, rY, #0` become one) and moves the 0xFFFFFF00 pool
+ * constant out of r5 into r2, which is the whole difference.
+ *
+ * Two things the decompiling commit (6ecdbdb) said about this lever do NOT
+ * reproduce when the function is built in its real translation unit, and the
+ * likely reason is that the commit measured a STANDALONE candidate: the prologue
+ * does not collapse to `push {r4, lr}` -- both spellings emit `push {r4, r5, lr}`
+ * (0xB530), which is three registers, not the "five-register push" claimed -- and
+ * the constant does not land in r3. Only the register the constant occupies
+ * differs, r5 versus r2, and `ldr rX, =0xFFFFFF00` is emitted either way. See the
+ * translation-unit coupling note above EntityPickupCollect in src/code_1.c for why
+ * a standalone measurement of an agbcc function can disagree with the same
+ * function inside its .c.
+ *
+ * (The second read is spelled `vu32`; that is NOT load-bearing -- replacing it
  * with a plain `sceneCtrl[0]` leaves the whole ROM byte-exact. An earlier version of
  * this comment claimed it prevented a CSE on the non-call path; no such CSE occurs.)
  */
@@ -304,9 +317,14 @@ INCLUDE_ASM("asm/nonmatchings/gfx", LoadBGTilemapData);
  *    ldscript.in.txt) and indexed [row][layer - 2] EVERYWHERE, including inside
  *    the two BGxCNT arms where `layer` is a known constant. Spelling those arms
  *    `[row][0]` / `[row][1]` costs 59: it leaves one table base CSE'd into a
- *    callee-saved register across the CalcBGScrollMapSize call -- one long-lived
- *    value more than the ROM has -- and the whole register file shifts. Casting
- *    all seven tables to address constants instead costs 94.
+ *    callee-saved register across the CalcBGScrollMapSize call and the whole
+ *    register file shifts (167 instructions become 170). It does NOT add a
+ *    long-lived value, though an earlier version of this note said so: build both
+ *    and the prologue and the epilogue are the same instructions -- the same
+ *    `push {r4, r5, r6, r7, lr}` plus `mov r7, sl / r6, r9 / r5, r8`, and the same
+ *    `pop {r3, r4, r5} / mov r8, r3 / mov r9, r4 / mov sl, r5 / pop {r4, r5, r6,
+ *    r7} / pop {r0} / bx r0` -- so the set of callee-saved registers is identical.
+ *    Casting all seven tables to address constants instead costs 94.
  *
  *  - The affine flag is assigned straight from the comparison rather than through
  *    an `if` and a local. The assignment expands its destination address first,
@@ -849,6 +867,17 @@ extern void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 ar
  *   - `group` is a u16, not a u32 -- the lsl/lsr #0x10 pair after the
  *     ReadUnalignedU16 call is the truncation, and it also gives the loop the
  *     `group * 2` it CSEs out of the guard.
+ *   - the loop is a `for` with the test at the top; agbcc rotates it itself.
+ *     Hand-rotating into `if (...) do { ... } while (...)` is the same control
+ *     flow but lets agbcc strength-reduce the whole address into one induction
+ *     pointer in r5, collapsing the four high-register live values the ROM keeps
+ *     (r7 = group*2, r9 = group, r10 = base, r8 = i*0xC). The commit that matched
+ *     this function (585501c) recorded the `for` form as scoring 1, "the known
+ *     alignment-halfword floor". There is no residual: that measurement predates
+ *     the target-generation fixes made later on this same branch (6be0678,
+ *     3e6d6c5), and with `make expected` producing gfx as MATCH the function is
+ *     byte-exact against the ROM. The 40-point gap over the hand-rotated form
+ *     stands; the leftover 1 does not.
  */
 void StreamCmd_SetupSpriteGroup(void) {
     u16 group;
