@@ -15,6 +15,16 @@ void ProcessStaticBGScroll(void);
 void ProcessSpriteOscillation(void);
 extern s16 ReciprocalQ8(s16 a);
 extern s16 MultiplyQ8(s16 a, s16 b);
+/* DivideQ8 is defined in src/math.c with an s16 return type, but it sign-extends
+ * its result before returning (the trailing `lsls #16 / asrs #16` in its ROM code),
+ * so an s32-returning declaration observes exactly the same values. It has to be
+ * declared that way here: with an s16 return type agbcc re-narrows the returned
+ * value in the CALLER, and StreamCmd_InitAngleMotion feeds the result to two u16
+ * stores, so that conversion has two uses, combine cannot fold it into a store, and
+ * the function carries two instructions the ROM does not have. The parameters must
+ * still be prototyped as s16 — that is what produces the narrowing of the arguments
+ * at the call site. */
+extern s32 DivideQ8(s16 num1, s16 num2);
 void m4aSoundVSyncOff(void);
 void m4aMPlayAllStop(void);
 void m4aSoundVSyncOn(void);
@@ -123,7 +133,7 @@ u32 ReadUnalignedU16(u8 *ptr) {
  * ReadUnalignedS16: reads a signed 16-bit value from a potentially
  * unaligned address. Assembles two bytes in little-endian order with sign extension.
  */
-s16 ReadUnalignedS16(u8 *ptr) {
+s32 ReadUnalignedS16(u8 *ptr) {
     return (s16)(ptr[0] + (ptr[1] << 8));
 }
 
@@ -1078,7 +1088,69 @@ void StreamCmd_InitMotionWithPalette(void) {
     }
     gStreamPtr += 10;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitAngleMotion);
+/**
+ * StreamCmd_InitAngleMotion: start a linear tween on the GfxStreamEntry selected by
+ * stream byte[2], driving it with ProcessMotionStepExtended in target mode 1.
+ *
+ * Stream layout (7 bytes):
+ *   [2]      entry index
+ *   [3..4]   total delta, unaligned s16 — written to BOTH axis targets (unk_04 = X,
+ *            unk_06 = Y), so the tween moves both axes by the same amount
+ *   [5]      duration in frames; the per-frame step is total/frames
+ *   [6]      read (the handler fetches [5..6] as an unaligned s16) but DEAD: the
+ *            result is shifted left by 8 and narrowed to s16 for DivideQ8's second
+ *            parameter, which discards the high byte. Only byte[5] survives.
+ *
+ * The per-frame step is `DivideQ8(unk_06, byte[5] << 8)` — i.e. (total << 8) /
+ * (frames << 8) = total / frames — and it is written to both unk_08 (X step) and
+ * unk_0A (Y step). unk_0C/unk_0E (the accumulated distance UpdateLinearInterpolation
+ * compares against unk_04/unk_06) are cleared, `param` is set to 1, the callback is
+ * ProcessMotionStepExtended, the entry type is 1 (active), and the stream advances 7.
+ *
+ * Note the step is recomputed from the entry's own unk_06 rather than from the local
+ * copy of the stream value — the handler stores the total, then reads it back as a
+ * signed halfword (the `ldsh` in the ROM) to divide it.
+ *
+ * What mode 1 drives (read off ProcessMotionStepExtended's jump table at 0x0804CCB0,
+ * which switches on `param`, cases 0..4): case 1 adds the X step to the halfword at
+ * 0x030034AC and the Y step to the halfword at 0x03005420 — gBg2XMag and gBg2YMag,
+ * named by WriteStreamValue_Dual above. So this command ramps the BG2 magnification
+ * pair by `total` over `frames` frames; since both axes get the same delta and step,
+ * it is a uniform BG2 zoom tween. (Runtime confirmation of the two globals' effect is
+ * still owed; the field roles come from UpdateLinearInterpolation at 0x0804C9A8,
+ * which uses unk_04/unk_06 as the per-axis targets, unk_08/unk_0A as the per-axis
+ * steps, unk_0C/unk_0E as the accumulators, and reports "finished" when the two steps
+ * read as one word are 0.)
+ */
+void StreamCmd_InitAngleMotion(void) {
+    s32 total = ReadUnalignedS16(gStreamPtr + 3);
+    s32 step;
+
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_06 = total;
+        entries[idx].unk_04 = total;
+        step = DivideQ8(entries[cmd[2]].unk_06, ReadUnalignedS16(cmd + 5) << 8);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_0A = step;
+        entries[idx].unk_08 = step;
+        idx = cmd[2];
+        entries[idx].unk_0E = 0;
+        entries[idx].unk_0C = 0;
+        entries[cmd[2]].param = 1;
+        entries[cmd[2]].callback = (u32)ProcessMotionStepExtended;
+        entries[cmd[2]].type = 1;
+    }
+    gStreamPtr += 7;
+}
 /*
  * Shape shared by the StreamCmd_Init* handlers below (agbcc 2.95 matching notes).
  * StreamCmd_InitFrameAnimation and StreamCmd_InitHBlankWait predate it and still
