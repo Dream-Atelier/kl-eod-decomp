@@ -58,10 +58,11 @@ DATA_START = 0x52000
 HANDCRAFTED_M4A0_START = 0x0804F284
 HANDCRAFTED_M4A0_END = 0x0804FEA0  # exclusive
 
-# Mid-function entry points that luvdis identifies as separate functions
-# but are actually internal labels of a larger C-defined function.
-# Skip these so generate_asm.py doesn't emit .s files / re-add
-# INCLUDE_ASM lines for them.
+# Mid-function entry points that luvdis (or _detect_sub_functions) identifies
+# as separate functions but are actually internal labels of a larger C-defined
+# function.  _merge_fragments absorbs these into the preceding group
+# unconditionally, so no .s file / INCLUDE_ASM line is emitted for them AND
+# their bytes stay in the parent's .s.
 INSIDE_C_FUNCTION_ADDRESSES = {
     # _08050C70: an internal sub-label of CgbSound (0x08050AFC).  In the
     # original ROM this is the "SoundMixerMain" label luvdis split off,
@@ -710,6 +711,37 @@ def _merge_fragments(func_entries, c_impl_addrs=frozenset()):
             next_name = func_entries[j + 1][0]
             next_addr = func_entries[j + 1][1]
             next_lines = func_entries[j + 1][3]
+            # ALWAYS absorb a known mid-C-function entry point, before every
+            # guard below.  Those addresses are not functions at all — they are
+            # internal labels of a larger C-defined function — so the bytes from
+            # here to the parent's end belong in the parent's .s file.
+            #
+            # This must come first because every guard below fires on such a
+            # label and would end the group here:
+            #   * they are `push {…, lr}`-shaped (that is exactly how
+            #     _detect_sub_functions found _0803B3D2 in the first place), so
+            #     _starts_with_prologue breaks;
+            #   * they are heavily branched-to (_08050C70 has a `beq` from
+            #     CgbSound itself, _08041DF0 a `bl` from inside
+            #     UpdatePlayerAlternate), so the external_refs guard breaks.
+            # Leaving them as their own group head is not harmless: they are
+            # then dropped outright by _filter_handcrafted_m4a0, taking the
+            # whole group they had absorbed with them.  Measured before this
+            # fix: UpdateWorldMapNodeAnim.s held 88 of its 648 ROM bytes and
+            # UpdatePlayerAlternate.s 3796 of 3960, and those bytes existed
+            # nowhere else in the repo.
+            #
+            # Absorbing here is safe for the build precisely because these are
+            # mid-C-function labels: the parent that swallows them is always a
+            # C-implemented function, whose .s is moved to asm/matchings/ and is
+            # never assembled into the ROM (only asm/nonmatchings/*.s reaches it,
+            # via INCLUDE_ASM).  A separate .s for the label, by contrast, WOULD
+            # get an INCLUDE_ASM line and duplicate the parent's bytes.
+            if next_addr in INSIDE_C_FUNCTION_ADDRESSES:
+                j += 1
+                group.append(func_entries[j][0])
+                merged.extend(func_entries[j][3])
+                continue
             # Never absorb a function that is implemented in C — its symbol is
             # emitted by the compiled C, so pulling it into an asm .s defines
             # it twice.
@@ -778,6 +810,12 @@ def _filter_handcrafted_m4a0(entries):
         if HANDCRAFTED_M4A0_START <= addr < HANDCRAFTED_M4A0_END:
             skipped += 1
             continue
+        # Safety net only.  _merge_fragments now absorbs every
+        # INSIDE_C_FUNCTION_ADDRESSES entry into the preceding group before any
+        # guard runs, so such an address can only still be a group head if it is
+        # the first entry of its module (no predecessor to absorb it).  Dropping
+        # it here DELETES its bytes -- and everything its own group absorbed --
+        # from asm/ entirely, so this is a loud warning, not a routine "fold".
         if addr in INSIDE_C_FUNCTION_ADDRESSES:
             skipped_inside += 1
             continue
@@ -785,7 +823,8 @@ def _filter_handcrafted_m4a0(entries):
     if skipped:
         print(f"    Skipped {skipped} m4a0.s-range functions (own asm file)")
     if skipped_inside:
-        print(f"    Skipped {skipped_inside} mid-C-function labels (folded into parent)")
+        print(f"    WARNING: dropped {skipped_inside} mid-C-function label(s) that "
+              f"_merge_fragments did not absorb — their ROM bytes are now in no .s file")
     return kept
 
 
