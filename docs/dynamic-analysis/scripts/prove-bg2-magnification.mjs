@@ -1,5 +1,5 @@
 // PROOF (runtime): gBg2XMag (0x030034AC) and gBg2YMag (0x03005420) are the BG2
-// affine MAGNIFICATION pair, and StreamCmd_InitAngleMotion (0x0804D8D4) is a BG2
+// affine MAGNIFICATION pair, and StreamCmd_InitBg2Zoom (0x0804D8D4) is a BG2
 // zoom tween — there is no angle anywhere in it.
 //
 // Two claims were open. The repo already *called* those two cells gBg2XMag/gBg2YMag,
@@ -9,7 +9,7 @@
 //   A. gBg2XMag scales BG2 horizontally and gBg2YMag scales it vertically, i.e. each
 //      reaches its own pair of REG_BG2P* registers (include/io_reg.h: BG2PA 0x04000020,
 //      BG2PB 0x04000022, BG2PC 0x04000024, BG2PD 0x04000026).
-//   B. StreamCmd_InitAngleMotion moves exactly those two cells, over the frame count
+//   B. StreamCmd_InitBg2Zoom moves exactly those two cells, over the frame count
 //      in the command, and nothing else.
 //
 // METHOD. Each experiment forces ONE value, holds everything else, and is run a
@@ -29,7 +29,7 @@
 //   E3 freezes a level savestate and executes the two commands the shipped script
 //      really contains, back to back, on the real CPU: `FF 34 00 02`
 //      (WriteStreamValue_Dual) and then `FF 46 02 00 FF 0F 00`
-//      (StreamCmd_InitAngleMotion), both fetched through the ROM's own dispatch table
+//      (StreamCmd_InitBg2Zoom), both fetched through the ROM's own dispatch table
 //      at 0x0811787C rather than by hard-coded address. Then it ticks the installed
 //      callback and watches the two magnifications move. The control re-runs the same
 //      15 ticks with the entry's `param` field set to 0 instead of 1, which is the one
@@ -218,7 +218,7 @@ for (const op of [0x34, 0x46]) {
     const t = handler(op);
     console.log(
         `  FF ${op.toString(16)} -> table 0x${t.table.toString(16)} slot ${t.idx} -> 0x${t.fn.toString(16)}` +
-            ` (${op === 0x34 ? 'WriteStreamValue_Dual 0x0804C86C' : 'StreamCmd_InitAngleMotion 0x0804D8D4'})`,
+            ` (${op === 0x34 ? 'WriteStreamValue_Dual 0x0804C86C' : 'StreamCmd_InitBg2Zoom 0x0804D8D4'})`,
     );
 }
 

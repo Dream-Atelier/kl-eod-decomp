@@ -22,7 +22,7 @@
 //
 // Two of the round-5 naming questions are answered directly by the output:
 //   * StreamCmd_InitSpriteWave (FF 4C): which wave-table row do real scripts select?
-//   * StreamCmd_InitAngleMotion (FF 46): what magnification does the script set before
+//   * StreamCmd_InitBg2Zoom (FF 46): what magnification does the script set before
 //     the tween, and where does the tween land?
 //
 // Run: GBA_KIT=... node docs/dynamic-analysis/scripts/scan-gfx-stream-commands.mjs
@@ -136,7 +136,7 @@ for (const p of problems) console.log('   ' + p);
 
 // Three handlers need a hand-supplied length; each reason is checkable from the
 // disassembly this script prints, and none of the three is a command under test.
-//   FF 24 StreamCmd_SetupOAMSpriteGroup: `gStreamPtr += 4` in src/gfx.c. It only
+//   FF 24 StreamCmd_SetupSpriteGroup: `gStreamPtr += 4` in src/gfx.c. It only
 //         times out because a nonsense payload makes its OAM loop run away.
 //   FF 81 / FF 86: both end in `adds r0, #0x2 / str r0, [stream]`, printed below.
 //         They time out inside an m4a call that spins on the zeroed sound state.
@@ -230,11 +230,11 @@ for (const h of waves) {
 const rows = new Set(waves.map((h) => h.bytes[4] >> 4));
 console.log(`   -> rows selected by real scripts: {${[...rows].join(', ')}}   (the table has rows 0..3)`);
 
-// ── StreamCmd_InitAngleMotion, and the magnification write that precedes it ────
+// ── StreamCmd_InitBg2Zoom, and the magnification write that precedes it ────
 const dual = dump(0x34, 'WriteStreamValue_Dual (sets gBg2XMag = gBg2YMag)');
 for (const h of dual)
     console.log(`     -> gBg2XMag = gBg2YMag = 0x${(h.bytes[2] | (h.bytes[3] << 8)).toString(16)}`);
-const angle = dump(0x46, 'StreamCmd_InitAngleMotion');
+const angle = dump(0x46, 'StreamCmd_InitBg2Zoom');
 console.log('   decoded, paired with the last WriteStreamValue_Dual before each one:');
 for (const h of angle) {
     const b = h.bytes;
@@ -250,8 +250,8 @@ for (const h of angle) {
     );
 }
 
-// ── StreamCmd_InitMotionWithPalette ───────────────────────────────────────────
-const win = dump(0x44, 'StreamCmd_InitMotionWithPalette');
+// ── StreamCmd_InitWindowCornerMotion ───────────────────────────────────────────
+const win = dump(0x44, 'StreamCmd_InitWindowCornerMotion');
 console.log('   decoded (byte[3] = the entry targetIndex ProcessMotionStepExtended case 4 reads):');
 const seenTargets = new Map();
 for (const h of win) {
@@ -273,7 +273,7 @@ console.log(
 );
 
 // ── the alias question ────────────────────────────────────────────────────────
-// StreamCmd_InitMotionWithPalette sits in TWO dispatch tables, so it has two legal
+// StreamCmd_InitWindowCornerMotion sits in TWO dispatch tables, so it has two legal
 // spellings. Only one is used.
 console.log('\n=== the same handler, reached through two tables ===');
 for (const op of [0x44, 0x2e]) {

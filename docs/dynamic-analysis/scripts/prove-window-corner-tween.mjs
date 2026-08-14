@@ -1,4 +1,4 @@
-// PROOF (runtime): StreamCmd_InitMotionWithPalette (0x0804D798) has nothing to do
+// PROOF (runtime): StreamCmd_InitWindowCornerMotion (0x0804D798) has nothing to do
 // with palettes. It animates one CORNER of one hardware window: a linear tween on a
 // pair of gLevelStatePtr window-clip bounds, which UpdateAffineRegisters packs into
 // REG_WIN0H / REG_WIN1H / REG_WIN0V / REG_WIN1V.
@@ -23,7 +23,7 @@
 // run in any reachable savestate, so this freezes a real in-level state (no frames
 // advance, nothing else can touch a window register) and executes the ROM's own code
 // end to end: the shipped command bytes -> StreamCmd_RunScript's dispatch table ->
-// StreamCmd_InitMotionWithPalette -> the installed ProcessMotionStepExtended
+// StreamCmd_InitWindowCornerMotion -> the installed ProcessMotionStepExtended
 // callback, ticked -> UpdateAffineRegisters -> the hardware registers.
 //
 // Every trial has a control: the identical run with dX = dY = 0, which must move no
@@ -152,7 +152,7 @@ function handler(op) {
 }
 const HANDLER_44 = handler(0x44);
 console.log(
-    `\n  FF 44 dispatches to 0x${HANDLER_44.toString(16)} (StreamCmd_InitMotionWithPalette = 0x${mustSymbol(di, 'StreamCmd_InitMotionWithPalette').toString(16)})`,
+    `\n  FF 44 dispatches to 0x${HANDLER_44.toString(16)} (StreamCmd_InitWindowCornerMotion = 0x${mustSymbol(di, 'StreamCmd_InitWindowCornerMotion').toString(16)})`,
 );
 
 const WINREGS = ['WIN0H', 'WIN1H', 'WIN0V', 'WIN1V'];

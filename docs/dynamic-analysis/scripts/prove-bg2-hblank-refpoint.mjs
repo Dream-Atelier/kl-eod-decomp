@@ -1,4 +1,4 @@
-// PROOF for the function called UpdateAffineBGParams (src/engine.c, ROM 0x08000FCC).
+// PROOF for the function called HBlankBg2RefPointUpdate (src/engine.c, ROM 0x08000FCC).
 //
 // Four questions, each answered by an intervention with its control:
 //
@@ -70,7 +70,7 @@ const PI_2 = 64; // include/data/trig.h: full circle = 256
 // ---------------------------------------------------------------------------
 // Q2a: read the function's literal pool out of the ROM and anchor it on symbols
 // ---------------------------------------------------------------------------
-const FN = need('UpdateAffineBGParams') & ~1;
+const FN = need('HBlankBg2RefPointUpdate') & ~1;
 const A_BG2X = need('gBg2X');
 const A_BG2Y = need('gBg2Y');
 const A_ALPHA = need('gBg2Alpha');
@@ -79,7 +79,7 @@ const A_INTR = need('gIntrTable');
 const M_HBLANK = di.structMember('IntrTable', 'hBlank');
 if (!M_HBLANK) throw new Error('no DWARF member IntrTable.hBlank');
 
-console.log('UpdateAffineBGParams @', hex(FN), ' gBg2X', hex(A_BG2X), ' gBg2Y', hex(A_BG2Y),
+console.log('HBlankBg2RefPointUpdate @', hex(FN), ' gBg2X', hex(A_BG2X), ' gBg2Y', hex(A_BG2Y),
     ' gBg2Alpha', hex(A_ALPHA), ' gSineTable', hex(A_SINE));
 console.log('\n--- literal pool of the function itself (read from ROM) ---------');
 const pool = [];
@@ -141,7 +141,7 @@ const byPc = new Map();
 for (const h of mapHits) byPc.set(h.pc, (byPc.get(h.pc) ?? 0) + 1);
 console.log(`  writes to REG_BG2X/REG_BG2Y in one frame: ${mapHits.length}`);
 for (const [pc, n] of [...byPc].sort((a, b) => b[1] - a[1]).slice(0, 6)) {
-    console.log(`    ${hex(pc)} x${n}  ${inFn(pc) ? 'INSIDE UpdateAffineBGParams' : srcOf(mapHits.find((h) => h.pc === pc))}`);
+    console.log(`    ${hex(pc)} x${n}  ${inFn(pc) ? 'INSIDE HBlankBg2RefPointUpdate' : srcOf(mapHits.find((h) => h.pc === pc))}`);
 }
 const fnHits = mapHits.filter((h) => inFn(h.pc));
 const lines = [...new Set(fnHits.map((h) => h.vcount))].sort((a, b) => a - b);
@@ -164,7 +164,7 @@ console.log(`  gIntrTable.hBlank still ${hex(hb2)} -> ${di.addressToSymbol(hb2 &
 const lvlHits = await traceRefPointWrites(1);
 console.log(`  writes to REG_BG2X/REG_BG2Y in one frame: ${lvlHits.length}`);
 for (const h of [...new Map(lvlHits.map((h) => [h.pc, h])).values()]) {
-    console.log(`    ${hex(h.pc)}  ${inFn(h.pc) ? 'INSIDE UpdateAffineBGParams' : srcOf(h)}  at REG_VCOUNT=${h.vcount}`);
+    console.log(`    ${hex(h.pc)}  ${inFn(h.pc) ? 'INSIDE HBlankBg2RefPointUpdate' : srcOf(h)}  at REG_VCOUNT=${h.vcount}`);
 }
 console.log(`  hits from inside the function: ${lvlHits.filter((h) => inFn(h.pc)).length}`);
 

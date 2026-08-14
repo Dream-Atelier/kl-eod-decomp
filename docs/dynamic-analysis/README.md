@@ -28,11 +28,14 @@ GBA_KIT=../gba-kit node docs/dynamic-analysis/scripts/prove-button-wait.mjs
 Scripts that resume from a savestate need one captured at the right point; the
 default is an in-level idle frame.
 
-Two files in `scripts/` are not experiments: `gba-kit.mjs` locates the emulator,
-and `_harness.mjs` exports `ROM` / `ELF` / `SAVES` plus `readField` / `writeField`,
-which decode a DWARF `MemberLocation` (bitfields included) through the emulator bus.
-Every script must go through those helpers rather than hand-coding an offset or a
-mask.
+Three files in `scripts/` are not experiments: `gba-kit.mjs` locates the emulator;
+`_harness.mjs` exports `ROM` / `ELF` / `SAVES` plus `readField` / `writeField`,
+which decode a DWARF `MemberLocation` (bitfields included) through the emulator bus;
+and `_callrom.mjs` exports `makeCaller` / `mustSymbol` / `SENTINEL`, which single-step
+one Thumb ROM function on the real CPU with `r0`..`r3`, `lr` and `pc` set by hand —
+needed for the code paths (the gfx-stream dispatcher and the script executor) that no
+reachable savestate ever executes on its own. Every script must go through those
+helpers rather than hand-coding an offset, a mask or a call sequence.
 
 ## Caveats
 

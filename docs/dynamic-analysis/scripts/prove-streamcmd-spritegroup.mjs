@@ -1,4 +1,4 @@
-// PROOF: what the stream command at 0x0804C300 (StreamCmd_SetupOAMSpriteGroup) really
+// PROOF: what the stream command at 0x0804C300 (StreamCmd_SetupSpriteGroup) really
 // writes, and what its 16-bit operand selects.
 //
 // The name asserts three things that static reading cannot settle, and one of them is
@@ -23,7 +23,7 @@
 //   stops after our command instead of running the rest of the stream misaligned.
 //
 // Every write performed *from inside* the command's call tree (PCs whose DWARF function
-// is StreamCmd_SetupOAMSpriteGroup or SetupOAMSprite) is recorded across all of IWRAM,
+// is StreamCmd_SetupSpriteGroup or SetupOAMSprite) is recorded across all of IWRAM,
 // so "it never touches the OAM shadow" is a measurement, not an argument: gOamBuffer
 // (0x03004800) is inside the watched range and simply never appears.
 //
@@ -48,7 +48,7 @@ const need = (n) => {
   return a >>> 0;
 };
 
-const FN = need('StreamCmd_SetupOAMSpriteGroup');
+const FN = need('StreamCmd_SetupSpriteGroup');
 const A_TABLE = need('gUnk_08189F04');
 const A_TABLE_END = need('gUnk_0818B704'); // the next symbol in ldscript.txt
 const A_ENT = need('gUnk_03002920');
@@ -77,7 +77,7 @@ console.log('symbols: fn', hex(FN), 'table', hex(A_TABLE), 'entities', hex(A_ENT
 // function, with the Thumb bit set.
 const entry4 = bus.read32(DISPATCH + 4 * 4) >>> 0;
 console.log(`\ndispatch table ${hex(DISPATCH)}[4] = ${hex(entry4)}  (fn|1 = ${hex(FN | 1)})  match: ${entry4 === (FN | 1) >>> 0}`);
-if (entry4 !== ((FN | 1) >>> 0)) throw new Error('dispatch entry 4 is not StreamCmd_SetupOAMSpriteGroup');
+if (entry4 !== ((FN | 1) >>> 0)) throw new Error('dispatch entry 4 is not StreamCmd_SetupSpriteGroup');
 
 const span = A_TABLE_END - A_TABLE;
 console.log(`group table spans ${hex(A_TABLE)}..${hex(A_TABLE_END)} = ${span} bytes = ${span / (16 * ROW)} groups of 16 rows x 0x${ROW.toString(16)}`);
@@ -108,7 +108,7 @@ console.log(`\nbase state: gUnk_03005428 = ${bus.read8(A_CURSOR)}, gStreamPtr = 
 const fnOf = (pc) => di.pcToFunction(pc)?.name ?? hex(pc);
 const inCmd = (h) => {
   const n = fnOf(h.instructionAddress);
-  return n === 'StreamCmd_SetupOAMSpriteGroup' || n === 'SetupOAMSprite';
+  return n === 'StreamCmd_SetupSpriteGroup' || n === 'SetupOAMSprite';
 };
 const STACK_TOP = 0x03008000,
   STACK_LO = 0x03007c00; // IWRAM stack; writes here are locals, not globals
@@ -138,7 +138,7 @@ async function trial(label, { opcode = null, group = 0 } = {}) {
   const other = [...new Set(hits.filter((h) => !(h.address >= A_ENT && h.address < A_ENT + SLOT * 128) && !(h.address >= STACK_LO && h.address < STACK_TOP) && !(h.address >= A_STREAM && h.address < A_STREAM + 4) && !(h.address >= A_CURSOR && h.address < A_CURSOR + 1)).map((h) => hex(h.address)))];
   console.log(`\n--- ${label} ---`);
   console.log(`  stream bytes written: ${opcode === null ? '(none — control)' : `FF ${opcode.toString(16)} ${(group & 0xff).toString(16)} ${((group >> 8) & 0xff).toString(16)}`} at ${hex(p)}`);
-  console.log(`  handler that ran     : ${[...new Set(hits.map((h) => fnOf(h.instructionAddress)))].join(', ') || '(no write from StreamCmd_SetupOAMSpriteGroup/SetupOAMSprite)'}`);
+  console.log(`  handler that ran     : ${[...new Set(hits.map((h) => fnOf(h.instructionAddress)))].join(', ') || '(no write from StreamCmd_SetupSpriteGroup/SetupOAMSprite)'}`);
   console.log(`  gStreamPtr advance   : ${streamWrite ? `${hex(p)} -> ${hex(streamWrite.value)} (+${streamWrite.value - p}) from ${fnOf(streamWrite.instructionAddress)}` : '(not advanced by the command)'}`);
   console.log(`  gUnk_03005428        : ${cursor0} -> ${cursor1} (+${cursor1 - cursor0})`);
   console.log(`  gUnk_03002920 slots  : ${slots.join(',') || '(none)'}`);

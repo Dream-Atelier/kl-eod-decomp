@@ -1,4 +1,4 @@
-// PROOF for the function called UpdateHUDTimerAndLives (src/code_1.c, ROM 0x08026128)
+// PROOF for the function called UpdateHUDTimePanel (src/code_1.c, ROM 0x08026128)
 // and for the three fields it draws.
 //
 // The name claims "lives". gUnk_03005220.lives is offset 0x4C and is already
@@ -53,13 +53,13 @@ const member = (s, f) => {
     return m;
 };
 
-const FN = need('UpdateHUDTimerAndLives') & ~1;
+const FN = need('UpdateHUDTimePanel') & ~1;
 const A_C20 = need('gUnk_03004C20');
 const A_5220 = need('gUnk_03005220');
 const A_4670P = need('gUnk_03004670'); // a POINTER; the record lives behind it
 const A_TILEBUF = need('gBgTilemapBufs');
 const A_QUEUE = need('gCallbackQueue');
-console.log('UpdateHUDTimerAndLives', hex(FN), ' gUnk_03004C20', hex(A_C20), ' gUnk_03005220', hex(A_5220),
+console.log('UpdateHUDTimePanel', hex(FN), ' gUnk_03004C20', hex(A_C20), ' gUnk_03005220', hex(A_5220),
     ' gUnk_03004670', hex(A_4670P), ' gBgTilemapBufs', hex(A_TILEBUF), ' gCallbackQueue', hex(A_QUEUE));
 
 const M = {
