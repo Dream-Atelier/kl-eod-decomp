@@ -137,6 +137,17 @@ void HBlankScrollUpdate(void) {
  * whether real hardware reads the same REG_VCOUNT_L inside an H-Blank IRQ as the
  * emulator does -- gba-kit reports 1..228 there, one line ahead of the 0..227 the
  * register can hold, so on a console the pivot may be scanline 59 rather than 60.
+ *
+ * MATCHING -- do NOT tidy the body. Two spellings that read as sloppiness are
+ * load-bearing, and they turn out to be the SAME lever: `line` must be `u8`, and
+ * `(line * 3 - 180)` must be written out TWICE rather than hoisted into a local.
+ * The u8 is what keeps a truncation between the two uses and stops agbcc CSE-ing
+ * them into one value. Either edit alone -- widening `line` to u32, or hoisting the
+ * subexpression -- yields the same 92-byte, 40-instruction function with nine
+ * halfwords different from the ROM, and those two broken spellings are
+ * byte-identical to each other. Reproduce by making one of them and diffing
+ * `arm-none-eabi-objdump -d build/src/engine.o`. A duplicated subexpression is
+ * precisely what a reviewer "simplifies", which is why this note exists.
  */
 void HBlankBg2RefPointUpdate(void) {
     u8 line = REG_VCOUNT_L;

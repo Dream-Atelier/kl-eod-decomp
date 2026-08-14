@@ -7,6 +7,20 @@ extern s16 sub_080518A4(s32, s16);
 /**
  * DivideQ8: fixed-point division with 8-bit left shift.
  * Computes sub_080518A4(arg0 << 8, arg1).
+ *
+ * The s16 return type is load-bearing HERE and must not be "corrected" to match the
+ * `extern s32 DivideQ8(s16, s16)` that src/gfx.c declares. The two are deliberately
+ * different and the reasoning is written up beside that declaration: this s16
+ * definition sign-extends its result before returning (the trailing
+ * `lsls r0, r0, #16 / asrs r0, r0, #16` in its ROM code), so an s32-returning
+ * DECLARATION observes exactly the same values while stopping agbcc from
+ * re-narrowing in the caller. Widen the definition to s32 and those two
+ * instructions disappear from this function's own body, and it stops matching.
+ *
+ * The pairing is not enforced, but it cannot go wrong silently: put the s32
+ * declaration in scope of this definition -- e.g. by adding it to a header math.c
+ * includes -- and agbcc exits 1, so `make` stops with `Error 1` instead of quietly
+ * miscompiling.
  */
 s16 DivideQ8(s16 num1, s16 num2) {
     return (num1 << 8) / num2;

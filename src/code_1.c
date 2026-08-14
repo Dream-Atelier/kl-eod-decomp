@@ -557,8 +557,19 @@ void EntityPickupCollect(u8 slot) {
  * Entities are skipped unless unkF <= 0x1A and != 0x19 (dying//inactive states)
  * and kind > 0x6D. The hit test is an axis-aligned box overlap: the projectile
  * box is +-0xC by +-0x18, the entity's horizontal half-extents come from its
- * kind (0x70 -> 15/15, 0x6F -> 15/7, otherwise 12/12, all stored as the u16 two's
- * complement so the sums wrap in 16 bits).
+ * kind (0x70 -> 15/15, 0x6F -> 15/7, otherwise 12/12).
+ *
+ * The half-extents are `u16` holding the two's complement (0xFFF1/0xFFF9/0xFFF4)
+ * rather than `s16` -15/-7/-12, and that IS load-bearing -- but not for the reason
+ * the decompiling commit (ecd8c07) gave. It said the `s16` spelling makes the
+ * literal-pool words sign-extend. It does not: build both and the pool words are
+ * byte-identical, `.word 0x0000fff1 / 0x0000fff1 / 0x0000fff9 / 0x0000fff4` either
+ * way. The entire difference across the 608-byte function is ONE byte, at offset
+ * 0xAC, where the operands of a single add swap -- `adds r1, r1, r2` (0x1889, what
+ * the ROM has) becomes `adds r1, r2, r1` (0x1851). "One byte off" was right; the
+ * cause was not, and is not established. Reproduce by declaring both locals `s16`,
+ * spelling the three constants -15/-7/-12, and diffing
+ * `arm-none-eabi-objdump -d build/src/code_1.o`.
  *
  * On a hit, the entity's kind selects the reaction:
  *   0x6E KLONOA  - kill the player (PlayerRespawnOrDeath(1)) unless the death

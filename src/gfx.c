@@ -104,8 +104,9 @@ void FadeOutController(void) {
  *                             LoadBGPalette and VBlankCallback_TitleScreen into
  *                             callback slots 1 and 2, clear gUnk_03004D9C, park
  *                             the blend level at 0x10 (fully black) and set
- *                             REG_BLDCNT = 0xFF, which is
- *                             BLDCNT_TGT1_ALL | BLDCNT_EFFECT_DARKEN.
+ *                             REG_BLDCNT = BLDCNT_TGT1_ALL |
+ *                             BLDCNT_EFFECT_DARKEN (0x3F | 0xC0 = 0xFF, the
+ *                             literal this used to be spelled as).
  *
  * gUnk_03005498 is the BLDY darken level, and is the same cell as code_1.c's
  * gBlendValue and game.h's gFrameCounter -- three names for 0x03005498, of
@@ -165,7 +166,7 @@ void UpdateSceneTransition(void) {
         gCallbackStateArray[2] = (u32)VBlankCallback_TitleScreen;
         gUnk_03004D9C = 0;
         gUnk_03005498 = 0x10;
-        REG_BLDCNT = 0xFF;
+        REG_BLDCNT = BLDCNT_TGT1_ALL | BLDCNT_EFFECT_DARKEN;
     }
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", SetupSceneGfx);
@@ -315,17 +316,28 @@ INCLUDE_ASM("asm/nonmatchings/gfx", LoadBGTilemapData);
  *  - `& 0xFFFF` on the screenbase group is load-bearing, not cosmetic. agbcc's
  *    fold reassociates `X | (S | CONST)` into `(X | CONST) | S`, which ORs
  *    0x2040 into the accumulator before the screenblock byte; the mask puts a
- *    BIT_AND node between the two BIT_IORs so the group survives as a subtree,
- *    and the truncation it leaves behind is the extra register copy the ROM has.
+ *    BIT_AND node between the two BIT_IORs so the group survives as a subtree.
  *    Dropping it costs 39. A `(u16)` cast does NOT substitute -- it folds away
- *    before that pass and the group is reassociated anyway.
+ *    before that pass, and its output is BYTE-IDENTICAL to dropping the mask
+ *    entirely, which is a stronger statement than "does not substitute".
+ *
+ *    What the mask contributes is evaluation ORDER, not an instruction. An
+ *    earlier version of this note ended by calling the truncation "the extra
+ *    register copy the ROM has"; there is no truncation. Both spellings emit
+ *    exactly 167 instructions and exactly two `adds rX, rY, #0` copies, and
+ *    neither contains a `lsl/lsr #16` or a masking `and` anywhere in the group
+ *    (the function's only two `ands` are the `REG_DISPCNT & 0xFFF8`
+ *    read-modify-write). Diff the two disassemblies and the entire delta is
+ *    that `movs rX,#0x81 / lsls rX,#6 / adds rY,rX,#0` -- the materialisation
+ *    of 0x2040, which is where the copy comes from -- moves from after the
+ *    screenblock byte to before it.
  */
 void SetupLevelLayerConfig(u32 sceneIdx, u32 layerIdx) {
     u32 layer = gBgLayerLookup[sceneIdx][layerIdx][1];
     u32 row = gBgLayerLookup[sceneIdx][layerIdx][0];
 
-    gBgInfo[layer].pTiles = (void *)(0x06000000 + (gLayerCharBlock[row][layer - 2] << 14));
-    gBgInfo[layer].pTilemap = (void *)(0x06000000 + (gLayerScreenBlock[row][layer - 2] << 11));
+    gBgInfo[layer].pTiles = (void *)(VRAM + (gLayerCharBlock[row][layer - 2] << 14));
+    gBgInfo[layer].pTilemap = (void *)(VRAM + (gLayerScreenBlock[row][layer - 2] << 11));
     gBgInfo[layer].hOfs = 0;
     gBgInfo[layer].vOfs = 0;
     gBgInfo[layer].hLength = gLayerMapWidth[row][layer - 2];
