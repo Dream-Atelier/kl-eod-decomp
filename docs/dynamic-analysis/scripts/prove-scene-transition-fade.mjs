@@ -115,6 +115,9 @@ async function run(label, { force = null, shots = [] } = {}) {
   const rows = [];
   const events = [];
   const pending = new Map(shots);
+  // The counter value AT the frame each one-shot event fires — "the music starts
+  // exactly 32 frames in" is a claim about the counter, not about a hit existing.
+  const firedAt = {};
   for (let frame = 1; frame <= 900; frame++) {
     await eng.wait({ frames: 1 });
     const running = (bus.read32(A_QUEUE + 4) >>> 0) === ((FN | 1) >>> 0);
@@ -123,6 +126,8 @@ async function run(label, { force = null, shots = [] } = {}) {
     if (force && c >= force.from && c <= force.to) bus.write8(A_BYTE, force.value);
     const row = { f: frame, c, b: bus.read8(A_BYTE), bldy: eng.read16(REG_BLDY), bldalpha: eng.read16(REG_BLDALPHA), bldcnt: eng.read16(REG_BLDCNT), l: lum() };
     rows.push(row);
+    for (const [k, w] of [['REG_IE', wIe], ['REG_DISPSTAT', wStat], ['song 0x21', wSong], ['callback swap', wQueue]])
+      if (w.hits.length && firedAt[k] === undefined) firedAt[k] = c;
     for (const [name, want] of pending) {
       if (c === want) {
         await eng.takeScreenshot({ name: `${label}-${name}` });
@@ -143,6 +148,7 @@ async function run(label, { force = null, shots = [] } = {}) {
   console.log('   REG_BLDY:  ' + [0x10, 0x11, 0x18, 0x20, 0x2f, 0x30, 0x80, 0x100, 0x101, 0x120, 0x13f].map((c) => String(at(c).bldy ?? '?').padStart(5)).join(' '));
   console.log('   luminance: ' + [0x10, 0x11, 0x18, 0x20, 0x2f, 0x30, 0x80, 0x100, 0x101, 0x120, 0x13f].map((c) => String(at(c).l ?? '?').padStart(5)).join(' '));
 
+  console.log('   counter at which each one-shot event fired: ' + Object.entries(firedAt).map(([k, v]) => `${k} @ ${hex(v, 3)}`).join(', '));
   const ieHit = wIe.hits[0],
     statHit = wStat.hits[0],
     songHit = wSong.hits[0];
@@ -163,7 +169,7 @@ async function run(label, { force = null, shots = [] } = {}) {
     counterWriters.set(k, (counterWriters.get(k) ?? 0) + 1);
   }
   console.log(`   writers of the scene frame counter: ${[...counterWriters].map(([k, v]) => `${k} x${v}`).join(', ')}`);
-  return { rows, at, wQueue, ieHit, statHit, songHit };
+  return { rows, at, wQueue, ieHit, statHit, songHit, firedAt };
 }
 
 const SHOTS = [
@@ -203,8 +209,17 @@ console.log(
 const rampIn = [0x11, 0x18, 0x2f].map((c) => A.at(c).b);
 const v3 = rampIn[0] === 15 && rampIn[2] === 0 && A.at(0x10).b === 16;
 console.log(`the 0x11..0x2F ramp is a FADE-IN: byte ${A.at(0x10).b} (before) -> ${rampIn.join(' -> ')} at counters 0x11/0x18/0x2F: ${v3 ? 'CONFIRMED' : 'REFUTED'}`);
-const v4 = !!A.ieHit && (A.ieHit.value & 1) !== 0 && !!A.statHit && (A.statHit.value & 8) !== 0 && !!A.songHit;
-console.log(`at counter 0x20 it re-arms the VBlank IRQ (REG_IE bit 0 + REG_DISPSTAT bit 3) and starts song 0x21: ${v4 ? 'CONFIRMED' : 'REFUTED'}`);
+const v4 =
+  !!A.ieHit && (A.ieHit.value & 1) !== 0 && !!A.statHit && (A.statHit.value & 8) !== 0 && !!A.songHit &&
+  A.firedAt['REG_IE'] === 0x20 && A.firedAt['REG_DISPSTAT'] === 0x20 && A.firedAt['song 0x21'] === 0x20;
+console.log(
+  `at counter 0x20 (and only there) it re-arms the VBlank IRQ (REG_IE bit 0 + REG_DISPSTAT bit 3) and starts song 0x21 — ` +
+    `fired at counters ${hex(A.firedAt['REG_IE'], 3)}/${hex(A.firedAt['REG_DISPSTAT'], 3)}/${hex(A.firedAt['song 0x21'], 3)}: ${v4 ? 'CONFIRMED' : 'REFUTED'}`,
+);
+console.log(
+  `the callback swap is sampled at counter ${hex(A.firedAt['callback swap'], 3)}: it fires on the frame the counter passes 0x13F, ` +
+    `but by the time this loop samples, the same call has already stored -1 and the VBlank increment has turned that into 0`,
+);
 const slots = A.wQueue.hits.map((h) => h.address - A_QUEUE);
 const v5 = slots.includes(4) && slots.includes(8) && !slots.some((s) => s >= 0x28);
 console.log(`the handoff writes gCallbackQueue.current[1] and current[2] (offsets +0x4/+0x8), NOT next[] (+0x28..): ${v5 ? 'CONFIRMED' : 'REFUTED'}`);
