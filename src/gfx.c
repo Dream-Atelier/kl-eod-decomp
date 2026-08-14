@@ -17,7 +17,12 @@ extern s16 ReciprocalQ8(s16 a);
 extern s16 MultiplyQ8(s16 a, s16 b);
 void m4aSoundVSyncOff(void);
 void m4aMPlayAllStop(void);
+void m4aSoundVSyncOn(void);
+void m4aSongNumStart(u16 n);
 void UpdateSceneTransition(void);
+void UpdateBGTileAnimation(void);
+extern void LoadBGPalette();
+extern void VBlankCallback_TitleScreen();
 /**
  * FadeOutController: manages screen fade-out, updating fade counter
  * and switching to scene transition when complete.
@@ -44,7 +49,59 @@ void FadeOutController(void) {
     m4aSoundVSyncOff();
     m4aMPlayAllStop();
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", UpdateSceneTransition);
+/**
+ * UpdateSceneTransition: per-frame driver of the timed scene-transition sequence.
+ *
+ * Runs off the scene frame counter at gControlBlock[0], which the caller resets to
+ * 0 on entry and this function terminates by setting to -1:
+ *
+ *   counter == 0            : run one UpdateBGTileAnimation() step.
+ *   counter == 0x20         : re-arm the VBlank interrupt (REG_IE bit 0 +
+ *                             REG_DISPSTAT bit 3), restart the m4a VSync hook and
+ *                             kick song 0x21 -- i.e. the sequence's music starts
+ *                             32 frames in.
+ *   0x11 <= counter <= 0x2F : fade-in ramp, gUnk_03005498 = (0x30 - counter) >> 1.
+ *   0x101 <= c <= 0x13F     : fade-out ramp, gUnk_03005498 = (counter - 0x100) >> 2.
+ *   counter > 0x13F         : done -- stop the counter, install LoadBGPalette and
+ *                             VBlankCallback_TitleScreen as the next callbacks,
+ *                             clear gUnk_03004D9C, park the blend level at 0x10 and
+ *                             force REG_BLDCNT to full darken (0xFF).
+ *
+ * The counter is *not* cached in a local: the three trailing tests each spell
+ * `sceneCtrl[0]`, which agbcc's CSE collapses to one load plus a register copy
+ * (`ldr r3` / `adds r2, r3, #0`) and a five-register push. Hoisting it into a
+ * `u32 t` local gives one live pseudo, a `push {r4, lr}` prologue, and costs 25
+ * points. The second read is `vu32` for the same reason as in FadeOutController
+ * above: without it the non-call path reuses the first read.
+ */
+void UpdateSceneTransition(void) {
+    u32 *sceneCtrl = (u32 *)gControlBlock;
+
+    if (sceneCtrl[0] == 0)
+        UpdateBGTileAnimation();
+
+    if (*(vu32 *)sceneCtrl == 0x20) {
+        REG_IE |= INTR_FLAG_VBLANK;
+        REG_DISPSTAT |= DISPSTAT_VBLANK_INTR;
+        m4aSoundVSyncOn();
+        m4aSongNumStart(0x21);
+    }
+
+    if ((sceneCtrl[0] >= 0x11) && (sceneCtrl[0] <= 0x2F))
+        gUnk_03005498 = (0x30 - sceneCtrl[0]) >> 1;
+
+    if ((sceneCtrl[0] >= 0x101) && (sceneCtrl[0] <= 0x13F))
+        gUnk_03005498 = (sceneCtrl[0] - 0x100) >> 2;
+
+    if (sceneCtrl[0] > 0x13F) {
+        sceneCtrl[0] = (u32)-1;
+        gCallbackStateArray[1] = (u32)LoadBGPalette;
+        gCallbackStateArray[2] = (u32)VBlankCallback_TitleScreen;
+        gUnk_03004D9C = 0;
+        gUnk_03005498 = 0x10;
+        REG_BLDCNT = 0xFF;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", SetupSceneGfx);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateUIElementAnimation);
 INCLUDE_ASM("asm/nonmatchings/gfx", InitSceneGfxByType);
