@@ -191,10 +191,38 @@ subprocess.run(["arm-none-eabi-objcopy", "-O", "binary", "--only-section=.text",
                check=True)
 got_bytes = pathlib.Path(out + ".bin").read_bytes()
 want_bytes = rom[start - 0x08000000:][:len(got_bytes)]
-# A relocation slot is zero in the object and resolved in the ROM, so mask those four bytes.
+# A relocation slot is unresolved in the object and resolved in the ROM, so its bytes cannot be
+# compared and have to be masked.  Mask exactly the relocated field, not a flat four bytes: this
+# object is the project's measurement instrument, and every over-masked byte is a byte of the
+# target that nothing ever checks.
+#
+# Widths, for the relocation types these objects actually carry (the complete set across all
+# nine modules is R_ARM_ABS32, R_ARM_THM_CALL, R_ARM_THM_JUMP11, R_ARM_THM_JUMP8):
+#   R_ARM_ABS32      4 -- a .4byte address word
+#   R_ARM_THM_CALL   4 -- the Thumb BL *pair* of 16-bit halves
+#   R_ARM_THM_JUMP11 2 -- Thumb-1 unconditional `b label`,   one 16-bit instruction
+#   R_ARM_THM_JUMP8  2 -- Thumb-1 conditional  `b<cond> label`, one 16-bit instruction
+#
+# How the two 2-byte ones were confirmed rather than assumed.  By encoding: JUMP11 relocates the
+# 11-bit immediate of Thumb-1 `B` and JUMP8 the 8-bit immediate of Thumb-1 `B<cond>`, both of
+# which are a single halfword by construction; the 32-bit Thumb branch relocations are the
+# separate JUMP19/JUMP24 types, which ARMv4T cannot encode and which appear in none of these
+# objects.  Empirically: narrowing to 2 unmasks the 2 bytes after every JUMP11/JUMP8 site (37
+# such relocations across the nine modules, so 74 bytes) and every module still reports MATCH --
+# those bytes already equalled the ROM and had simply been going unchecked.  That the unmasking
+# is not vacuous was shown on code_3 while its .s files were still truncated: the flat 4-byte
+# mask reported 636 differing bytes there and this one reports 638.  The same narrowing applied
+# to R_ARM_THM_CALL does NOT hold -- its second halfword carries part of the relocated offset
+# and differs from the ROM (code_3 then reports 1218 differences) -- which is the control
+# showing this check is really reading the bytes it claims to.
+#
+# Anything not listed falls back to 4, which is the conservative direction: a too-wide mask
+# under-reports differences, a too-narrow one would report differences that are not real.
+_RELOC_WIDTH = {"R_ARM_THM_JUMP11": 2, "R_ARM_THM_JUMP8": 2}
 relocs = subprocess.run(["arm-none-eabi-objdump", "-r", out], capture_output=True, text=True).stdout
-masked = {i for m in re.finditer(r"^([0-9a-f]{8})\s", relocs, re.M)
-          for i in range(int(m.group(1), 16), int(m.group(1), 16) + 4)}
+masked = {i for m in re.finditer(r"^([0-9a-f]{8})\s+(\S+)", relocs, re.M)
+          for i in range(int(m.group(1), 16),
+                         int(m.group(1), 16) + _RELOC_WIDTH.get(m.group(2), 4))}
 bad = [i for i, (a, b) in enumerate(zip(got_bytes, want_bytes)) if a != b and i not in masked]
 
 want = end - start if end else None
