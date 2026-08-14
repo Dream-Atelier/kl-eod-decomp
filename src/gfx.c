@@ -979,7 +979,105 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitStarfield);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitLinearMotion);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitLinearMotionExt);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitRotationMotion);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitMotionWithPalette);
+u32 ProcessMotionStepExtended(u32 idx);
+extern s16 DivideQ4(s16 num1, s16 num2);
+/**
+ * StreamCmd_InitMotionWithPalette: start a fixed-duration linear move on a
+ * gfx-stream target.
+ *
+ * The command carries a displacement and a frame count; the handler turns them
+ * into a per-frame velocity and installs ProcessMotionStepExtended as the
+ * entry's per-frame callback.
+ *
+ * Stream layout (10 bytes, dispatched from the `FF <cmd>` gfx-stream escape by
+ * StreamCmd_RunScript through the handler table at 0x08117854, slot 14):
+ *   [2]     GfxStreamEntry index
+ *   [3]     low nibble -> targetIndex: which object the motion drives
+ *   [4..5]  unaligned s16 dX       -> unk_04 = dX << 4 (1/16-pixel units)
+ *   [6..7]  unaligned s16 dY       -> unk_06 = dY << 4
+ *   [8..9]  unaligned s16 duration -> the divisor, also scaled by 16
+ *
+ * unk_08/unk_0A then get DivideQ4(unk_04, duration << 4) and
+ * DivideQ4(unk_06, duration << 4), i.e. (dX << 4) / duration — the per-frame
+ * step in 1/16-pixel units, so the target travels dX/dY pixels over `duration`
+ * frames. The two accumulators at +0x0C/+0x0E are cleared, `param` is set to 4
+ * (the siblings use 0 and 2; it is the word-0 target-mode selector), the entry
+ * type nibble is set to 1 (active) and the stream advances by 10.
+ *
+ * Same shape as the other StreamCmd_Init* handlers: one `cmd`/`entries` pair per
+ * short run of stores, because the original re-reads gStreamPtr and gBuffer_52A4
+ * instead of caching them. The two paired stores (`unk_0C = unk_0E = 0`) are one
+ * chained assignment: written as two statements agbcc recomputes the entry
+ * address, which the ROM does not.
+ *
+ * Note the divisions read unk_04/unk_06 back out of the entry rather than using
+ * the local, so the `<< 4` truncation to u16 is observable.
+ */
+void StreamCmd_InitMotionWithPalette(void) {
+    s16 dx;
+    s16 dy;
+    s16 duration;
+    s16 step;
+    s16 vx;
+    s16 vy;
+
+    dx = ReadUnalignedS16(gStreamPtr + 4);
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_04 = dx << 4;
+        dy = ReadUnalignedS16(cmd + 6);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_06 = dy << 4;
+        duration = ReadUnalignedS16(cmd + 8);
+    }
+    step = duration << 4;
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        vx = DivideQ4((s16)entries[idx].unk_04, step);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_08 = vx;
+        vy = DivideQ4((s16)entries[cmd[2]].unk_06, step);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_0A = vy;
+        entries[cmd[2]].unk_0C = entries[cmd[2]].unk_0E = 0;
+        entries[cmd[2]].param = 4;
+        entries[cmd[2]].callback = (u32)ProcessMotionStepExtended;
+        entries[cmd[2]].type = 1;
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+        struct GfxStreamEntry *entry;
+        u8 target;
+
+        entry = (struct GfxStreamEntry *)(idx * sizeof(struct GfxStreamEntry) + (u32)entries);
+        target = cmd[3];
+        entry->targetIndex = target;
+    }
+    gStreamPtr += 10;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitAngleMotion);
 /*
  * Shape shared by the StreamCmd_Init* handlers below (agbcc 2.95 matching notes).
