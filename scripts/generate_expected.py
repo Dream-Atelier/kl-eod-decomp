@@ -13,8 +13,24 @@ files generate_asm.py already writes carry that split (`.4byte 0x03007FF8`), so 
 right source, and each module is a contiguous ROM range whose size matches its built object
 exactly.
 
+It answers only one question -- "what does the ROM say this module's bytes are?" -- and it
+reports the answer at TWO granularities, because its two consumers need different ones:
+
+  * `<out>` is written whenever it can be built at all, so objdiff and `asmlift --score-against`
+    can score a symbol even when some OTHER symbol in the module is untrustworthy.  Those tools
+    compare one symbol at a time.
+  * `<out>.tainted` lists the symbols whose bytes do not match the ROM (absent/empty = clean).
+    `make verify-asm` reads it and is the hard gate; this script never decides policy.
+
+That split exists because fusing the two cost real coverage: one wrong byte inside the
+already-decompiled FreeGfxBuffer made this script refuse the whole gfx module, which withheld
+the scoring target from all 42 undecompiled gfx functions, and two functions in code_3 did the
+same to 30 more.  Refusing to produce is right for "is asm/ faithful?" and much too coarse for
+"can I score this one function?".
+
     generate_expected.py <module> [out.o]
 """
+import bisect
 import pathlib
 import re
 import subprocess
@@ -231,12 +247,59 @@ masked = {i for m in re.finditer(r"^([0-9a-f]{8})\s+(\S+)", relocs, re.M)
 bad = [i for i, (a, b) in enumerate(zip(got_bytes, want_bytes)) if a != b and i not in masked]
 
 want = end - start if end else None
-status = "MATCH" if (want is None or len(got_bytes) == want) and not bad else "WRONG"
+
+# A wrong LENGTH is a production failure, not a per-symbol one: `.org` tiling is broken and the
+# object is structurally wrong, so there is nothing worth handing anyone.  Refuse it outright.
+if want is not None and len(got_bytes) != want:
+    sys.exit(f"{mod}: this object does not reproduce the ROM (length {len(got_bytes)} != {want}). "
+             f"It is a TARGET -- anything scored against it would be measured against the wrong "
+             f"bytes.")
+
+# Differing BYTES are a per-symbol fact, and this is where the module-level refusal that used to
+# live here was wrong.  The object has two consumers and they ask different questions:
+#
+#   * `make verify-asm` asks "does asm/ still reproduce the cartridge?".  That is a MODULE
+#     question, any bad byte anywhere is a failure, and it is a hard gate.
+#   * objdiff and `asmlift --score-against` score ONE SYMBOL.  A bad byte inside some other,
+#     already-decompiled function tells them nothing about theirs -- and refusing the whole
+#     module withheld the target from 42 undecompiled gfx functions over a single byte in
+#     FreeGfxBuffer, and from 30 code_3 ones over two functions neither of them touches.
+#
+# So: always write the object that was actually built, and write the list of symbols whose bytes
+# are NOT trustworthy beside it as `<out>.tainted` (absent/empty means clean).  This script
+# reports; it does not set policy.  `make verify-asm` is what fails.
+addr_names = {}
+for line in nm.splitlines():
+    parts = line.split()
+    if len(parts) == 3 and parts[1] in "Tt":
+        addr_names.setdefault(int(parts[0], 16), []).append(parts[2])
+sym_addrs = sorted(addr_names)
+
+tainted = {}
+for i in bad:
+    addr = start + i
+    j = bisect.bisect_right(sym_addrs, addr) - 1
+    owner = sym_addrs[j] if j >= 0 else None
+    key = (owner, " / ".join(sorted(addr_names[owner]))) if owner is not None else (None, "<no symbol>")
+    tainted.setdefault(key, []).append(addr)
+
+taint_path = pathlib.Path(out + ".tainted")
+if tainted:
+    lines = []
+    for (owner, names), addrs_ in sorted(tainted.items(), key=lambda kv: kv[0][0] or 0):
+        where = ", ".join(f"0x{a:08X}" for a in addrs_[:8]) + (" ..." if len(addrs_) > 8 else "")
+        lines.append(f"{names} 0x{owner:08X} {len(addrs_)} bad byte(s): {where}"
+                     if owner is not None else f"<no symbol> {len(addrs_)} bad byte(s): {where}")
+    taint_path.write_text("\n".join(lines) + "\n")
+else:
+    taint_path.write_text("")
+
+status = "MATCH" if not bad else f"{len(tainted)} TAINTED SYMBOL(S)"
 print(f"{mod}: {len(files)} files -> {len(got_bytes)} bytes"
       + (f", module range {want}" if want else "") + f" ({status})")
-if status == "WRONG":
-    detail = (f"length {len(got_bytes)} != {want}" if want and len(got_bytes) != want
-              else f"{len(bad)} byte(s) differ from the ROM, first at "
-                   f"0x{start + bad[0]:08X}" if bad else "")
-    sys.exit(f"{mod}: this object does not reproduce the ROM ({detail}). It is a TARGET -- "
-             f"anything scored against it would be measured against the wrong bytes.")
+if tainted:
+    print(f"{mod}: WARNING -- these symbols do NOT reproduce the ROM and must not be scored "
+          f"against; everything else in this object is unaffected:", file=sys.stderr)
+    print(taint_path.read_text().rstrip("\n"), file=sys.stderr)
+    print(f"{mod}: the object was written anyway (see {taint_path}); "
+          f"`make verify-asm` is the gate that fails on this.", file=sys.stderr)
