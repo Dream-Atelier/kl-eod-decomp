@@ -9,7 +9,7 @@ INCLUDE_ASM("asm/nonmatchings/gfx", InitGfxState);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateBGScrollRegisters);
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdateBGTileAnimation);
 void UpdateBGScrollRegisters(void);
-void ProcessFrameAnimation(void);
+u32 ProcessFrameAnimation(u32 idx);
 u32 ProcessMotionStep(u32 idx);
 void ProcessStaticBGScroll(void);
 void ProcessSpriteOscillation(void);
@@ -1210,7 +1210,37 @@ void Stub_0804CAC4(void) { }
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessMotionStep);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessMotionStepExtended);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessStaticBGScroll);
-INCLUDE_ASM("asm/nonmatchings/gfx", ProcessFrameAnimation);
+/* The two `(struct GfxStreamEntry *)gBuffer_52A4` reads are both load-bearing, and so is the fact
+ * that they are two DIFFERENT locals. The ROM reloads the table base once on each side of the
+ * DmaSpriteToObjVram call (`ldr r2, [r5]` before it, `ldr r0, [r5]` after) while keeping only the
+ * scaled index in a callee-saved register. Three spellings were built and diffed against the ROM:
+ *   - `gGfxStreamEntries[idx].…` throughout (the file's usual macro, re-read per statement) reloads
+ *     the base four times and the function grows from 80 to 92 bytes;
+ *   - one `struct GfxStreamEntry *entry = &gGfxStreamEntries[idx]` cached across the call keeps the
+ *     pointer in a callee-saved register and drops both reloads;
+ *   - reusing ONE local for both reads (`entries = …` again after the call) is byte-exact except for
+ *     the post-call pair, where agbcc reuses the loaded register as the add's destination
+ *     (`ldr r2 / adds r2, r4, r2`) instead of the ROM's `ldr r0 / adds r2, r4, r0`.
+ * Only the two-local spelling below reproduces the ROM exactly. */
+u32 ProcessFrameAnimation(u32 idx) {
+    struct GfxStreamEntry *entries;
+    struct GfxStreamEntry *reloaded;
+    s32 timer;
+
+    entries = (struct GfxStreamEntry *)gBuffer_52A4;
+    timer = entries[idx].timer - 1;
+    entries[idx].timer = timer;
+    if ((timer << 16) <= 0) {
+        DmaSpriteToObjVram((s16)entries[idx].unk_04, (s16)entries[idx].unk_0C);
+        reloaded = (struct GfxStreamEntry *)gBuffer_52A4;
+        reloaded[idx].timer = reloaded[idx].unk_08;
+        reloaded[idx].unk_0C = reloaded[idx].unk_0C + 1;
+        if ((s16)reloaded[idx].unk_0C >= reloaded[idx].unk_1F + reloaded[idx].unk_1E) {
+            reloaded[idx].unk_0C = reloaded[idx].unk_1E;
+        }
+    }
+    return 1;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessSpriteOscillation);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessStarfieldEffect);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitStarfield);
