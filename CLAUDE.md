@@ -11,7 +11,19 @@ make tidy           # Clean build artifacts
 make format         # Auto-format C/H files (run before committing)
 make compare        # Same as `make`
 make ctx            # Generate ctx.c for decomp.me/m2c/mizuchi
+make expected       # objdiff's target objects — best effort, one per module
+make verify-asm     # Does asm/ still reproduce the cartridge? Hard gate, runs in CI
 ```
+
+`expected` and `verify-asm` are deliberately separate, and the difference matters when something
+is wrong. `expected` exists to hand objdiff a file: it writes every module it can build, and
+names any symbol whose bytes disagree with the ROM in `expected/src/<module>.o.tainted` rather
+than withholding the whole module — objdiff and `asmlift --score-against` compare **one symbol**,
+so a bad byte inside an already-decompiled function says nothing about the others. `verify-asm`
+is the module-level question, and it fails on any tainted symbol anywhere.
+
+Fusing the two used to mean one wrong byte in `FreeGfxBuffer` withheld the scoring target from
+all 42 undecompiled `gfx` functions, and two functions in `code_3` did the same to 30 more.
 
 Setup: `./setup.sh` after cloning with `--recurse-submodules`. Requires `arm-none-eabi` toolchain, Python 3.13+, legally obtained `baserom.gba`.
 

@@ -69,6 +69,14 @@ jobs:
       - name: Build and verify match
         run: make -j$(nproc) compare
 
+      # Does asm/ still reproduce the cartridge?  `make compare` cannot answer this: it checks
+      # the ROM the build produces, and asm/ IS part of that build, so a function whose .s is
+      # missing bytes can still assemble into a matching ROM if the C beside it makes up the
+      # difference.  1454 bytes of the cartridge went missing from asm/ with every other check
+      # green.  This is the only gate that reads the .s files back against baserom.gba.
+      - name: Verify asm/ reproduces the ROM
+        run: make verify-asm
+
       - name: Generate progress report
         run: python3 scripts/calc_progress.py . report.json
 

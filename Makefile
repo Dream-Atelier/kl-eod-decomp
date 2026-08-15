@@ -103,7 +103,7 @@ C_HEADERS := $(shell find include -name "*.h" -not -name "include_asm.h")
 
 ### TARGETS ###
 
-.PHONY: all rom compare clean tidy format check_format ctx asmlift-elf expected
+.PHONY: all rom compare clean tidy format check_format ctx asmlift-elf expected verify-asm
 
 $(shell mkdir -p $(ASM_BUILDDIR) $(C_BUILDDIR) $(DATA_BUILDDIR))
 
@@ -235,14 +235,50 @@ expected/src/%.o: $(ELF) $(DECOMP_TOML) $(LDSCRIPT_IN) scripts/generate_expected
 # `engine` is third in MODULES, so when it broke, six later modules were never built at all --
 # and each of them was fine. A module that cannot be produced correctly must not stop the ones
 # that can. objdiff asks for targets one at a time, so it still gets every good one.
+#
+# This target's job is to HAND OBJDIFF A FILE. It fails only when a module cannot be produced at
+# all (assembly error, broken `.org` tiling). A module that builds but contains some symbol whose
+# bytes disagree with the ROM is still written, with that symbol named in expected/src/<m>.tainted
+# -- because objdiff and `asmlift --score-against` score ONE SYMBOL, and one bad byte inside an
+# already-decompiled function says nothing about the other 1216 in the module. Asking whether
+# asm/ is faithful is a different question with a different answer shape: see `verify-asm`.
 expected:
 	@fail=""; \
 	for o in $(EXPECTED); do $(MAKE) --no-print-directory $$o || fail="$$fail $$o"; done; \
 	if [ -n "$$fail" ]; then \
 		echo "expected: NOT PRODUCED:$$fail" >&2; \
-		echo "expected: these targets do not reproduce the ROM and must not be scored against." >&2; \
+		echo "expected: these modules could not be built at all." >&2; \
 		exit 1; \
 	fi
+
+# Does asm/ still reproduce the cartridge?  THE hard gate, and the one that belongs in CI.
+#
+# It is deliberately not fused with `expected`. Fusing them is what made one wrong byte inside
+# the already-decompiled FreeGfxBuffer withhold the scoring target from all 42 undecompiled gfx
+# functions, and two functions in code_3 do the same to 30 more -- 72 of 133, over bytes that
+# touch none of them. `expected` produces; this decides.
+#
+# It is worth having on its own terms, independent of objdiff: it byte-compares every module's
+# assembled .text against baserom.gba with relocation slots masked, so it is the only check in
+# the tree that asks whether asm/ still IS the ROM. It has already earned that -- 1454 bytes of
+# the cartridge were missing from asm/ while every other check reported success.
+verify-asm: expected
+	@bad=""; \
+	for m in $(MODULES); do \
+		t=expected/src/$$m.o.tainted; \
+		if [ -s "$$t" ]; then \
+			bad="$$bad $$m"; \
+			echo "--- $$m ---" >&2; cat "$$t" >&2; \
+		fi; \
+	done; \
+	if [ -n "$$bad" ]; then \
+		echo "" >&2; \
+		echo "verify-asm: FAILED -- asm/ does not reproduce the ROM for:$$bad" >&2; \
+		echo "verify-asm: fix the .s files (or scripts/generate_asm.py, which writes them);" >&2; \
+		echo "verify-asm: the listed symbols must not be scored against until it passes." >&2; \
+		exit 1; \
+	fi; \
+	echo "verify-asm: all $(words $(MODULES)) modules reproduce the ROM byte-for-byte"
 
 format:
 	$(FORMAT) -i -style=file $(FORMAT_SRCS)
