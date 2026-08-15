@@ -2039,7 +2039,34 @@ void StreamCmd_ClearRenderMode(void) {
     streamPtr = &gStreamPtr;
     *streamPtr += 2;
 }
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
+/*
+ * Matching notes (measured by ablation against the ROM's gfx.o):
+ *
+ * - `s8 *p` is load-bearing, exactly as in StreamCmd_SetRenderModeTiled: through a
+ *   SIGNED char the `& ~3` is a 32-bit AND, so agbcc has to synthesise -4 as
+ *   `mov r0, #4 / neg r0, r0`. Through a `u8 *` it knows only the low byte survives
+ *   the strb and folds the mask to `mov r0, #0xfc` -- one instruction shorter, which
+ *   also shifts the whole literal pool. That single change costs 7 objdiff points and
+ *   was the entire residual. `& -4` and `& ~3` are interchangeable here.
+ *
+ * - `gUnk_03000814` must be the DECLARED extern, not a cast address constant (9
+ *   points): only a symbol_ref gets its address hoisted into callee-saved r5 before
+ *   the ReadUnalignedU16 call, which is what makes the prologue push r5 and the pool
+ *   lead with 0x3000814. `gUnk_03004C20.globalFrameCounter` as a struct member rather
+ *   than `((u32 *)0x03004C20)[1]` is worth a further 2 (the +4 stays an ldr offset
+ *   instead of being folded into the pool word).
+ *
+ * - The `(u16)` truncation of the u32-returning ReadUnalignedU16 is what emits the
+ *   `lsl #16 / lsr #16` pair; dropping it costs 4. Spelling it as a `u16` local
+ *   instead of a cast is WORSE (11) -- it changes the register schedule.
+ */
+void StreamCmd_SetTimerAndMode(void) {
+    s8 *p;
+    gUnk_03000814 = (u16)ReadUnalignedU16(gStreamPtr + 2) + gUnk_03004C20.globalFrameCounter;
+    p = (s8 *)gGfxBufferPtr;
+    *p = (*p & ~3) | 2;
+    gStreamPtr += 4;
+}
 INCLUDE_ASM("asm/nonmatchings/gfx", sub_0804E492);
 /**
  * StreamCmd_ToggleDisplayFlag: toggles one of two graphics-control flags,
