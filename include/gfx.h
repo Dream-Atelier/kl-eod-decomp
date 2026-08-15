@@ -20,8 +20,12 @@ struct BGLayerState {
     u16 mapWidth; /* +0x10: tilemap width in tiles */
     u16 mapHeight; /* +0x12: tilemap height in tiles */
     u16 flags; /* +0x14: layer flags */
-    u16 dmaTileCount; /* +0x16: number of tile rows for DMA */
-    u8 dmaRowSize; /* +0x18: bytes per DMA row */
+    u16 dmaTileCount; /* +0x16: number of 8x8 TILES to DMA (not tile rows) */
+    u8 dmaRowSize; /* +0x18: bytes per 8x8 TILE -- 32 (4bpp) or 64 (8bpp), NOT bytes per pixel row.
+                    * Both field names are misnomers inherited from the first pass and are left
+                    * alone only to keep the blast radius small; see gLayerTileByteSize below,
+                    * the ROM table SetupLevelLayerConfig copies these two from, for the
+                    * measurement that settles it. */
     u8 pad_19; /* +0x19: padding */
     u16 pad_1A; /* +0x1A: padding */
 }; /* total: 0x1C = 28 bytes */
@@ -161,7 +165,15 @@ extern u8 *gStreamPtr;
  * StreamCmd_ConfigureBlend and bit 4 by StreamCmd_ToggleVBlankHandler; bit 3
  * keeps a placeholder name. */
 struct GfxControlFlags {
-    u8 pad_00[2];
+    u8 pad_00;
+    /* 0x01 bit 0 — the current BG video mode, as a one-bit field: 0 = text
+     * (DISPCNT mode 0), 1 = affine (mode 1). SetupLevelLayerConfig sets it from
+     * the layer's colour depth (256-colour layers are affine), writes it
+     * straight into REG_DISPCNT's mode field, and passes it as
+     * CalcBGScrollMapSize's `isAffine`. The `u8` container is load-bearing in
+     * the usual direction: it makes the insert's negated mask `mov #2 / neg`. */
+    u8 bgAffine : 1;
+    u8 pad_01_1 : 7;
     u32 flag_02_0 : 1;
     /* 0x02 bits 1-2 — the two scene-exit bits GFX_SCENE_EXITING (0x02) and
      * GFX_SCENE_SKIPPABLE (0x04) documented above, spelled as one 2-bit field
@@ -180,7 +192,12 @@ struct GfxControlFlags {
      * left as `u8` for the same reason in reverse: it matches as u8. */
     u32 sceneExit : 2;
     u32 flag_02_3 : 5;
-    u8 pad_03[0x17];
+    /* 0x03..0x04 — the BGCNT screen-size field for each BG layer, indexed
+     * [layer - 2]. SetupLevelLayerConfig fills the entry for the layer it is
+     * configuring from CalcBGScrollMapSize and then ORs it into REG_BG2CNT /
+     * REG_BG3CNT bits 14-15. */
+    u8 bgMapSize[2];
+    u8 pad_05[0x15];
     /* 0x1A — target MUSIC volume, written by StreamCmd_ConfigureBlend from the
      * command's unaligned halfword argument. UpdatePaletteFadeStep steps the running
      * value at 0x18 toward it in units of 0x10 and passes it as the `volume` argument
@@ -419,39 +436,53 @@ extern const u32 gBgTileSubtable[][2];
 /* Per-level parameter table, stored at 0x03005294. */
 #define ROM_LEVEL_PARAM_TABLE    0x08189A24
 
-/* Layer configuration sub-tables used by SetupLevelLayerConfig.
- * Define per-layer charblock/screenblock/scroll/dimension properties. */
-#define ROM_LAYER_SCROLL_FLAGS   0x080576D4
-#define ROM_LAYER_WIDTH_TABLE    0x08057714
-#define ROM_LAYER_HEIGHT_TABLE   0x08057794
-#define ROM_LAYER_VSCROLL_TABLE  0x08057814
-#define ROM_LAYER_TILE_BPP       0x08057894
-#define ROM_LAYER_CHARBLOCK_IDX  0x080578D4
-#define ROM_LAYER_SCREENBLOCK    0x08057914
+/* Layer configuration sub-tables used by SetupLevelLayerConfig, in the shape it
+ * indexes them: [row][layer - 2], where `row` is gBgLayerLookup[..][..][0] and
+ * `layer` is gBgLayerLookup[..][..][1] (2 or 3). Two entries per row, one per BG
+ * layer -- the same row/column pair gBgTileSubtable uses. Addresses in
+ * ldscript.in.txt.
+ *
+ * Declared objects rather than cast address constants: agbcc keeps a symbol_ref
+ * alive in a callee-saved register across a call and rematerialises a CONST_INT
+ * instead, and gLayerColorMode is read again in the BGxCNT arms after the
+ * CalcBGScrollMapSize call. Casting all seven costs 94 points. */
+extern const u8 gLayerColorMode[][2]; /* 0x080576D4: 0x80 = 256-colour, and 256-colour means affine */
+extern const u16 gLayerMapWidth[][2]; /* 0x08057714: tilemap width in tiles */
+extern const u16 gLayerMapHeight[][2]; /* 0x08057794: tilemap height in tiles */
+extern const u16 gLayerTileCount[][2]; /* 0x08057814: number of 8x8 tiles to DMA */
+/* 0x08057894: bytes per 8x8 TILE -- 32 for 4bpp, 64 for 8bpp. NOT bytes per row: a 4bpp
+ * pixel row is 4 bytes, so no reading of "row" can produce 32. Read straight out of
+ * baserom.gba: gLayerColorMode (0x080576D4) has exactly one non-zero entry in the whole
+ * table, 0x80 = BGCNT_256COLOR at flat index 4, and this table has exactly one 0x40 at
+ * that same index 4; every other populated entry is 0x20. 8bpp tile = 64 bytes, 4bpp
+ * tile = 32, and the one 8bpp layer is the one 64. */
+extern const u8 gLayerTileByteSize[][2];
+extern const u8 gLayerCharBlock[][2]; /* 0x080578D4: charblock index; << 14 from VRAM base */
+extern const u8 gLayerScreenBlock[][2]; /* 0x08057914: screenblock index; << 11 from VRAM base */
 
 /* ── Scene-Specific Shared Tilesets ── */
 
 /* These compressed tilesets are loaded into VRAM charblocks during scene init
  * (SetupSceneGfx / sub_0804886C). They provide shared tiles (HUD, items, etc.)
  * that are referenced by per-level BG tilemaps via absolute tile IDs. */
-#define ROM_SCENE_TILESET_A      0x08366214 /* -> charblocks 0-3 via palettePtr */
-#define ROM_SCENE_TILESET_B      0x08367468 /* -> small OBJ tiles */
-#define ROM_SCENE_TILES_CB0      0x082F4D3C /* -> VRAM 0x06000000 (charblock 0) */
-#define ROM_SCENE_TILES_CB1      0x082F518C /* -> VRAM 0x06004000 (charblock 1) */
-#define ROM_SCENE_TILES_CB2      0x082F5D0C /* -> VRAM 0x06008000 (charblock 2) */
-#define ROM_SCENE_TILES_CB3      0x082F7D64 /* -> VRAM 0x0600C000 (charblock 3) */
-#define ROM_SCENE_TILEMAP_DATA   0x082F5920 /* -> IWRAM tilemap buffers */
+#define ROM_SCENE_TILESET_A    0x08366214 /* -> charblocks 0-3 via palettePtr */
+#define ROM_SCENE_TILESET_B    0x08367468 /* -> small OBJ tiles */
+#define ROM_SCENE_TILES_CB0    0x082F4D3C /* -> VRAM 0x06000000 (charblock 0) */
+#define ROM_SCENE_TILES_CB1    0x082F518C /* -> VRAM 0x06004000 (charblock 1) */
+#define ROM_SCENE_TILES_CB2    0x082F5D0C /* -> VRAM 0x06008000 (charblock 2) */
+#define ROM_SCENE_TILES_CB3    0x082F7D64 /* -> VRAM 0x0600C000 (charblock 3) */
+#define ROM_SCENE_TILEMAP_DATA 0x082F5920 /* -> IWRAM tilemap buffers */
 
 /* Scene-specific palette data loaded during SetupSceneGfx. */
-#define ROM_SCENE_PALETTE_A      0x08078F88
-#define ROM_SCENE_PALETTE_B      0x08078FA8
+#define ROM_SCENE_PALETTE_A    0x08078F88
+#define ROM_SCENE_PALETTE_B    0x08078FA8
 
 /* OBJ (sprite) tileset for scene overlay. */
-#define ROM_SCENE_OBJ_TILES      0x082F4934
+#define ROM_SCENE_OBJ_TILES    0x082F4934
 
 /* Sprite layout table for HUD/scene overlay objects.
  * 12-byte entries terminated by 0xFFFF. */
-#define ROM_SCENE_SPRITE_TABLE   0x08116590
+#define ROM_SCENE_SPRITE_TABLE 0x08116590
 
 /* Per-level BG palette table.
  * Indexed by level index; each entry is a ROM pointer to compressed

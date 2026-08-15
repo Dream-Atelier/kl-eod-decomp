@@ -28,7 +28,7 @@ extern void Decompress(void *dest, void *src);
 extern void DecompressDma(void *src, void *dest, u16 size);
 extern void *thunk_HeapAlloc(u32 size, u32 flags);
 extern void CheckTileCollisionRect(u8); /* CheckTileCollisionRect */
-extern void UpdateHUDTimerAndLives(void); /* UpdateHUDTimerAndLives */
+extern void UpdateHUDTimePanel(void); /* UpdateHUDTimePanel */
 extern void VBlankHandler(void); /* sub_080009D8 — installed for non-cutscene levels */
 extern void VBlankDmaTransfer(void); /* sub_08000CE0 — installed for cutscene levels */
 extern void InitLevelFromROMTable(void); /* InitLevelFromROMTable */
@@ -102,7 +102,64 @@ void HBlankScrollUpdate(void) {
     REG_BG0HOFS = gUnk_03004C40[line];
     REG_BG1HOFS = gUnk_030052C0[line];
 }
-INCLUDE_ASM("asm/nonmatchings/engine", UpdateAffineBGParams);
+/**
+ * HBlankBg2RefPointUpdate: per-scanline ramp of the BG2 affine reference point.
+ *
+ * Installed as gIntrTable.hBlank by AgbMain at boot (ROM 0x080004AA) and again by
+ * InitGameplayFromWorldMap (ROM 0x080456CC), which arms H-Blank in the same breath
+ * (REG_IE |= INTR_FLAG_HBLANK, REG_DISPSTAT |= DISPSTAT_HBLANK_INTR). With H-Blank
+ * armed it is entered once per scanline: measured 228 entries in one frame on the
+ * world map, against 0 in a level where INTR_FLAG_HBLANK is clear even though the
+ * handler is still installed
+ * (docs/dynamic-analysis/scripts/prove-bg2-hblank-refpoint.mjs).
+ *
+ * Each entry reads the scanline from REG_VCOUNT_L and displaces the reference point
+ * by (3 * line - 180) steps of two cached Q8.8 deltas: gUnk_03004678 drives
+ * REG_BG2X and gUnk_030051B0 drives REG_BG2Y -- proven by forcing one delta at a
+ * time and watching which axis moves. The two deltas are SIN(gBg2Alpha) and
+ * COS(gBg2Alpha), rewritten every frame by VBlankCallback_Dialog
+ * (src/code_0.c:2503-2504); verified against gSineTable over a nine-angle sweep
+ * rather than taken from the comment in include/gfx.h.
+ *
+ * The multiplier is zero at line 60, so that scanline keeps gBg2X/gBg2Y exactly and
+ * the displacement ramps 3 * delta per line either side of it. On the world map that
+ * pivot is the horizon: zeroing both deltas changes only scanlines 63..140, the band
+ * the island is drawn in, and un-squashes it.
+ *
+ * It writes only REG_BG2X_L/_H (0x04000028/0x0400002A) and REG_BG2Y_L/_H
+ * (0x0400002C/0x0400002E) -- one frame of watchpoints over 0x04000000..0x0400005F
+ * caught exactly those four halfwords. The affine MATRIX, REG_BG2PA..REG_BG2PD
+ * (0x04000020..0x04000026), is never touched here; this handler moves the reference
+ * point only, which is why it is not called "AffineBGParams".
+ *
+ * NOT verified: how the ramp composes with the hardware's own per-scanline
+ * REG_BG2PB/REG_BG2PD accumulation (i.e. the exact on-screen squash factor), and
+ * whether real hardware reads the same REG_VCOUNT_L inside an H-Blank IRQ as the
+ * emulator does -- gba-kit reports 1..228 there, one line ahead of the 0..227 the
+ * register can hold, so on a console the pivot may be scanline 59 rather than 60.
+ *
+ * MATCHING -- do NOT hoist `(line * 3 - 180)`. It must be written out TWICE.
+ * Hoisting it into a local (`s32 ramp = line * 3 - 180;`) changes nine halfwords
+ * (offsets 0x04..0x12 and 0x16) and fails `make compare`; agbcc CSEs the written-out
+ * form by itself, computing `lsls r1,r2,#1 / adds r1,r1,r2 / subs r1,#180` once into
+ * r1 and reusing r1 for both multiplies. A duplicated subexpression is precisely what
+ * a reviewer "simplifies", which is why this note exists.
+ *
+ * `line`'s width is NOT load-bearing: `u32 line` compiles byte-identically and the
+ * ROM still matches. An earlier revision of this note claimed the `u8` kept a
+ * truncation between the two uses and suppressed a CSE -- that is the reverse of
+ * what agbcc emits, and it was retracted after being measured.
+ */
+void HBlankBg2RefPointUpdate(void) {
+    u8 line = REG_VCOUNT_L;
+    s32 x = gBg2X + gUnk_03004678 * (line * 3 - 180);
+    s32 y = gBg2Y + gUnk_030051B0 * (line * 3 - 180);
+
+    REG_BG2X_L = x;
+    REG_BG2X_H = x >> 0x10;
+    REG_BG2Y_L = y;
+    REG_BG2Y_H = y >> 0x10;
+}
 /**
  * UpdateWindowCircleEffect: compute circle window bounds for iris transition.
  *
@@ -351,7 +408,7 @@ void InitLevelBG(void) {
         REG_DISPCNT = DISPCNT_WIN1_ON | DISPCNT_WIN0_ON | DISPCNT_OBJ_ON | DISPCNT_BG2_ON | DISPCNT_BG1_ON | DISPCNT_BG0_ON
             | DISPCNT_OBJ_1D_MAP | DISPCNT_MODE_1;
         gUnk_03004C20.unk10 = 1;
-        UpdateHUDTimerAndLives();
+        UpdateHUDTimePanel();
     } else {
         REG_DISPCNT = DISPCNT_WIN0_ON | DISPCNT_OBJ_ON | DISPCNT_BG2_ON | DISPCNT_BG1_ON | DISPCNT_BG0_ON | DISPCNT_OBJ_1D_MAP
             | DISPCNT_MODE_1;

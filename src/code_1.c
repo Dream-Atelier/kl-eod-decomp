@@ -49,6 +49,8 @@ void SoftResetRom(u32);
 void ResetEntityScrollState(s32 arg0);
 void SpawnEntityAtPosition(u16, u16, u8, u8);
 void EntityHitReaction(u8);
+void EntitySpriteFlipAndLoad(u8);
+void UpdateHUDCollectibleCount(void);
 void SetPaletteAnimEntry(s32, u8);
 void CopyBGScrollTiles(void);
 
@@ -497,8 +499,232 @@ void EntityDeathAnimation(u8 slot) {
 }
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityBounceOffWall);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityFloatPath);
-INCLUDE_ASM("asm/nonmatchings/code_1", EntityPickupCollect);
-INCLUDE_ASM("asm/nonmatchings/code_1", EntityProjectileUpdate);
+/**
+ * EntityPickupCollect: per-frame update for one collectible entity slot.
+ *
+ * Once the entity has passed the visible band (screen Y > 0x8F with the 0x8000
+ * "wrapped/negative" bit clear) it counts as collected: the bit indexed by the
+ * entity's unk8 id is set in gUnk_03005220.unk4, the counter at offset 0x4C is
+ * bumped (saturating at 0x63) with a HUD refresh, and the slot is retired
+ * (onScreen = 0, unkF = 0x1C "inactive").
+ *
+ * Otherwise it animates: unk9 (the pickup's phase clock) advances one step, Y
+ * moves down 3 while the 0x8000 bit is set and otherwise by (unk9 - 0xC) / 2,
+ * and X is pulled toward the BG2 scroll origin by a twelfth of the remaining
+ * distance.
+ *
+ * agbcc note: the `(d = ...)` inside the X expression is deliberate. Spelled
+ * plainly, `bg2HOfs - (x - 0xEC)` is reassociated by agbcc into
+ * `(bg2HOfs + 0xEC) - x`, which is two bytes short of the target; the embedded
+ * assignment keeps `x - 0xEC` as a value of its own. Plain C, no barrier.
+ *
+ * -- TRANSLATION-UNIT COUPLING: OBSERVATION EXACT, EXPLANATION OPEN --
+ *
+ * This function is decompiled here partly because of a coupling in agbcc's
+ * codegen across the whole .c. The OBSERVATION is exact and reproduces on demand:
+ * with exactly ONE of EntityPickupCollect / EntityProjectileUpdate present in
+ * src/code_1.c, VBlankDMA_Level25 (~2900 lines further down) makes the other
+ * r9/r10 choice and six bytes change -- at function offsets 0x2E, 0x36, 0xEA,
+ * 0x3F6, 0x41E and 0x446, in a 1628-byte function. With BOTH present (the shipped
+ * state) or BOTH absent it has the ROM's shape.
+ *
+ *   Reproduce: delete one of the two functions from this file, then
+ *     make build/src/code_1.o && arm-none-eabi-objdump -d build/src/code_1.o
+ *   and diff VBlankDMA_Level25 against the same dump with both present.
+ *
+ * The RULE the decompiling commit (ecd8c07) inferred from that observation is
+ * REFUTED. It said the coupling is a strict parity toggle, that the trigger is
+ * register pressure (4+ simultaneously live locals), and that any function
+ * reaching the global register allocator flips it. All three are false. Measured
+ * here, each probe inserted immediately ahead of VBlankDMA_Level25 unless noted,
+ * each leaving it BIT-IDENTICAL:
+ *   - an EXACT renamed clone of EntityPickupCollect -- the very function claimed
+ *     to be the toggle, so it is not a parity over "such functions";
+ *   - a probe with 4 simultaneously live locals, the stated threshold;
+ *   - a probe with 12 live locals that genuinely allocates r8/r9 and spills
+ *     (`sub sp, #16`), so it is neither register pressure nor "reaches the
+ *     global allocator";
+ *   - a probe with a body but no locals, and a probe with one local;
+ *   - 1 and 4 blank lines, which rules out a line-number effect;
+ *   - deleting EITHER TransitionSoftReset OR CopyBGScrollTiles on its own.
+ * And these DO flip it, which no monotone "pressure" or "count parity" story
+ * survives: inserting 1, 2 or 3 empty `void ProbeEmpty(void) {}` functions here
+ * (all three flip; it does not toggle back), while the same empty function
+ * inserted ~2900 lines earlier does not; and deleting TransitionSoftReset and
+ * CopyBGScrollTiles TOGETHER, though neither alone changes anything.
+ *
+ * So the coupling is real, the six bytes are real, and the CAUSE IS OPEN. Do not
+ * act on the old rule: "add any 4-local function to restore parity" is false and
+ * sends you on a search that cannot terminate. If VBlankDMA_Level25 goes six bytes
+ * wrong, put this file back as it was rather than hunting for a counterweight.
+ */
+void EntityPickupCollect(u8 slot) {
+    u8 lives;
+    s32 d;
+
+    if (gUnk_03002920[slot].yPosScreen > 0x8F && (u16)(gUnk_03002920[slot].yPosScreen & 0x8000) == 0) {
+        gUnk_03005220.unk4 |= 1 << gUnk_03002920[slot].unk8;
+        lives = gUnk_03005220.lives;
+        if (lives <= 0x62) {
+            gUnk_03005220.lives = lives + 1;
+            UpdateHUDCollectibleCount();
+        }
+        gUnk_03002920[slot].onScreen = 0;
+        gUnk_03002920[slot].unkF = 0x1C;
+        return;
+    }
+
+    gUnk_03002920[slot].unk9++;
+    if (gUnk_03002920[slot].yPosScreen & 0x8000) {
+        gUnk_03002920[slot].yPosBg2 = gUnk_03002920[slot].yPosBg2 + 3;
+    } else {
+        gUnk_03002920[slot].yPosBg2 = ((gUnk_03002920[slot].unk9 - 0xC) >> 1) + gUnk_03002920[slot].yPosBg2;
+    }
+    gUnk_03002920[slot].xPosBg2
+        = gUnk_03002920[slot].xPosBg2 + (gUnk_03003430.bg2HOfs - (d = gUnk_03002920[slot].xPosBg2 - 0xEC)) / 0xC;
+}
+/**
+ * EntityProjectileUpdate: collision sweep of the eight projectile slots
+ * (gUnk_03002920[1..8]) against every live entity, once per frame.
+ *
+ * A projectile slot participates only while it is active (unkF != 0x1C) and its
+ * gUnk_03000830 sidecar reads state 6 ("in flight"). For each such slot the
+ * inner loop walks entity 0 (the player) and then the live range
+ * [gUnk_030052B4 .. gUnk_030051C4] — entity 0 is visited first and the index is
+ * then jumped forward at the bottom of the body, so a `continue` inside the
+ * body deliberately skips that jump.
+ *
+ * Entities are skipped unless unkF <= 0x1A and != 0x19 (dying//inactive states)
+ * and kind > 0x6D. The hit test is an axis-aligned box overlap: the projectile
+ * box is +-0xC by +-0x18, the entity's horizontal half-extents come from its
+ * kind (0x70 -> 15/15, 0x6F -> 15/7, otherwise 12/12).
+ *
+ * The half-extents are `u16` holding the two's complement (0xFFF1/0xFFF9/0xFFF4)
+ * rather than `s16` -15/-7/-12, and that IS load-bearing -- but not for the reason
+ * the decompiling commit (ecd8c07) gave. It said the `s16` spelling makes the
+ * literal-pool words sign-extend. It does not: build both and the pool words are
+ * byte-identical, `.word 0x0000fff1 / 0x0000fff1 / 0x0000fff9 / 0x0000fff4` either
+ * way. The entire difference across the 608-byte function is ONE byte, at offset
+ * 0xAC, where the operands of a single add swap -- `adds r1, r1, r2` (0x1889, what
+ * the ROM has) becomes `adds r1, r2, r1` (0x1851). "One byte off" was right; the
+ * cause was not, and is not established. Reproduce by declaring both locals `s16`,
+ * spelling the three constants -15/-7/-12, and diffing
+ * `arm-none-eabi-objdump -d build/src/code_1.o`.
+ *
+ * On a hit, the entity's kind selects the reaction:
+ *   0x6E KLONOA  - kill the player (PlayerRespawnOrDeath(1)) unless the death
+ *                  sequence is already running (unk3E && unk5B).
+ *   0x6F BOX     - break it: only when unk8 > 1 and its cooldown unk9 is 0;
+ *                  retires it (unkF = 0x1B, onScreen = 0, unk9 = 0x46), clears
+ *                  the palette-anim slot it owned, and drops the two tracking
+ *                  ids at gUnk_03005220.unk3F / .unk42 that pointed at it.
+ *   0x70         - flag it: set cooldown unk9 = 0x64 and OR its unk8 bit into
+ *                  gUnk_03005220.unk2E.
+ *   0x71..0x74   - EntityHitReaction(entity), cooldown unk8 = 0x87.
+ *   0x75         - EntitySpriteFlipAndLoad(entity), cooldown unk8 = 0xC8.
+ *   default      - spawn effect type 2 at the entity's position.
+ */
+void EntityProjectileUpdate(void) {
+    u32 i;
+    u32 j;
+    u16 left;
+    u16 right;
+
+    for (i = 1; i <= 8; i++) {
+        if (gUnk_03002920[i].unkF == 0x1C) {
+            continue;
+        }
+        if (gUnk_03000830[i].unk0 != 6) {
+            continue;
+        }
+        for (j = 0; j <= gUnk_030051C4; j++) {
+            if (gUnk_03002920[j].unkF > 0x1A || gUnk_03002920[j].unkF == 0x19) {
+                continue;
+            }
+            if (gUnk_03002920[j].kind > 0x6D) {
+                if (gUnk_03002920[j].kind == 0x70) {
+                    right = 0xFFF1;
+                    left = right;
+                } else if (gUnk_03002920[j].kind == 0x6F) {
+                    left = 0xFFF1;
+                    right = 0xFFF9;
+                } else {
+                    right = 0xFFF4;
+                    left = right;
+                }
+                if ((u16)(gUnk_03002920[j].xPosBg2 + left) < gUnk_03002920[i].xPosBg2 + 0xC
+                    && (u16)(gUnk_03002920[j].xPosBg2 - right) > gUnk_03002920[i].xPosBg2 - 0xC
+                    && gUnk_03002920[j].yPosBg2 - 0x18 < gUnk_03002920[i].yPosBg2
+                    && gUnk_03002920[j].yPosBg2 > gUnk_03002920[i].yPosBg2 - 0x18) {
+                    switch (gUnk_03002920[j].kind - 0x6E) {
+                        case 0:
+                            if (gUnk_03005220.unk3E != 0 && gUnk_03005220.unk5B != 0) {
+                                continue;
+                            }
+                            PlayerRespawnOrDeath(1);
+                            break;
+
+                        case 2:
+                            if (gUnk_03002920[j].unk9 != 0) {
+                                break;
+                            }
+                            gUnk_03002920[j].unk9 = 0x64;
+                            gUnk_03005220.unk2E |= 1 << gUnk_03002920[j].unk8;
+                            break;
+
+                        case 1:
+                            if (gUnk_03002920[j].unk8 <= 1) {
+                                break;
+                            }
+                            if (gUnk_03002920[j].unk9 != 0) {
+                                break;
+                            }
+                            gUnk_03002920[j].unkF = 0x1B;
+                            gUnk_03002920[j].onScreen = 0;
+                            gUnk_03002920[j].unk9 = 0x46;
+                            if (j == gUnk_03003610[1].unk2) {
+                                SetPaletteAnimEntry(gUnk_03003610[1].unk3, 0);
+                                gUnk_03003610[1].unk2 = 0;
+                            }
+                            if (gUnk_03005220.unk3F == j) {
+                                gUnk_03005220.unk3F = 0;
+                            }
+                            if (gUnk_03005220.unk42 == j) {
+                                ResetEntityScrollState(1);
+                            }
+                            break;
+
+                        case 3:
+                        case 4:
+                        case 5:
+                        case 6:
+                            if (gUnk_03002920[j].unk8 != 0) {
+                                break;
+                            }
+                            EntityHitReaction((u8)j);
+                            gUnk_03002920[j].unk8 = 0x87;
+                            break;
+
+                        case 7:
+                            if (gUnk_03002920[j].unk8 != 0) {
+                                break;
+                            }
+                            EntitySpriteFlipAndLoad((u8)j);
+                            gUnk_03002920[j].unk8 = 0xC8;
+                            break;
+
+                        default:
+                            SpawnEntityAtPosition(gUnk_03002920[j].xPosBg2, gUnk_03002920[j].yPosBg2, 2, (u8)j);
+                            break;
+                    }
+                }
+            }
+            if (j == 0) {
+                j = gUnk_030052B4 - 1;
+            }
+        }
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", SpawnEntityAtPosition);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityHitReaction);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntitySpriteFlipAndLoad);
@@ -1401,7 +1627,128 @@ void UpdateHUDCollectibleCountAlt(void) {
     gBgTilemapBufs[0][0x25C] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives % 10) + 0x293];
     gBgTilemapBufs[0][0x27C] = gBgTilemapBufs[0][((u8)gUnk_03005220.lives % 10) + 0x2B3];
 }
-INCLUDE_ASM("asm/nonmatchings/code_1", UpdateHUDTimerAndLives);
+/**
+ * UpdateHUDTimePanel: redraws the two-row time panel of the timed stages.
+ *
+ * Called from three sites (`git grep -n "UpdateHUDTimePanel();" -- src`), all of
+ * them on the timed-stage path:
+ *   - InitLevelBG (src/engine.c), under `world == 6 && (level == 1 || level == 3)`
+ *     -- the branch that opens WIN1 over the top-right 80x16 pixels (10 tiles x 2
+ *     rows) and sets gUnk_03004C20.unk10 = 1, the flag that lets the stage clock
+ *     run.
+ *   - UpdateOamSortOrder (src/code_3.c), TWICE per call: once under that same
+ *     `world == 6 && (level == 1 || level == 3)` test, in the block that re-opens
+ *     WIN1 and rewrites REG_DISPCNT to the same values as InitLevelBG does, and
+ *     again after the tilemap DMA under `gUnk_03004C20.unk10 == 1` -- i.e. keyed on
+ *     the flag the other sites set rather than on the world/level pair directly.
+ *
+ * It first re-blits the panel frame: two DmaCopy16 of 0x14 bytes = 10 tilemap
+ * entries, from the off-screen template at gBgTilemapBufs[0] rows 0x16/0x17 col
+ * 0x12 to the visible rows 0/1 at col 0x14. The digit tile runs the readouts
+ * index, 0x312 and 0x332, are the next two rows of that same off-screen block
+ * (rows 0x18/0x19, col 0x12).
+ *
+ * Row 0 shows the stage's stored best time, from the save record behind
+ * gUnk_03004670: unk1/unk2/unk3 for level 1, unk4/unk5/unk6 for the other timed
+ * stage. Row 1 shows the run in progress, gUnk_03005220.unk4D/unk4E/unk4F. Both
+ * are minutes:seconds:hundredths, two digits per field, split with __udivsi3 /
+ * __umodsi3. All of this is verified at runtime by planting marker tiles in the
+ * template and in both digit runs and reading the twelve slots back
+ * (docs/dynamic-analysis/scripts/prove-hud-time-panel.mjs).
+ *
+ * The clock fields themselves are proven there too: unk4E steps once every 59
+ * frames and wraps at 60 into unk4D (seconds), unk4D caps at 99 (minutes), unk4F
+ * is floor(gUnk_03005220.unk60 / 100) with unk60 advancing 167 per frame
+ * (hundredths). A stored time of 0:0:0 means "no record" and is re-armed to the
+ * ceiling 99:59:99 -- the same value at which the stage clock stops counting.
+ * Nothing here reads gUnk_03005220.lives (offset 0x4C).
+ *
+ * ROM BUG, reproduced deliberately -- do not "fix" it: the non-level-1 path TESTS
+ * unk4..unk6 but RE-ARMS unk1..unk3. Reaching it with an empty record wipes the
+ * OTHER stage's stored best time to 99:59:99 and leaves its own slot at 0:0:0,
+ * where no finish time can ever beat it. Confirmed at runtime: with unk4..6 =
+ * 0,0,0 and unk1..3 = 11,22,33 the function leaves unk4..6 at 0,0,0 and rewrites
+ * unk1..3 to 99,59,99, while the level-1 path re-arms its own triple. The
+ * scene-setup code at src/code_3.c:2200-2208 arms each triple from its own test,
+ * which is what normally keeps this latent.
+ *
+ * NOT verified at runtime: that unk1..3 / unk4..6 are BEST times. That reading
+ * comes from the stage-completion code at ROM 0x080267CE (inside the blob named
+ * IntroSequenceUpdate), which compares unk4D/unk4E/unk4F against the stored triple
+ * field by field and stores the current time only when it is smaller, keyed on the
+ * same unk10 == 1 and level == 1 / else split. Nor was the panel ever seen on
+ * screen: every shipped savestate is world 1, so the function was exercised by
+ * appending it to the game's own frame-callback queue.
+ *
+ * MATCHING. Three source shapes decide this one, and each was re-checked here as a
+ * single-lever ablation OFF the matching source (change one thing, rebuild
+ * build/src/code_1.o, diff this function's disassembly):
+ *   - the DMA loop's counter is `u32`, not `u8`: a u8 makes agbcc wrap `i++` in
+ *     lsl/lsr #24 and blocks strength reduction of the two address givs. The
+ *     function grows from 264 to 269 instructions and almost every line moves.
+ *   - TWO pointer locals `p` and `q`, not one. Both start from gUnk_03004670, but
+ *     the ROM keeps them as separate live ranges (r2, dead before the calls, vs r5,
+ *     live across them), and agbcc has no live-range splitting, so one C variable
+ *     would mean one hard register for both. Collapsing them to one keeps the
+ *     length but moves 14 instructions.
+ *   - the blit uses the row/column index form, `[(0x16 + i) * 0x20 + 0x12]` and
+ *     `[(i * 0x20) + 0x14]`. The flat form `[0x2D2 + i * 0x20]` folds to the same
+ *     addresses but changes which pseudo the global allocator ranks first, so the
+ *     DMA src/dst registers come out in the wrong order: same length, 14
+ *     instructions moved.
+ *
+ * The commit that matched this (6066726, under its old name UpdateHUDTimerAndLives)
+ * quoted `201 -> 55 -> 24 -> 10 -> 0`. Read that as a FORWARD chain -- each number
+ * is the score after adding one more lever on the way in -- not as per-lever
+ * ablation costs off the finished source. The two are different measurements and
+ * the commit did not say which it was reporting.
+ */
+void UpdateHUDTimePanel(void) {
+    u32 i;
+    struct Unk_03004670 *p;
+    struct Unk_03004670 *q;
+
+    for (i = 0; i < 2; i++) {
+        DmaCopy16(3, &gBgTilemapBufs[0][(0x16 + i) * 0x20 + 0x12], &gBgTilemapBufs[0][(i * 0x20) + 0x14], 0x14);
+    }
+
+    if (gUnk_03004C20.level == 1) {
+        p = gUnk_03004670;
+        if ((p->unk1 | p->unk2 | p->unk3) == 0) {
+            p->unk3 = 99;
+            p->unk1 = 99;
+            gUnk_03004670->unk2 = 59;
+        }
+        q = gUnk_03004670;
+        gBgTilemapBufs[0][0x15] = gBgTilemapBufs[0][(u8)(q->unk1 / 10) + 0x312];
+        gBgTilemapBufs[0][0x16] = gBgTilemapBufs[0][(u8)(q->unk1 % 10) + 0x312];
+        gBgTilemapBufs[0][0x18] = gBgTilemapBufs[0][(u8)(q->unk2 / 10) + 0x312];
+        gBgTilemapBufs[0][0x19] = gBgTilemapBufs[0][(u8)(q->unk2 % 10) + 0x312];
+        gBgTilemapBufs[0][0x1B] = gBgTilemapBufs[0][(u8)(q->unk3 / 10) + 0x312];
+        gBgTilemapBufs[0][0x1C] = gBgTilemapBufs[0][(u8)(q->unk3 % 10) + 0x312];
+    } else {
+        p = gUnk_03004670;
+        if ((p->unk4 | p->unk5 | p->unk6) == 0) {
+            p->unk3 = 99;
+            p->unk1 = 99;
+            gUnk_03004670->unk2 = 59;
+        }
+        q = gUnk_03004670;
+        gBgTilemapBufs[0][0x15] = gBgTilemapBufs[0][(u8)(q->unk4 / 10) + 0x312];
+        gBgTilemapBufs[0][0x16] = gBgTilemapBufs[0][(u8)(q->unk4 % 10) + 0x312];
+        gBgTilemapBufs[0][0x18] = gBgTilemapBufs[0][(u8)(q->unk5 / 10) + 0x312];
+        gBgTilemapBufs[0][0x19] = gBgTilemapBufs[0][(u8)(q->unk5 % 10) + 0x312];
+        gBgTilemapBufs[0][0x1B] = gBgTilemapBufs[0][(u8)(q->unk6 / 10) + 0x312];
+        gBgTilemapBufs[0][0x1C] = gBgTilemapBufs[0][(u8)(q->unk6 % 10) + 0x312];
+    }
+
+    gBgTilemapBufs[0][0x35] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4D / 10) + 0x332];
+    gBgTilemapBufs[0][0x36] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4D % 10) + 0x332];
+    gBgTilemapBufs[0][0x38] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4E / 10) + 0x332];
+    gBgTilemapBufs[0][0x39] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4E % 10) + 0x332];
+    gBgTilemapBufs[0][0x3B] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4F / 10) + 0x332];
+    gBgTilemapBufs[0][0x3C] = gBgTilemapBufs[0][(u8)(gUnk_03005220.unk4F % 10) + 0x332];
+}
 INCLUDE_ASM("asm/nonmatchings/code_1", IntroScrollAnimation);
 INCLUDE_ASM("asm/nonmatchings/code_1", IntroSequenceUpdate);
 
