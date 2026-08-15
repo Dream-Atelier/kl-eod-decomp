@@ -70,15 +70,25 @@ struct Unk_03004C20 {
 };
 extern struct Unk_03004C20 gUnk_03004C20;
 
-/* Iris/screen-wipe window state at 0x03004D90.
- * unk4/unk6 hold the pending REG_WIN1H / REG_WIN1V ranges, unk8 the wipe mode
- * (1 = opening, 2 = closing, 0 = idle). Used by InitFadeTransition,
- * MainGameFrameLoop and UpdateScreenWipe. */
+/* Message-box window state at 0x03004D90 -- the panel the game pops over gameplay to
+ * show a hint or a notice. InitFadeTransition (0x08047B1E) builds the panel and seeds
+ * this block, InitGfxState / UpdatePlayerInput / PlayerMovementPhysics arm it, and
+ * UpdateMessageBoxWipe steps it. win1h/win1v ARE the box: they are the pending
+ * REG_WIN1H / REG_WIN1V values, and the panel is drawn on BG0, which window 1 is the
+ * only screen region to show. */
 struct Unk_03004D90 {
     /* 0x00 */ u8 pad0[0x4];
-    /* 0x04 */ u16 unk4;
-    /* 0x06 */ u16 unk6;
-    /* 0x08 */ u8 unk8;
+    /* 0x04 */ u16 win1h; /* pending REG_WIN1H, (x1 << 8) | x2: 0x7878 shut, 0x00F0 fully open */
+    /* 0x06 */ u16 win1v; /* pending REG_WIN1V, (y1 << 8) | y2: 0x4C4C shut, 0x0494 fully open */
+    /* 0x08 */ u8 wipeState; /* 0 = not animating, 1 = opening, 2 = closing */
+    /* 0x09 */ u8 unk9; /* selects what InitFadeTransition builds: 0 makes it look the panel up
+                         * from the player's world/level/tile position in the table at 0x0811769C
+                         * and use VBlankCallback_Gameplay, non-zero picks a fixed panel and uses
+                         * VBlankCallback_Dialog. InitGfxState writes 3, UpdatePlayerInput writes
+                         * 1/2/5 depending on the level. Forcing 0/1/2/3/5 produces five different
+                         * panels (see prove-message-box-wipe.mjs), but whether the byte is an
+                         * index, an id or a mode selector is not established, so it keeps an unk
+                         * name. */
 };
 extern struct Unk_03004D90 gUnk_03004D90;
 

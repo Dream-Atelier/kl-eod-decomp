@@ -665,9 +665,11 @@ extern s16 gUnk_030034F8;
  * Used by TransitionInitLevelMusic, TransitionFadeOut*, sub_08024D84. */
 #define gSceneFadeCounter (*(u16 *)0x03005210)
 
-/* Scene/gfx state struct: used by InitGfxState, InitFadeTransition,
- * MainGameFrameLoop, PlayerMovementPhysics. Part of the graphics pipeline state. */
-#define gGfxSceneState    ((u8 *)0x03004D90)
+/* 0x03004D90 used to carry a second, untyped view here -- `gGfxSceneState`, a `u8 *`
+ * macro with no readers anywhere in the tree. It is the message-box window state and
+ * it now has a typed declaration with named fields: `struct Unk_03004D90
+ * gUnk_03004D90` in structs/variables.h. One address, one name, so the macro is
+ * removed rather than left as a second spelling of the same cell. */
 
 /* Scene script / title sequence state.
  * Used by RunSceneScript, RunTitleSequence. */

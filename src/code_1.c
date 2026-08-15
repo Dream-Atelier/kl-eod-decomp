@@ -1289,10 +1289,17 @@ void TransitionReturnToWorldMap(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutMusicAndReset);
 /**
- * TransitionClearAndRestart: per-frame fade-in step (every other frame). Brightens
- * all layers via BLDCNT until the blend value reaches max, then resets BG2
- * affine/blend state, disables the HBlank interrupt, clears video state, and
- * queues InitLevelBG / ResetVideoRegisters to rebuild the scene.
+ * TransitionClearAndRestart: per-frame fade-OUT step (every other frame), and the same
+ * body as ProcessSceneTransitionOut's level-rebuild arms in gfx.c. Holds REG_BLDCNT at
+ * "darken every layer" and steps gBlendValue and gMosaicSize up until the blend reaches
+ * BLEND_MAX, then resets the BG2 affine scale/alpha, disables the HBlank interrupt,
+ * clears video state, and queues InitLevelBG / ResetVideoRegisters to rebuild the scene.
+ *
+ * This docstring used to say "fade-in step ... brightens all layers". The BLDCNT it
+ * writes is BLDCNT_EFFECT_DARKEN and the blend value counts UP, which under a darken
+ * effect is the screen going black; TransitionToGameplayScreen below is what a fade-in
+ * looks like in this file (BLDCNT_EFFECT_LIGHTEN). Corrected while naming the
+ * round-6 message-box cluster, which shares this ramp.
  */
 void TransitionClearAndRestart(void) {
     gUnk_030034E4 = 1;

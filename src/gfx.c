@@ -2202,9 +2202,17 @@ extern void ResetVideoRegisters();
 extern void VBlankHandler();
 extern void TransitionToGameplayScreen();
 extern void VBlankCallback_Gameplay();
-/* ROM byte table, this function its only reader: indexed by gUnk_03005284->unk4, its high
- * nibble is stored into gUnk_03004C20.world and its low nibble selects the switch arm below.
- * That is what the code does with it; what the values MEAN is not established.
+/* One byte per gfx-stream scene, indexed by gUnk_03005284->unk4, and this function is its
+ * only reader. The byte is packed (world << 4) | level: the high nibble is stored into
+ * gUnk_03004C20.world and the low nibble both selects the switch arm below and IS the level
+ * number three of the four arms store into gUnk_03004C20.level. A high nibble of 0 means "no
+ * destination" and the dispatch is skipped entirely.
+ *
+ * 17 of the entries are populated (indices 0..16); the rest of the row is zero. Index is
+ * world * 3 for the level-8 entry, +/-1 for its neighbours (code_1.c sets
+ * `gUnk_03005284->unk4 = gUnk_03004C20.world * 3`), so the shipped low nibbles are only
+ * 0, 8, 4 and -- at index 16, world 5 -- 2. Decoded entry by entry in
+ * docs/dynamic-analysis/scripts/prove-scene-exit-destination.mjs.
  *
  * It has to be a NAMED extern, not a `((u8 *)0x0805769C)` macro. As a macro agbcc
  * rematerialises the base at each of the four uses instead of holding it in one register
@@ -2241,6 +2249,47 @@ extern const u8 gUnk_0805769C[];
  * struct spelling and not the gCallbackStateArray u32 spelling that SetupGfxCallbacks above
  * uses (752 bytes, 41 instructions), and gBg2XMag/gBg2YMag must be one chained assignment
  * (10 instructions). */
+/**
+ * ProcessSceneTransitionOut: the exit half of a gfx-stream scene -- it runs the scene's
+ * fade-out and then queues whatever screen comes next.
+ *
+ * Not a callback-queue entry: the gfx-stream tick (sub_0804EB64) calls it instead of
+ * advancing the stream once GFX_SCENE_EXITING is set, which StreamCmd_BeginSceneExit does
+ * and which a START press on a GFX_SCENE_SKIPPABLE scene does too. It raises
+ * gUnk_030034E4 (gPauseFlag) while it is running and does its work on even frames only.
+ *
+ * "Out" is the direction of the default path and of the function as a whole. It holds
+ * REG_BLDCNT at "darken every layer", steps gBlendValue and gMosaicSize up once per two
+ * frames, and when the blend passes 15 the scene has gone black and is torn down:
+ * ShutdownGfxSubsystem, InitOamEntries, BG2 scale back to 1.0, BG2 alpha 0, music stopped.
+ * GfxControlFlags.blendRampDown (byte 0x1C bit 5) reverses only the ramp -- it counts
+ * gBlendValue down instead and, on underflow, drops BG2 out of REG_DISPCNT and clears
+ * itself, after which the up-ramp above takes over. Neither path ever fades anything IN;
+ * the fade-in of the screen that follows belongs to the callbacks queued below
+ * (TransitionToGameplayScreen is the one that writes BLDCNT_EFFECT_LIGHTEN).
+ *
+ * The switch selects a DESTINATION, not a phase of one transition. Each arm is "which
+ * screen comes next", read out of gUnk_0805769C for the scene that is ending:
+ *
+ *   case 0 / case 8   rebuild a level at that level number: InitLevelBG,
+ *                     ResetVideoRegisters. Guarded on world != 0, which the `& 0xF0`
+ *                     test above has already guaranteed.
+ *   case 4            straight into gameplay: ReadKeyInput, TransitionToGameplayScreen,
+ *                     VBlankCallback_Gameplay, with mosaic and blend pinned at 15 for
+ *                     that fade-in to unwind.
+ *   case 2            world 5's hand-off to the last world: it overrides the destination
+ *                     to world 6, level 8 and rebuilds as above. The byte 0x52 at index
+ *                     16 is the only entry that selects this arm, so its `world == 5`
+ *                     guard always holds for shipped data.
+ *   case 5            ReadKeyInput, UpdateSceneTransition, VBlankCallback_Gameplay, plus
+ *                     ClearVideoState. NO populated table entry has a low nibble of 5, so
+ *                     this arm is transcribed from the ROM but has never been observed to
+ *                     run, and nothing here should be read as a claim about it.
+ *
+ * Every arm above was run and its queue read back in
+ * docs/dynamic-analysis/scripts/prove-scene-exit-destination.mjs -- except case 5, which
+ * that script reports as unreachable rather than pretending to have exercised it.
+ */
 void ProcessSceneTransitionOut(void) {
     struct GfxControlFlags *ctl;
     u8 rampDown;

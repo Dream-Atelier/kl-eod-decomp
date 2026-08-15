@@ -512,7 +512,12 @@ sub_080472C8 = "ConfigureInterruptsForGameplay"
 sub_080475DC = "UpdateBootMinigame"
 sub_080477A8 = "MainGameFrameLoop"
 sub_08047B1E = "InitFadeTransition"
-sub_08047ECA = "UpdateScreenWipe"
+sub_08047ECA = "UpdateMessageBoxWipe"
+# 0x08047F80 is a real ROM function that luvdis never found an entry point for (nothing
+# calls it -- its address is only ever stored into a callback slot), so no sub_08047F80
+# symbol comes out of the disassembly. This alias is what gives that address the usual
+# sub_ spelling alongside its semantic name.
+sub_08047F80 = "UpdateMessageBoxFadeIn"
 sub_0804802A = "UpdateWorldMapLogic"
 
 # Util functions
