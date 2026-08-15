@@ -1516,11 +1516,11 @@ extern void EntityGravityAndFloorCheck(u8); /* EntityGravityAndFloorCheck */
 extern void PlayerFollowEntityMovement(u8); /* PlayerFollowEntityMovement */
 extern void EntityBehaviorMasterUpdate(u8); /* EntityBehaviorMasterUpdate */
 extern void sub_08016EEC(u8); /* code_1 alternate-entry, see asm/thumb_aliases.s */
-extern void sub_0801BB6C(u8);
-extern void sub_0801BCC0(u8);
+extern void PlayerGrabInputCheck(u8);
+extern void PlayerEntityCollisionCheck(u8);
 extern void sub_0801B044(u8);
-extern void sub_0801E1A8(u8);
-extern void sub_0801E354(u8);
+extern void EntityFloatPath(u8);
+extern void EntityPickupCollect(u8);
 extern void EntityStateSwitch_Carried(u8); /* EntityStateSwitch_Carried */
 extern void EntityPairUpdate(u8); /* EntityPairUpdate */
 extern void EntityProximityDamageCheck(u8); /* EntityProximityDamageCheck */
@@ -1612,11 +1612,11 @@ void HandlePauseMenuInput(void) {
                         break;
 
                     case 0x3E:
-                        sub_0801BB6C((u8)var_r4);
+                        PlayerGrabInputCheck((u8)var_r4);
                         break;
 
                     case 0x3F:
-                        sub_0801BCC0((u8)var_r4);
+                        PlayerEntityCollisionCheck((u8)var_r4);
                         break;
 
                     case 0x36:
@@ -1676,13 +1676,13 @@ void HandlePauseMenuInput(void) {
 
                     case 0x2:
                         if (gUnk_03002920[var_r4].unkF == 2) {
-                            sub_0801E1A8((u8)var_r4);
+                            EntityFloatPath((u8)var_r4);
                         }
                         break;
 
                     case 0x2D:
                         if (gUnk_03002920[var_r4].unkF == 2) {
-                            sub_0801E354((u8)var_r4);
+                            EntityPickupCollect((u8)var_r4);
                         }
                         break;
                 }

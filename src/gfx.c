@@ -74,18 +74,20 @@ void FadeOutController(void) {
  * UpdateSceneTransition: per-frame driver of a fixed 0x140-frame fade sequence
  * that ends by handing the screen to the title-screen callbacks.
  *
- * It is a generic driver, not one destination's transition: four sites install
- * it in a callback slot -- FadeOutController (the boot path; AgbMain installs
- * [ReadKeyInput, FadeOutController, VBlankCallback_Gameplay]),
- * ProcessSceneTransitionOut, RunSceneScript and TransitionToSceneSelect. That
- * is every literal-pool reference to it in the ROM; the scan is in the proof
- * script. Only the boot instance was OBSERVED running: there the sequence
+ * It is a generic driver, not one destination's transition: three LIVE sites
+ * install it in a callback slot -- FadeOutController (the boot path; AgbMain
+ * installs [ReadKeyInput, FadeOutController, VBlankCallback_Gameplay]),
+ * ProcessSceneTransitionOut and RunSceneScript. There is a fourth
+ * literal-pool reference, but it sits inside TransitionFadeOutToTitle, which
+ * nothing in the ROM reaches -- so it can never install anything. Those four
+ * words are every literal-pool reference to it in the ROM; the scan is in the
+ * proof script. Only the boot instance was OBSERVED running: there the sequence
  * presents the Namco logo for ~5.3 s and hands over to the KLONOA title screen.
  * What the other three installers leave on screen is NOT verified.
  *
  * It runs off gUnk_03004C20.sceneFrameCounter (gControlBlock[0], 0x03004C20),
  * which the VBlank callback increments once per frame. The installers do NOT
- * reset it to 0: FadeOutController and TransitionToSceneSelect both store -1,
+ * reset it to 0: FadeOutController and TransitionFadeOutToTitle both store -1,
  * and the next VBlank increment makes that 0 -- which is also how this function
  * ends the sequence.
  *
