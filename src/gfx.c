@@ -1567,12 +1567,8 @@ void StreamCmd_InitWindowCornerMotion(void) {
         u8 *cmd = gStreamPtr;
         u8 idx = cmd[2];
         struct GfxStreamEntry *entries = gGfxStreamEntries;
-        struct GfxStreamEntry *entry;
-        u8 target;
 
-        entry = (struct GfxStreamEntry *)(idx * sizeof(struct GfxStreamEntry) + (u32)entries);
-        target = cmd[3];
-        entry->targetIndex = target;
+        entries[idx].targetIndex = cmd[3];
     }
     gStreamPtr += 10;
 }
@@ -1717,12 +1713,8 @@ void StreamCmd_InitOscillation(void) {
         u8 *cmd = gStreamPtr;
         u8 idx = cmd[2];
         struct GfxStreamEntry *entries = gGfxStreamEntries;
-        struct GfxStreamEntry *entry;
-        u8 target;
 
-        entry = (struct GfxStreamEntry *)(idx * sizeof(struct GfxStreamEntry) + (u32)entries);
-        target = cmd[3];
-        entry->targetIndex = target;
+        entries[idx].targetIndex = cmd[3];
     }
     {
         u8 *cmd = gStreamPtr;
@@ -1829,15 +1821,11 @@ void StreamCmd_InitStaticScroll(void) {
         u8 *cmd = gStreamPtr;
         u8 idx = cmd[2];
         struct GfxStreamEntry *entries = gGfxStreamEntries;
-        struct GfxStreamEntry *entry;
-        u8 target;
 
         entries[idx].unk_08 = cmd[4];
         entries[cmd[2]].unk_0A = cmd[5];
 
-        entry = (struct GfxStreamEntry *)(cmd[2] * sizeof(struct GfxStreamEntry) + (u32)entries);
-        target = cmd[3];
-        entry->targetIndex = target;
+        entries[cmd[2]].targetIndex = cmd[3];
     }
     {
         u8 *cmd = gStreamPtr;
@@ -2087,12 +2075,8 @@ void StreamCmd_InitSpriteWave(void) {
         u8 *cmd = gStreamPtr;
         u8 idx = cmd[2];
         struct GfxStreamEntry *entries = gGfxStreamEntries;
-        struct GfxStreamEntry *entry;
-        u8 target;
 
-        entry = (struct GfxStreamEntry *)(idx * sizeof(struct GfxStreamEntry) + (u32)entries);
-        target = cmd[3];
-        entry->objIndex = target;
+        entries[idx].objIndex = cmd[3];
         entries[cmd[2]].unk_1F = cmd[4] >> 4;
     }
     {
