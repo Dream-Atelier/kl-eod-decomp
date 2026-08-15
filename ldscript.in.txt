@@ -491,6 +491,11 @@ gLayerTileCount = 0x08057814;
 gLayerTileByteSize = 0x08057894;
 gLayerCharBlock = 0x080578D4;
 gLayerScreenBlock = 0x08057914;
+/* Scene-exit table read only by ProcessSceneTransitionOut: high nibble -> gUnk_03004C20.world,
+ * low nibble -> the teardown variant it switches on. Named rather than spelled as a cast
+ * address because agbcc only holds the base in a register across the four uses when it is a
+ * symbol; see the note in src/gfx.c. */
+gUnk_0805769C = 0x0805769C;
 gStreamDataTable = 0x08189AFC;
 /* The graphics stream's OBJ-tileset table and its parallel OBJ-palette table, plus
  * a typed pointer to the allocator table at 0x030007C8 (the cell gGfxStreamBuffer

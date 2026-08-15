@@ -2115,7 +2115,148 @@ s32 ProcessScreenFade(void) {
     return 1;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", UpdatePaletteFadeStep);
-INCLUDE_ASM("asm/nonmatchings/gfx", ProcessSceneTransitionOut);
+void UpdatePaletteFadeStep(void);
+void InitOamEntries(void);
+extern void InitLevelBG();
+extern void ResetVideoRegisters();
+extern void VBlankHandler();
+extern void TransitionToGameplayScreen();
+extern void VBlankCallback_Gameplay();
+/* ROM byte table, this function its only reader: indexed by gUnk_03005284->unk4, its high
+ * nibble is stored into gUnk_03004C20.world and its low nibble selects the switch arm below.
+ * That is what the code does with it; what the values MEAN is not established.
+ *
+ * It has to be a NAMED extern, not a `((u8 *)0x0805769C)` macro. As a macro agbcc
+ * rematerialises the base at each of the four uses instead of holding it in one register
+ * across them: the function grows 748 -> 752 bytes and 59 instructions change. This is the
+ * "named extern vs cast address constant" lever in
+ * docs/learnings/agbcc-source-shape-levers.md, measured here. `const` is not load-bearing
+ * (plain `extern u8` is byte-identical); the NAME is. */
+extern const u8 gUnk_0805769C[];
+/* ProcessSceneTransitionOut matching notes -- three levers decided this function, each
+ * measured by ablation against the target object (0 = byte-identical .text):
+ *
+ *  - the 0x1C flag is READ as a byte mask, `((u8 *)ctl)[0x1C] & 0x20`, and WRITTEN as a
+ *    bitfield, `ctl->blendRampDown = 0`. Both halves matter and they pull opposite ways:
+ *    reading it as the bitfield emits agbcc's 1-bit extract (`lsl #26 / lsr #31`) where the
+ *    ROM has `and #0x20` plus a (u8) truncation (52 instructions change, 744 bytes), while
+ *    writing it as a byte RMW loses the `mov #0x21 / neg` negated-mask insert the u8
+ *    bitfield container produces (49 change, 744 bytes). The `u8 rampDown` local is NOT
+ *    load-bearing -- inlining the test into the `if` is byte-identical.
+ *
+ *  - gUnk_0805769C[gUnk_03005284->unk4] is respelled at every one of its four uses rather
+ *    than cached in a local. Caching it costs the most of anything tried: 704 bytes, 128
+ *    instructions. agbcc CSEs the *pointer* load but not the byte load, because the
+ *    intervening store to gUnk_03004C20 may alias through it.
+ *
+ *  - the switch arms are in SOURCE order 2, 0/8, 4, 5, which is the order the ROM lays the
+ *    bodies out in. Reordering them keeps the byte count at exactly 748 and still changes 70
+ *    instructions, so a length check would call it a match; only the byte comparison does not.
+ *
+ * Also measured and NOT load-bearing: `gVBlankCallbackArray[0] = (u32)VBlankHandler` for
+ * `gIntrTable.vBlank`, `extern u8 gBlendValue` for the gUnk_03005498 macro, a
+ * `struct GfxControlFlags *` local vs repeating the cast, `--x`/`++x` vs `-= 1`/`+= 1` with
+ * a separate read, `(void (*)(void))1` for `NULL + 1`, and `case 8: case 0:` for
+ * `case 0: case 8:`. Two more that ARE: the callback queue must use the gCallbackQueue
+ * struct spelling and not the gCallbackStateArray u32 spelling that SetupGfxCallbacks above
+ * uses (752 bytes, 41 instructions), and gBg2XMag/gBg2YMag must be one chained assignment
+ * (10 instructions). */
+void ProcessSceneTransitionOut(void) {
+    struct GfxControlFlags *ctl;
+    u8 rampDown;
+
+    gUnk_030034E4 = 1;
+    if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
+        return;
+    }
+
+    ctl = (struct GfxControlFlags *)gGfxBufferPtr;
+    rampDown = ((u8 *)ctl)[0x1C] & 0x20;
+    if (rampDown != 0) {
+        gUnk_03005498 -= 1;
+        if ((gUnk_03005498 & 0x80) != 0) {
+            REG_DISPCNT &= ~DISPCNT_BG2_ON;
+            ctl->blendRampDown = 0;
+        }
+        return;
+    }
+
+    REG_BLDCNT = BLDCNT_TGT1_ALL | BLDCNT_EFFECT_DARKEN;
+    gUnk_03005498 += 1;
+    if (gUnk_03005498 > 0x0F) {
+        gUnk_03005498 = BLEND_MAX;
+        gUnk_030034E4 = 0;
+        ShutdownGfxSubsystem();
+        InitOamEntries();
+        gBg2XMag = gBg2YMag = 0x100;
+        gBg2Alpha = 0;
+        m4aMPlayAllStop();
+        gSceneFadeCounter = 0x100;
+        if ((gUnk_0805769C[gUnk_03005284->unk4] & 0xF0) != 0) {
+            gUnk_03004C20.world = gUnk_0805769C[gUnk_03005284->unk4] >> 4;
+            switch (gUnk_0805769C[gUnk_03005284->unk4] & 0x0F) {
+                case 2:
+                    if (gUnk_03004C20.world == 5) {
+                        gMosaicSize = 0x0F;
+                        gUnk_03004C20.level = 8;
+                        gUnk_03004C20.world = 6;
+                        gUnk_03003410.unk9 = 0;
+                        gUnk_03003410.unkA = 0;
+                        gCallbackQueue.next[0] = InitLevelBG;
+                        gUnk_03003410.unk8 = 1;
+                        gCallbackQueue.next[1] = ResetVideoRegisters;
+                        gCallbackQueue.next[2] = NULL + 1;
+                        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+                        gCallbackQueue.nextCount = 3;
+                        gIntrTable.vBlank = VBlankHandler;
+                    }
+                    return;
+                case 0:
+                case 8:
+                    if (gUnk_03004C20.world != 0) {
+                        gMosaicSize = 0x0F;
+                        gUnk_03004C20.level = gUnk_0805769C[gUnk_03005284->unk4] & 0x0F;
+                        gUnk_03003410.unk9 = 0;
+                        gUnk_03003410.unkA = 0;
+                        gCallbackQueue.next[0] = InitLevelBG;
+                        gUnk_03003410.unk8 = 1;
+                        gCallbackQueue.next[1] = ResetVideoRegisters;
+                        gCallbackQueue.next[2] = NULL + 1;
+                        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+                        gCallbackQueue.nextCount = 3;
+                        gIntrTable.vBlank = VBlankHandler;
+                    }
+                    break;
+                case 4:
+                    gUnk_03004C20.level = gUnk_0805769C[gUnk_03005284->unk4] & 0x0F;
+                    gCallbackQueue.next[0] = ReadKeyInput;
+                    gCallbackQueue.next[1] = TransitionToGameplayScreen;
+                    gCallbackQueue.next[2] = VBlankCallback_Gameplay;
+                    gCallbackQueue.next[3] = NULL + 1;
+                    gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+                    gCallbackQueue.nextCount = 4;
+                    gUnk_03004C20.sceneFrameCounter = -1;
+                    gMosaicSize = 0x0F;
+                    gUnk_03005498 = 0x0F;
+                    return;
+                case 5:
+                    gCallbackQueue.next[0] = ReadKeyInput;
+                    gCallbackQueue.next[1] = UpdateSceneTransition;
+                    gCallbackQueue.next[2] = VBlankCallback_Gameplay;
+                    gCallbackQueue.next[3] = NULL + 1;
+                    gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+                    gCallbackQueue.nextCount = 4;
+                    ClearVideoState();
+                    gUnk_03004D9C = 0;
+                    gUnk_03004C20.sceneFrameCounter = -1;
+                    return;
+            }
+        }
+    } else {
+        gMosaicSize += 1;
+    }
+    UpdatePaletteFadeStep();
+}
 /**
  * StreamCmd_BeginSceneExit: stream command that ends the current scene.
  *
