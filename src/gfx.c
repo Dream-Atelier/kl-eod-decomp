@@ -554,12 +554,26 @@ INCLUDE_ASM("asm/nonmatchings/gfx", InitWorldMapGfx);
 /**
  * ShutdownGfxSubsystem: tears down the graphics subsystem on scene exit.
  *
- * Saves the current scene callback, disables HBlank IRQ and HBlank STAT,
+ * Clears any pending gfx-stream wait, disables HBlank IRQ and HBlank STAT,
  * then shuts down the graphics stream, sound, and frees all three
  * dynamically allocated graphics buffers.
+ *
+ * The first statement was previously described as "saves the current scene
+ * callback". It does not: `gControlBlock` is 0x03004C20 and `src[1]` is the word
+ * at +4, which DWARF names gUnk_03004C20.globalFrameCounter. Storing the frame
+ * counter into gStreamWaitDeadline sets the deadline to *now*, i.e. already
+ * expired — it CLEARS the wait rather than saving anything. See the comment on
+ * gStreamWaitDeadline in include/structs/variables.h and
+ * docs/dynamic-analysis/scripts/prove-stream-wait-deadline.mjs.
+ *
+ * The `(u32 *)gControlBlock` spelling is kept rather than replaced by the
+ * equivalent `gUnk_03004C20.globalFrameCounter`: this file's rule is that a
+ * comment-only fix must not move a byte, and swapping a cast-address expression
+ * for a struct member is exactly the kind of change that does (see the
+ * gCallbackQueueAt3510 note in CLAUDE.md).
  */
 void ShutdownGfxSubsystem(void) {
-    vu32 *dest = (vu32 *)&gUnk_03000814;
+    vu32 *dest = (vu32 *)&gStreamWaitDeadline;
     u32 *src = (u32 *)gControlBlock;
     *dest = src[1];
 
@@ -1210,7 +1224,39 @@ void Stub_0804CAC4(void) { }
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessMotionStep);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessMotionStepExtended);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessStaticBGScroll);
-/* The two `(struct GfxStreamEntry *)gBuffer_52A4` reads are both load-bearing, and so is the fact
+/**
+ * ProcessFrameAnimation: advance one sprite-animation entry by a frame.
+ *
+ * The per-frame callback StreamCmd_InitFrameAnimation installs into
+ * GfxStreamEntry.callback. It decrements `timer`, and when that goes negative it DMAs
+ * the CURRENT frame to OBJ VRAM, reloads the timer from unk_08, steps the frame index
+ * in unk_0C, and wraps it back to unk_1E once it reaches unk_1E + unk_1F. Always
+ * returns 1, so ProcessAnimationSteps keeps the entry active for ever -- a frame
+ * animation installed by the stream loops until something else stops it.
+ *
+ * The name is earned rather than inherited: the entry really does own an animation
+ * cursor and really does advance it. The fields it uses, for a frame-animation entry:
+ *   unk_04  the GfxStreamAlloc slot (DmaSpriteToObjVram's `entryIdx`), i.e. WHICH
+ *           tileset's OBJ tiles are being repainted
+ *   unk_0C  the current frame index within that tileset's multi-frame sheet
+ *   unk_1E  the FIRST frame of the loop
+ *   unk_1F  the frame COUNT (so the loop is unk_1E .. unk_1E + unk_1F - 1)
+ *   unk_08  frames to hold each animation frame; reloaded into `timer` on each step
+ *
+ * Each of those was established by changing exactly one of them and watching the
+ * frames the ROM actually DMAs, against a control that never fires
+ * (docs/dynamic-analysis/scripts/prove-frame-animation.mjs). With base 0 / count 4 the
+ * DMAd frames cycle 0,1,2,3,0,1,2,3; changing only the count to 3 gives 0,1,2,0,1,2;
+ * changing only the base to 5 gives 5,6,7,8; changing only unk_08 to 2 holds each
+ * frame for two calls; and with the timer parked at 1000 nothing is written at all.
+ *
+ * "Frame" here is an ANIMATION frame, not a hardware frame: DmaSpriteToObjVram turns
+ * unk_0C into a byte offset of `frameIdx * tileCount * 32` into the slot's
+ * decompressed tile data, so consecutive indices select consecutive cels of one sheet
+ * (the "multi-frame sheet" GfxStreamTileset's comment in include/gfx.h refers to), and
+ * all of them land on the same OBJ tiles.
+ *
+ * The two `(struct GfxStreamEntry *)gBuffer_52A4` reads are both load-bearing, and so is the fact
  * that they are two DIFFERENT locals. The ROM reloads the table base once on each side of the
  * DmaSpriteToObjVram call (`ldr r2, [r5]` before it, `ldr r0, [r5]` after) while keeping only the
  * scaled index in a callee-saved register. Three spellings were built and diffed against the ROM:
@@ -1248,22 +1294,50 @@ INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitLinearMotion);
 u32 ProcessMotionStepExtended(u32 idx);
 extern s16 DivideQ4(s16 num1, s16 num2);
 /**
- * StreamCmd_InitLinearMotionExt (name inherited, NOT re-earned here — no runtime
- * evidence was gathered for this handler; everything below is read off the ROM's
- * own instructions, nothing is claimed about on-screen behaviour).
+ * StreamCmd_InitEntityMotion: tween one entity's position over a frame count.
  *
- * Structurally the same handler as StreamCmd_InitWindowCornerMotion — a stream
- * displacement pair plus a frame count divided into a per-frame velocity, with
- * ProcessMotionStepExtended installed as the callback — differing in three ways:
- * param is 2 rather than 4, the stream's byte[3] lands in the entry's objIndex
- * bitfield rather than targetIndex, and it ends with two extra stores into
- * gUnk_03002920.
+ * The name was changed from StreamCmd_InitLinearMotionExt, which was misleading in
+ * the one way that mattered. "Ext" reads as "an extended form of the command above
+ * it", and it is not: this handler and StreamCmd_InitLinearMotion (0x0804D408, still
+ * INCLUDE_ASM one line up) install the SAME callback with the SAME arithmetic. What
+ * differs is only WHICH object moves, and that is chosen by the entry's `param`
+ * field, which selects an arm of ProcessMotionStepExtended's jump table at
+ * 0x0804CCB0. There are three commands in the family and they are three targets, not
+ * a base plus extensions:
  *
- * What it writes, in order (stream is 10 bytes):
- *   [3]      -> objIndex (7 bits of the header word at +0x00)
- *   [4..5]   unaligned s16 -> unk_04 = value << 4
- *   [6..7]   unaligned s16 -> unk_06 = value << 4
- *   [8..9]   unaligned s16 `duration`; step = (s16)(duration << 4)
+ *   handler                              param  what one tick moves
+ *   StreamCmd_InitLinearMotion            0     gBGLayerState[targetIndex].scrollX/scrollY
+ *   StreamCmd_InitEntityMotion (this)     2     gUnk_03002920[objIndex + 13] position
+ *   StreamCmd_InitWindowCornerMotion      4     the window-clip edge in gGfxBufferPtr
+ *
+ * That table is causal, not inferred: each command was run on a scratch stream and
+ * then ticked ten times, and each moved its own target and left the other two
+ * bit-identical, against a dX = dY = 0 control that moved nothing at all
+ * (docs/dynamic-analysis/scripts/prove-motion-target-param.mjs). With dX = 160 px,
+ * dY = 80 px over 20 frames, ten ticks of THIS command moved
+ * gUnk_03002920[16].xPosScreen by exactly +80 px and .yPosScreen by +40 -- half the
+ * distance in half the time, i.e. a constant velocity, which is what earns "linear".
+ *
+ * "Entity" is gUnk_03002920, the OAM/entity array (see struct Unk_03002920 in
+ * include/structs/variables.h). Note the +13 bias on objIndex: the stream drives
+ * slots 13 and up, so a script cannot address the low slots this way.
+ *
+ * The gUnk_03002920 tail that the sibling handlers do not have is the seed for the
+ * tween, and it is exactly the inverse of what the step does. The step accumulates
+ * into the subpixel pair at +0x00/+0x02 and then publishes `+0x04 = +0x00 >> 4`,
+ * `+0x06 = +0x02 >> 4`; the tail primes `+0x00 = +0x04 << 4` and `+0x02 = +0x06 << 4`,
+ * so the tween starts from wherever the entity already is on screen instead of from
+ * zero. Measured: an entity whose xPosScreen was 116 came out of the command with
+ * xPosBg2 = 1856 = 116 << 4. The BG-layer and window arms need no such seed because
+ * their accumulators ARE the live values.
+ *
+ * Stream layout (10 bytes; the handler sits in two dispatch tables, so `FF 42`
+ * (0x0811787C slot 2) and `FF 2C` (0x08117854 slot 12) both reach it):
+ *   [2]      GfxStreamEntry index
+ *   [3]      -> objIndex (7 bits of the header word at +0x00); entity slot is +13
+ *   [4..5]   unaligned s16 dX in pixels -> unk_04 = dX << 4
+ *   [6..7]   unaligned s16 dY in pixels -> unk_06 = dY << 4
+ *   [8..9]   unaligned s16 `duration` in frames; step = (s16)(duration << 4)
  *   unk_08 = DivideQ4((s16)unk_04, step), unk_0A = DivideQ4((s16)unk_06, step)
  *   unk_0C = unk_0E = 0; param = 2; callback = ProcessMotionStepExtended; type = 1
  *   gUnk_03002920[cmd[3] + 0xD].xPosBg2 = .xPosScreen << 4, and the same for
@@ -1297,7 +1371,7 @@ extern s16 DivideQ4(s16 num1, s16 num2);
  * the stream [0], `step` declared s32 rather than s16 [0], and an s32-returning
  * DivideQ4 declaration [0]. All three were tried and dropped again.
  */
-void StreamCmd_InitLinearMotionExt(void) {
+void StreamCmd_InitEntityMotion(void) {
     s16 dx;
     s16 dy;
     s16 duration;
@@ -2292,7 +2366,51 @@ void StreamCmd_ClearRenderMode(void) {
     streamPtr = &gStreamPtr;
     *streamPtr += 2;
 }
-/*
+/**
+ * StreamCmd_WaitFrames: pause the gfx-stream script for N frames.
+ *
+ * Stream layout (4 bytes):
+ *   [2..3]  unaligned u16 N, a FRAME COUNT
+ *
+ * The handler sits in three of StreamCmd_RunScript's six dispatch tables, so it has
+ * three legal spellings: `FF 5A` (the `c & 0x40` table at 0x0811787C, slot 26),
+ * `FF 3B` (0x081178B8, slot 11) and `FF 03` (0x081178D8, slot 3). Which of them the
+ * shipped scripts use is reported by
+ * docs/dynamic-analysis/scripts/scan-gfx-stream-commands.mjs.
+ *
+ * It does two things, and both are halves of one "wait":
+ *
+ *   1. gStreamWaitDeadline = globalFrameCounter + N. The gfx tick (sub_0804EB64)
+ *      reads that cell only as `deadline - globalFrameCounter` against zero and
+ *      returns early while the difference is positive, so for the next N frames the
+ *      tick runs neither the render-mode dispatch nor StreamCmd_RunScript at all.
+ *      Measured: with the deadline 600 frames ahead the executor advances the stream
+ *      0 bytes; with it 1 frame in the past, or exactly equal to now, the stream
+ *      advances again. N is added to the counter, not stored absolutely — holding N
+ *      at 30 and moving globalFrameCounter by 0x1000 moves the cell by 0x1000.
+ *
+ *   2. `*p = (*p & ~3) | 2` yields for the CURRENT frame. Those two bits are the
+ *      executor's own latch, not a "render mode": StreamCmd_RunScript sets them to 3
+ *      on entry and loops `while (byte0 & 3 & 1)`, so bit 0 means "keep taking
+ *      commands this frame" and bit 1 means "the executor is enabled". Clearing bit 0
+ *      ends the frame's batch; keeping bit 1 leaves the executor installed so it can
+ *      resume when the deadline expires. Measured by feeding the executor eight
+ *      identical commands: a stream of `FF 02` runs exactly ONE per call, a stream of
+ *      `FF 44` (which leaves the field alone) runs all eight.
+ *
+ * So "SetTimerAndMode" was two-thirds wrong — it is a timer, but the "mode" is a
+ * yield, and both halves say the same thing. Note that StreamCmd_SetRenderModeTiled
+ * and StreamCmd_ClearRenderMode above write the SAME two bits and are named on the
+ * same mistaken reading; they are left alone here only because they are not this
+ * round's functions, and the evidence against their names is recorded in
+ * docs/dynamic-analysis/scripts/prove-stream-wait-deadline.mjs.
+ *
+ * A wait can be cut short: while the sound-flag mode at gSoundInfo+0x16 is in the
+ * matching state, the tick re-arms the deadline to `now` on a fresh A press. That is
+ * static (it is the only other writer inside the tick) and is not exercised here.
+ *
+ * Evidence: docs/dynamic-analysis/scripts/prove-stream-wait-deadline.mjs.
+ *
  * Matching notes (measured by ablation against the ROM's gfx.o):
  *
  * - `s8 *p` is load-bearing, exactly as in StreamCmd_SetRenderModeTiled: through a
@@ -2302,7 +2420,7 @@ void StreamCmd_ClearRenderMode(void) {
  *   also shifts the whole literal pool. That single change costs 7 objdiff points and
  *   was the entire residual. `& -4` and `& ~3` are interchangeable here.
  *
- * - `gUnk_03000814` must be the DECLARED extern, not a cast address constant (9
+ * - `gStreamWaitDeadline` must be the DECLARED extern, not a cast address constant (9
  *   points): only a symbol_ref gets its address hoisted into callee-saved r5 before
  *   the ReadUnalignedU16 call, which is what makes the prologue push r5 and the pool
  *   lead with 0x3000814. `gUnk_03004C20.globalFrameCounter` as a struct member rather
@@ -2313,9 +2431,9 @@ void StreamCmd_ClearRenderMode(void) {
  *   `lsl #16 / lsr #16` pair; dropping it costs 4. Spelling it as a `u16` local
  *   instead of a cast is WORSE (11) -- it changes the register schedule.
  */
-void StreamCmd_SetTimerAndMode(void) {
+void StreamCmd_WaitFrames(void) {
     s8 *p;
-    gUnk_03000814 = (u16)ReadUnalignedU16(gStreamPtr + 2) + gUnk_03004C20.globalFrameCounter;
+    gStreamWaitDeadline = (u16)ReadUnalignedU16(gStreamPtr + 2) + gUnk_03004C20.globalFrameCounter;
     p = (s8 *)gGfxBufferPtr;
     *p = (*p & ~3) | 2;
     gStreamPtr += 4;
