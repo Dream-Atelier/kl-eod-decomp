@@ -6600,9 +6600,10 @@ void UpdateMessageBoxFadeIn(void);
  * `@ ADDR` comment luvdis writes. `asm/nonmatchings/code_3/InitFadeTransition.s` opens
  * `non_word_aligned_thumb_func_start` and says 0x08047B1E; this function's own rename
  * key in klonoa-eod-decomp.toml is still `sub_08047ECA`, from the same directive. Both
- * are two bytes high, and the skew is systemic: 39 of the 45 `.s` files under
- * asm/nonmatchings/ that use that directive disagree with the ELF symbol by two bytes,
- * while all 91 plain `thumb_func_start` headers agree exactly.)
+ * are two bytes high, and the skew is systemic: of the 45 `.s` files under
+ * asm/nonmatchings/ that open with that directive AND whose symbol resolves in the ELF,
+ * 39 disagree with it by two bytes (34 high, 5 low), while all 91 plain
+ * `thumb_func_start` headers agree exactly.)
  *
  * The message box is the panel the game pops over gameplay to say something -- a hint
  * ("Use a wind bullet to catch enemies, and use them to double jump.") or a notice
