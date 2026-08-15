@@ -5354,10 +5354,10 @@ void UpdatePlayerAlternate(u8 arg0) {
     }
 }
 /**
- * DecompressRowToTilemap: DMA-copies a column/row of BG2 tilemap entries into the scrolling map buffer, used when streaming new
+ * BlitMapColumnStripToStageMap: DMA-copies a column/row of BG2 tilemap entries into the scrolling map buffer, used when streaming new
  * terrain rows at the screen edge.
  */
-void DecompressRowToTilemap(u8 arg0, u8 arg1) {
+void BlitMapColumnStripToStageMap(u8 arg0, u8 arg1) {
     u8 *var_r3;
     u8 var_r4;
     void *var_r1;
@@ -6499,7 +6499,7 @@ INCLUDE_ASM("asm/nonmatchings/code_3", SortEntityDrawOrder);
 INCLUDE_ASM("asm/nonmatchings/code_3", SaveGameToSRAM);
 INCLUDE_ASM("asm/nonmatchings/code_3", SaveGameWithVerify);
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadGameFromSRAM);
-INCLUDE_ASM("asm/nonmatchings/code_3", SaveGameRetryLoop);
+INCLUDE_ASM("asm/nonmatchings/code_3", EraseAllSaveData);
 INCLUDE_ASM("asm/nonmatchings/code_3", SavePlayerProgress);
 /**
  * IsDpadUpHeld: returns 1 if D-pad Up (gHeldKeys bit 6, DPAD_UP) is held, 0 otherwise.

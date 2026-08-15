@@ -1005,9 +1005,9 @@ void TransitionWorldMapFadeOut(void) {
     }
 }
 /**
- * TransitionToSceneSelect: kleod TransitionToSceneSelect.
+ * TransitionFadeOutToTitle: kleod TransitionFadeOutToTitle.
  */
-void TransitionToSceneSelect(void) {
+void TransitionFadeOutToTitle(void) {
     gUnk_030034E4 = 1;
     if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
         return;
@@ -1039,9 +1039,9 @@ void TransitionToSceneSelect(void) {
     }
 }
 /**
- * TransitionToTitleScreen: kleod TransitionToTitleScreen.
+ * TransitionFadeOutReloadLevel: kleod TransitionFadeOutReloadLevel.
  */
-void TransitionToTitleScreen(void) {
+void TransitionFadeOutReloadLevel(void) {
     gUnk_030034E4 = 1;
     if ((gUnk_03004C20.globalFrameCounter % 2) != 0) {
         return;
