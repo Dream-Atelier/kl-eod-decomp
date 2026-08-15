@@ -1677,10 +1677,17 @@ void StreamCmd_InitBg2Zoom(void) {
  * the byte exactly like the original (the intervening stores kill the cached load
  * anyway).
  *
- * One exception: a bitfield store whose value comes straight from the command
- * stream (`targetIndex = cmd[3]`) has to have its entry address computed in a
- * separate statement, scaled index first. Written as one expression, agbcc
- * schedules the `cmd[3]` load before the address arithmetic instead of after it.
+ * This comment used to state one exception: that a bitfield store whose value comes
+ * straight from the command stream (`targetIndex = cmd[3]`) HAS to have its entry
+ * address computed in a separate statement, scaled index first, because agbcc otherwise
+ * schedules the `cmd[3]` load before the address arithmetic. That is not a general law,
+ * and it was not true at any of the four sites that were written to obey it.
+ * StreamCmd_InitOscillation, StreamCmd_InitWindowCornerMotion, StreamCmd_InitStaticScroll
+ * and StreamCmd_InitSpriteWave were each collapsed to the plain
+ * `entries[idx].targetIndex = cmd[3];` form -- one at a time, and then all four together
+ * -- and every build gave `make compare` -> OK. StreamCmd_InitOscillationExt below never
+ * used the long form at all, which was the first hint. If some future site really does
+ * need the scaled-index spelling, say so at that site, with the measurement attached.
  */
 /**
  * StreamCmd_InitOscillation: initialize a sprite-oscillation entry from stream data.
@@ -1762,7 +1769,15 @@ void StreamCmd_InitOscillation(void) {
  *
  * The "Ext" variant additionally forces the entry's target selector (word 0,
  * bits 3..10) to 2, which makes ProcessMotionStep drive a gUnk_03002920 object
- * rather than a BG scroll pair.
+ * rather than a BG scroll pair -- and writes stream byte[3] into `objIndex` rather
+ * than `targetIndex` to match.
+ *
+ * THE NAME IS WRONG, and this docstring has said so in its own words since it was
+ * written. "Ext" reads as an extended form of the command above it; this is a sibling
+ * with a different TARGET, exactly as StreamCmd_InitEntityMotion is to
+ * StreamCmd_InitLinearMotion -- same callback, same parameters, `param` 2 / objIndex
+ * against `param` 0 / targetIndex. It is not renamed here only because it is not this
+ * round's function; see the flagged list in StreamCmd_WaitFrames' docstring below.
  *
  * Every meaning above is verified at runtime against the real ROM by
  * docs/dynamic-analysis/scripts/prove-oscillation-fields.mjs.
@@ -2205,7 +2220,8 @@ extern void VBlankCallback_Gameplay();
 /* One byte per gfx-stream scene, indexed by gUnk_03005284->unk4, and this function is its
  * only reader. The byte is packed (world << 4) | level: the high nibble is stored into
  * gUnk_03004C20.world and the low nibble both selects the switch arm below and IS the level
- * number three of the four arms store into gUnk_03004C20.level. A high nibble of 0 means "no
+ * number two of the four arms store into gUnk_03004C20.level (case 0/8 and case 4; case 2
+ * overrides it with a hardcoded 8, and case 5 never writes the field). A high nibble of 0 means "no
  * destination" and the dispatch is skipped entirely.
  *
  * 17 of the entries are populated (indices 0..16); the rest of the row is zero. Index is
@@ -2215,7 +2231,7 @@ extern void VBlankCallback_Gameplay();
  * docs/dynamic-analysis/scripts/prove-scene-exit-destination.mjs.
  *
  * It has to be a NAMED extern, not a `((u8 *)0x0805769C)` macro. As a macro agbcc
- * rematerialises the base at each of the four uses instead of holding it in one register
+ * rematerialises the base at each of the five uses instead of holding it in one register
  * across them: the function grows 748 -> 752 bytes and 59 instructions change. This is the
  * "named extern vs cast address constant" lever in
  * docs/learnings/agbcc-source-shape-levers.md, measured here. `const` is not load-bearing
@@ -2232,7 +2248,7 @@ extern const u8 gUnk_0805769C[];
  *    bitfield container produces (49 change, 744 bytes). The `u8 rampDown` local is NOT
  *    load-bearing -- inlining the test into the `if` is byte-identical.
  *
- *  - gUnk_0805769C[gUnk_03005284->unk4] is respelled at every one of its four uses rather
+ *  - gUnk_0805769C[gUnk_03005284->unk4] is respelled at every one of its five uses rather
  *    than cached in a local. Caching it costs the most of anything tried: 704 bytes, 128
  *    instructions. agbcc CSEs the *pointer* load but not the byte load, because the
  *    intervening store to gUnk_03004C20 may alias through it.
@@ -2264,9 +2280,18 @@ extern const u8 gUnk_0805769C[];
  * ShutdownGfxSubsystem, InitOamEntries, BG2 scale back to 1.0, BG2 alpha 0, music stopped.
  * GfxControlFlags.blendRampDown (byte 0x1C bit 5) reverses only the ramp -- it counts
  * gBlendValue down instead and, on underflow, drops BG2 out of REG_DISPCNT and clears
- * itself, after which the up-ramp above takes over. Neither path ever fades anything IN;
- * the fade-in of the screen that follows belongs to the callbacks queued below
- * (TransitionToGameplayScreen is the one that writes BLDCNT_EFFECT_LIGHTEN).
+ * itself, after which the up-ramp above takes over. The down-ramp is a fade IN, though:
+ * it writes no REG_BLDCNT of its own, so it runs under whatever effect is already
+ * programmed, and the effect this function itself programs is DARKEN. Measured -- run
+ * the up-ramp until REG_BLDCNT is 0x00FF (TGT1_ALL | DARKEN), then set blendRampDown
+ * and seed gBlendValue at 10: the blend falls 9..0 over ten calls with REG_BLDCNT still
+ * 0x00FF, underflows to 255 on the eleventh, clears the flag and drops BG2. gBlendValue
+ * is what the VBlank callback pushes into REG_BLDY (prove-mosaic-vs-bldy.mjs), and a
+ * FALLING BLDY under DARKEN is the screen brightening. So "Out" describes the default
+ * path and the teardown it ends in, not both paths: the default path only ever ramps
+ * up, and blendRampDown reverses the ramp but still finishes by removing BG2. The
+ * fade-in of the screen that FOLLOWS is a separate thing again, and belongs to the
+ * callbacks queued below.
  *
  * The switch selects a DESTINATION, not a phase of one transition. Each arm is "which
  * screen comes next", read out of gUnk_0805769C for the scene that is ending:
@@ -2427,22 +2452,34 @@ void StreamCmd_ClearRenderMode(void) {
  * Stream layout (4 bytes):
  *   [2..3]  unaligned u16 N, a FRAME COUNT
  *
- * The handler sits in three of StreamCmd_RunScript's six dispatch tables, so it has
- * three legal spellings: `FF 5A` (the `c & 0x40` table at 0x0811787C, slot 26),
- * `FF 3B` (0x081178B8, slot 11) and `FF 03` (0x081178D8, slot 3). Only `FF 03` is
- * shipped, and it is shipped 1132 times across the cartridge's 20 gfx-stream scripts,
- * with frame counts from 1 to 380 (median 16). That makes it the single most common
- * command in the whole scripting language — which is what a "wait" should be, and
- * what a "set timer and mode" should not. Counts come from the parsed walk in
+ * The handler has three legal spellings: `FF 5A` (the `c & 0x40` table at 0x0811787C,
+ * slot 26), `FF 3B` (0x081178B8, slot 11) and `FF 03` (0x081178D8, slot 3). Three
+ * SPELLINGS, but one registration: the six table bases overlap, and
+ * 0x0811787C + 26*4 = 0x081178B8 + 11*4 = 0x081178D8 + 3*4 = 0x081178E4 -- a single
+ * table word, holding 0x0804E449.
+ *
+ * Only `FF 03` is shipped, 1132 times across the cartridge's 20 gfx-stream scripts,
+ * with frame counts from 1 to 380 (median 16). That makes it the SECOND most common
+ * command in the language, not the first: over the 8508 commands the walk parses the
+ * histogram is led by `FF 20` (1473 -- StreamCmd_SetRenderMode, see the flagged list
+ * below), then `FF 03` (1132), then `FF 83` (831). The rename does not rest on that
+ * ranking; it rests on the mechanism below. Counts come from the parsed walk in
  * docs/dynamic-analysis/scripts/scan-gfx-stream-commands.mjs; a naive byte-pair scan
- * over-counts `FF 03` by 15, so the parse is doing real work here.
+ * over-counts `FF 03` by 15, so the parse is doing real work here. That walk hardcodes
+ * `i < 20` with no bound check, and 20 is the whole table: gStreamDataTable is
+ * 0x08189AFC and gLevelPaletteTable begins at 0x08189B4C, exactly 20 words later, so
+ * index 20 is already a palette pointer and not a script.
  *
  * It does two things, and both are halves of one "wait":
  *
- *   1. gStreamWaitDeadline = globalFrameCounter + N. The gfx tick (sub_0804EB64)
- *      reads that cell only as `deadline - globalFrameCounter` against zero and
- *      returns early while the difference is positive, so for the next N frames the
- *      tick runs neither the render-mode dispatch nor StreamCmd_RunScript at all.
+ *   1. gStreamWaitDeadline = globalFrameCounter + N. The gfx tick (sub_0804EB64) reads
+ *      that cell twice, both times as `deadline - globalFrameCounter`. The read that
+ *      gates the executor is at 0x0804ED04 and compares against zero: the tick returns
+ *      early while the difference is positive, so for the next N frames it runs neither
+ *      the render-mode dispatch nor StreamCmd_RunScript at all. (The other read, at
+ *      0x0804EC7A..0x0804EC88, compares the same subtraction against a pool literal --
+ *      0x00000E0B = 3595, at 0x0804ECB8 -- and gates the A-press shortcut below, not
+ *      the executor.)
  *      Measured: with the deadline 600 frames ahead the executor advances the stream
  *      0 bytes; with it 1 frame in the past, or exactly equal to now, the stream
  *      advances again. N is added to the counter, not stored absolutely — holding N
@@ -2454,19 +2491,51 @@ void StreamCmd_ClearRenderMode(void) {
  *      commands this frame" and bit 1 means "the executor is enabled". Clearing bit 0
  *      ends the frame's batch; keeping bit 1 leaves the executor installed so it can
  *      resume when the deadline expires. Measured by feeding the executor eight
- *      identical commands: a stream of `FF 02` runs exactly ONE per call, a stream of
- *      `FF 44` (which leaves the field alone) runs all eight.
+ *      identical commands: `FF 03` (this handler), `FF 20` and `FF 02` each run exactly
+ *      ONE per StreamCmd_RunScript call, while `FF 44` -- which leaves the field alone
+ *      -- runs all eight. `FF 03` and `FF 20` leave the latch at 2 (yielded, executor
+ *      still enabled); `FF 02` leaves it 0 (yielded and switched off).
  *
- * So "SetTimerAndMode" was two-thirds wrong — it is a timer, but the "mode" is a
- * yield, and both halves say the same thing. Note that StreamCmd_SetRenderModeTiled
- * and StreamCmd_ClearRenderMode above write the SAME two bits and are named on the
- * same mistaken reading; they are left alone here only because they are not this
- * round's functions, and the evidence against their names is recorded in
- * docs/dynamic-analysis/scripts/prove-stream-wait-deadline.mjs.
+ * So "SetTimerAndMode" was two-thirds wrong -- it is a timer, but the "mode" is a
+ * yield, and both halves say the same thing.
  *
- * A wait can be cut short: while the sound-flag mode at gSoundInfo+0x16 is in the
- * matching state, the tick re-arms the deadline to `now` on a fresh A press. That is
- * static (it is the only other writer inside the tick) and is not exercised here.
+ * FOUR other handlers are named on the same mistaken reading, or on the mistake this
+ * round's other rename corrected. None is renamed here, because none is this round's
+ * function; they are recorded so the next author does not have to rediscover them:
+ *
+ *   StreamCmd_SetRenderMode (0x0804C774, `FF 20`, 1473 uses) -- the important one. It
+ *       is byte-for-byte identical to StreamCmd_SetRenderModeTiled over all 36 bytes,
+ *       literal pool included: two copies of one function at two addresses, both
+ *       performing exactly the `(*p & ~3) | 2` write this handler performs. It yields
+ *       after one command in the measurement above, and it is the MOST-issued command
+ *       in the whole language. A "set render mode to 2" that scripts issue 1473 times
+ *       and that stops the executor dead is a yield.
+ *   StreamCmd_SetRenderModeTiled (0x0804E404, `FF 01`, 19 uses) -- the other copy.
+ *       sub_0804EB64 also calls it directly at 0x0804ED3E, after peeking at the stream.
+ *   StreamCmd_ClearRenderMode (0x0804E428, `FF 02`, 0 uses in the shipped scripts) --
+ *       `*p &= ~3`, the same field with bit 1 cleared too, which switches the executor
+ *       off rather than leaving it armed.
+ *   StreamCmd_InitOscillationExt (0x0804DA60) -- not a latch question, but the same
+ *       "Ext" defect this round renamed away. It installs the same callback
+ *       (ProcessMotionStep) as StreamCmd_InitOscillation (0x0804D99C) with the same
+ *       parameters; what differs is the target it selects -- `param` 2 and
+ *       `objIndex = cmd[3]` against `param` 0 and `targetIndex = cmd[3]`, i.e. an
+ *       entity rather than a BG scroll pair. That is exactly the relationship that
+ *       turned StreamCmd_InitLinearMotionExt into StreamCmd_InitEntityMotion (see the
+ *       family table on that function), and the "Ext" docstring already apologises for
+ *       the name. It is a pair of targets, not a base plus an extension. (The two
+ *       bodies are NOT byte-identical -- 0xC4 vs 0xD8 bytes -- so this is a naming
+ *       argument, not the duplicate-code one above.)
+ *
+ * Evidence for all four: docs/dynamic-analysis/scripts/prove-stream-wait-deadline.mjs
+ * (the latch) and docs/dynamic-analysis/scripts/scan-gfx-stream-commands.mjs (the
+ * usage counts).
+ *
+ * A wait can be cut short. The tick re-arms the deadline to `now` at TWO sites, both
+ * gated on the sound-flag mode at gSoundInfo+0x16: 0x0804ECAA additionally needs a
+ * fresh A press (and the bit at gSoundInfo+0x17, which it clears), while 0x0804ED1C
+ * needs no button at all. Both are static reads of the disassembly; neither is
+ * exercised here.
  *
  * Evidence: docs/dynamic-analysis/scripts/prove-stream-wait-deadline.mjs.
  *

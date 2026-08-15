@@ -1296,10 +1296,17 @@ INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutMusicAndReset);
  * clears video state, and queues InitLevelBG / ResetVideoRegisters to rebuild the scene.
  *
  * This docstring used to say "fade-in step ... brightens all layers". The BLDCNT it
- * writes is BLDCNT_EFFECT_DARKEN and the blend value counts UP, which under a darken
- * effect is the screen going black; TransitionToGameplayScreen below is what a fade-in
- * looks like in this file (BLDCNT_EFFECT_LIGHTEN). Corrected while naming the
- * round-6 message-box cluster, which shares this ramp.
+ * writes is BLDCNT_EFFECT_DARKEN and the blend value counts UP, and under a darken
+ * effect a rising BLDY is the screen going black.
+ *
+ * What tells fade-in from fade-out here is the DIRECTION OF THE RAMP, not the effect
+ * bit. LIGHTEN is not "fade in": TransitionToGameplayScreen below writes
+ * BLDCNT_EFFECT_LIGHTEN and counts gBlendValue UP, never down, and io_reg.h says
+ * LIGHTEN makes the 1st target whiter -- so that ramp is a fade to WHITE. The real
+ * fade-in in this file is TransitionFadeInRestoreWindows (sub_0802571A): REG_BLDCNT =
+ * 0xBF (LIGHTEN | TGT1_ALL) with the blend counting DOWN, back toward an unmodified
+ * screen. Corrected while naming the round-6 message-box cluster, which shares this
+ * ramp.
  */
 void TransitionClearAndRestart(void) {
     gUnk_030034E4 = 1;

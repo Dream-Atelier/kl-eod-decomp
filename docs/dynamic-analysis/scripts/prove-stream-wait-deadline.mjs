@@ -9,14 +9,20 @@
 // into it. Those cannot both be true of the same 32 bits, so one of them is wrong.
 // This script settles it four ways, cheapest first:
 //
-//   1. EXHAUSTIVE STATIC. A Thumb access to a fixed address goes through a
-//      PC-relative literal, so scanning the cartridge for the word 0x03000814 finds
-//      every site that can reach the cell. This script names the function each one
-//      lands in, from the build's own symtab. No sampling.
-//   2. LAYOUT, FROM DWARF. "gControlBlock[1]" is *(u32 *)(0x03004C20 + 4), and DWARF
-//      says offset 4 of struct Unk_03004C20 is `globalFrameCounter`. So
-//      ShutdownGfxSubsystem stores the FRAME COUNTER; the old comment named word 1
-//      without checking what word 1 is.
+//   1. STATIC CENSUS. A Thumb access that names a fixed address through a PC-relative
+//      literal leaves the address in the literal pool, so scanning the cartridge for
+//      the word 0x03000814 finds every such site; this script names the function each
+//      one lands in, from the build's own symtab. That is a census, NOT a proof of
+//      completeness -- an access computed as base+displacement from some other pool
+//      word reaches the cell without a literal of its own, and a DMA reaches it with
+//      no instruction at all. A watchpoint from a cold boot finds exactly one such
+//      writer: AgbMain+0x30, the DMA3 fill that zeroes IWRAM at boot.
+//   2. LAYOUT, FROM DWARF. gControlBlock is ((u8 *)0x03004C20), so a literal
+//      gControlBlock[1] would be the BYTE at +1; what ShutdownGfxSubsystem stores is
+//      ((u32 *)gControlBlock)[1] = *(u32 *)(0x03004C20 + 4), and DWARF says offset 4
+//      of struct Unk_03004C20 is `globalFrameCounter`. So it stores the FRAME COUNTER;
+//      the old comment named a word by an index without checking either the element
+//      type or what that offset holds.
 //   3. CAUSAL, AT RUNTIME, with controls:
 //      (a) run StreamCmd_WaitFrames with only the halfword argument changed, and
 //          watch the cell track globalFrameCounter + N exactly;
@@ -127,11 +133,11 @@ for (const i of eng.disassemble(0x0804f086, 5, 'thumb')) console.log(`       ${h
 // ═════════════════════════════════════════════════════════════════════════════
 // 2. LAYOUT: what "gControlBlock[1]" actually is.
 // ═════════════════════════════════════════════════════════════════════════════
-console.log('\n=== 2. ShutdownGfxSubsystem stores gControlBlock[1] -- what IS word 1? ===');
+console.log('\n=== 2. ShutdownGfxSubsystem stores ((u32 *)gControlBlock)[1] -- what IS word 1? ===');
 for (const i of eng.disassemble(SHUTDOWN, 6, 'thumb')) console.log(`    ${hex(i.address)}  ${i.instruction}`);
-console.log(`    gControlBlock = ${hex(BLOCK)};  gControlBlock[1] = ${hex(BLOCK + 4)}`);
+console.log(`    gControlBlock = ${hex(BLOCK)} (a u8 *);  ((u32 *)gControlBlock)[1] = ${hex(BLOCK + 4)}`);
 console.log(`    DWARF: Unk_03004C20.globalFrameCounter is at offset ${FRAMES.offset}, size ${FRAMES.size}`);
-check(FRAMES.offset === 4 && FRAMES.size === 4, 'gControlBlock[1] IS globalFrameCounter -- so this stores the frame counter, not a callback');
+check(FRAMES.offset === 4 && FRAMES.size === 4, '((u32 *)gControlBlock)[1] IS globalFrameCounter -- so this stores the frame counter, not a callback');
 
 // A saved callback would be a ROM code pointer. Watch the live cell for a few frames.
 await eng.loadState(SAVESTATE);
@@ -326,9 +332,12 @@ for (const op of spellings) {
 check(anyUse > 0, 'the shipped scripts really do issue this command');
 
 console.log('\n=== verdict ===');
-console.log('    0x03000814 is a FRAME DEADLINE. It is written only as globalFrameCounter + N and');
-console.log('    read only as (cell - globalFrameCounter) against zero. The "saved scene callback"');
-console.log('    comment was wrong: gControlBlock[1] IS globalFrameCounter, so ShutdownGfxSubsystem');
+console.log('    0x03000814 is a FRAME DEADLINE. Every writer found stores globalFrameCounter, ');
+console.log('    globalFrameCounter + N, or (at boot, by DMA) zero, and every read is');
+console.log('    (cell - globalFrameCounter): at 0x0804ED04 against zero, which is the gate on the');
+console.log('    executor, and at 0x0804EC7A..88 against the pool literal 0x00000E0B. The "saved');
+console.log('    scene callback" comment was wrong: ((u32 *)gControlBlock)[1] IS globalFrameCounter,');
+console.log('    so ShutdownGfxSubsystem');
 console.log('    was clearing the wait, not saving a callback. The cell is renamed gStreamWaitDeadline.');
 console.log('    The 2-bit field at gGfxBufferPtr byte 0 is the executor latch (bit 1 = enabled,');
 console.log('    bit 0 = keep taking commands this frame), so "SetTimerAndMode" is one idea, not two:');

@@ -209,18 +209,25 @@ struct GfxControlFlags {
      *   bit 1  the executor is enabled; sub_0804EB64 only calls StreamCmd_RunScript
      *          when it is set, and clears the whole field on scene exit
      * `(*p & ~3) | 2` therefore means "stay enabled, stop executing now" —
-     * StreamCmd_WaitFrames writes it as the second half of a wait, and
-     * StreamCmd_SetRenderModeTiled / StreamCmd_ClearRenderMode write the same two
-     * bits. Those two names predate this finding and are almost certainly wrong for
-     * the same reason "SetTimerAndMode" was; they are left alone here only because
-     * nothing in this round decompiled them. Measured: a stream of eight identical
-     * wait commands executes ONE per StreamCmd_RunScript call, while eight commands
-     * that leave the field alone all execute — see
-     * docs/dynamic-analysis/scripts/prove-stream-wait-deadline.mjs (3b).
+     * StreamCmd_WaitFrames writes it as the second half of a wait, and so do
+     * StreamCmd_SetRenderMode (0x0804C774, `FF 20`, 1473 shipped uses) and
+     * StreamCmd_SetRenderModeTiled (0x0804E404, `FF 01`, 19 uses), which are
+     * byte-for-byte identical to each other over all 36 bytes. StreamCmd_ClearRenderMode
+     * (0x0804E428, `FF 02`, 0 uses) writes the same field with bit 1 cleared too, which
+     * switches the executor off. All three names predate this finding and are almost
+     * certainly wrong for the same reason "SetTimerAndMode" was; they are left alone
+     * here only because nothing in this round decompiled them. Measured: streams of
+     * eight identical `FF 03` / `FF 20` / `FF 02` commands each execute ONE per
+     * StreamCmd_RunScript call, while eight `FF 44` — which leave the field alone — all
+     * execute. See docs/dynamic-analysis/scripts/prove-stream-wait-deadline.mjs (3b)
+     * and the flagged list in StreamCmd_WaitFrames' docstring in src/gfx.c.
      *
-     * Kept as a pad byte rather than spelled out as two bitfields: the handlers that
-     * write it match through `s8 *` pointer arithmetic (see the notes in src/gfx.c),
-     * and re-spelling it would change codegen for no gain. */
+     * Kept as a pad byte, but NOT because spelling it out would cost anything: replacing
+     * `u8 pad_00;` with `u8 mode : 2; u8 pad_00_2 : 6;` was built and `make compare` said
+     * OK. It stays a pad because no C in this tree reaches the field through the struct —
+     * every handler that writes it matches through `s8 *` pointer arithmetic (see the
+     * notes in src/gfx.c) — so named bitfields here would have no readers. Give them
+     * names when a function needs them. */
     u8 pad_00;
     /* 0x01 bit 0 — the current BG video mode, as a one-bit field: 0 = text
      * (DISPCNT mode 0), 1 = affine (mode 1). SetupLevelLayerConfig sets it from
