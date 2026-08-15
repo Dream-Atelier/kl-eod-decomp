@@ -71,11 +71,14 @@ struct Unk_03004C20 {
 extern struct Unk_03004C20 gUnk_03004C20;
 
 /* Message-box window state at 0x03004D90 -- the panel the game pops over gameplay to
- * show a hint or a notice. InitFadeTransition (0x08047B1E) builds the panel and seeds
+ * show a hint or a notice. InitFadeTransition (0x08047B1C) builds the panel and seeds
  * this block, InitGfxState / UpdatePlayerInput / PlayerMovementPhysics arm it, and
  * UpdateMessageBoxWipe steps it. win1h/win1v ARE the box: they are the pending
- * REG_WIN1H / REG_WIN1V values, and the panel is drawn on BG0, which window 1 is the
- * only screen region to show. */
+ * REG_WIN1H / REG_WIN1V values, and the panel is drawn on BG0 -- the one layer REG_WININ
+ * shows inside a window and REG_WINOUT hides outside every window. Window 1 is not the
+ * only region showing BG0, though: while the box is open REG_DISPCNT = 0x7741 has window
+ * 0 enabled too, over the HUD strip at y 144..160. See UpdateMessageBoxWipe in
+ * src/code_3.c. */
 struct Unk_03004D90 {
     /* 0x00 */ u8 pad0[0x4];
     /* 0x04 */ u16 win1h; /* pending REG_WIN1H, (x1 << 8) | x2: 0x7878 shut, 0x00F0 fully open */
@@ -85,7 +88,7 @@ struct Unk_03004D90 {
                          * from the player's world/level/tile position in the table at 0x0811769C
                          * and use VBlankCallback_Gameplay, non-zero picks a fixed panel and uses
                          * VBlankCallback_Dialog. InitGfxState writes 3, UpdatePlayerInput writes
-                         * 1/2/5 depending on the level. Forcing 0/1/2/3/5 produces five different
+                         * 1/2/5 depending on the level. Forcing 0..5 produces six different
                          * panels (see prove-message-box-wipe.mjs), but whether the byte is an
                          * index, an id or a mode selector is not established, so it keeps an unk
                          * name. */

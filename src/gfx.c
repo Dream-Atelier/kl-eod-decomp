@@ -2217,6 +2217,11 @@ extern void ResetVideoRegisters();
 extern void VBlankHandler();
 extern void TransitionToGameplayScreen();
 extern void VBlankCallback_Gameplay();
+/* 0x03005498, the BLDY darken level. Spelled here as the declared extern rather than the
+ * gUnk_03005498 macro because that is what its own docstring above, code_1.c, code_3.c and
+ * this branch's sibling functions call it. Measured interchangeable: see the matching notes
+ * below. */
+extern u8 gBlendValue;
 /* One byte per gfx-stream scene, indexed by gUnk_03005284->unk4, and this function is its
  * only reader. The byte is packed (world << 4) | level: the high nibble is stored into
  * gUnk_03004C20.world and the low nibble both selects the switch arm below and IS the level
@@ -2258,7 +2263,9 @@ extern const u8 gUnk_0805769C[];
  *    instructions, so a length check would call it a match; only the byte comparison does not.
  *
  * Also measured and NOT load-bearing: `gVBlankCallbackArray[0] = (u32)VBlankHandler` for
- * `gIntrTable.vBlank`, `extern u8 gBlendValue` for the gUnk_03005498 macro, a
+ * `gIntrTable.vBlank`, the gUnk_03005498 macro for the `extern u8 gBlendValue` this
+ * function is written with (both spellings are byte-identical HERE -- that is not a general
+ * licence, see the note above UpdateSceneTransition), a
  * `struct GfxControlFlags *` local vs repeating the cast, `--x`/`++x` vs `-= 1`/`+= 1` with
  * a separate read, `(void (*)(void))1` for `NULL + 1`, and `case 8: case 0:` for
  * `case 0: case 8:`. Two more that ARE: the callback queue must use the gCallbackQueue
@@ -2327,8 +2334,8 @@ void ProcessSceneTransitionOut(void) {
     ctl = (struct GfxControlFlags *)gGfxBufferPtr;
     rampDown = ((u8 *)ctl)[0x1C] & 0x20;
     if (rampDown != 0) {
-        gUnk_03005498 -= 1;
-        if ((gUnk_03005498 & 0x80) != 0) {
+        gBlendValue -= 1;
+        if ((gBlendValue & 0x80) != 0) {
             REG_DISPCNT &= ~DISPCNT_BG2_ON;
             ctl->blendRampDown = 0;
         }
@@ -2336,9 +2343,9 @@ void ProcessSceneTransitionOut(void) {
     }
 
     REG_BLDCNT = BLDCNT_TGT1_ALL | BLDCNT_EFFECT_DARKEN;
-    gUnk_03005498 += 1;
-    if (gUnk_03005498 > 0x0F) {
-        gUnk_03005498 = BLEND_MAX;
+    gBlendValue += 1;
+    if (gBlendValue > 0x0F) {
+        gBlendValue = BLEND_MAX;
         gUnk_030034E4 = 0;
         ShutdownGfxSubsystem();
         InitOamEntries();
@@ -2391,7 +2398,7 @@ void ProcessSceneTransitionOut(void) {
                     gCallbackQueue.nextCount = 4;
                     gUnk_03004C20.sceneFrameCounter = -1;
                     gMosaicSize = 0x0F;
-                    gUnk_03005498 = 0x0F;
+                    gBlendValue = 0x0F;
                     return;
                 case 5:
                     gCallbackQueue.next[0] = ReadKeyInput;

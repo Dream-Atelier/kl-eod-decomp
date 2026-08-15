@@ -1,7 +1,10 @@
-// PROOF: UpdateMessageBoxWipe (0x08047ECA) drives the in-game MESSAGE BOX — the panel the
-// game pops over gameplay to show a hint or a notice — and the shape it animates is an
-// axis-aligned RECTANGLE growing from the middle of the screen. Not an iris, not a curtain,
-// and not a "screen wipe" between two scenes: the level stays loaded and visible around it.
+// PROOF: UpdateMessageBoxWipe (0x08047EC8 — the ELF symbol; the luvdis `.s` header says
+// 0x08047ECA, two bytes high, as `non_word_aligned_thumb_func_start` headers do) drives the
+// in-game MESSAGE BOX — the panel the game pops over gameplay to show a hint or a notice —
+// and the shape it animates is an axis-aligned RECTANGLE growing from the middle of the
+// screen. Not an iris, not a curtain, and not a "screen wipe" between two scenes: the level
+// stays loaded and visible around it. Visible, but not running: arming the box replaces
+// GameUpdate in callback slot 1, and C4d measures that 60 idle frames move nothing.
 //
 // The four claims under test:
 //   C1. The two registers it drives are REG_WIN1H and REG_WIN1V, and nothing else moves.
@@ -11,7 +14,8 @@
 //   C3. From the open state, pressing A, B, SELECT or START — and none of the other six
 //       buttons — arms the closing pass.
 //   C4. What the box reveals is a message panel, and the game gets it back afterwards:
-//       run the whole cycle live and look at the screen.
+//       run the whole cycle in the emulator and look at the screen. C4d then reads the
+//       window state the box actually runs under, and ablates BG0 out of window 1.
 //
 // C1 FIRST, AND STATICALLY, because this is the claim this project has got wrong before: an
 // earlier round shipped a proof script with WIN0V and WIN1H transposed, so the observations
@@ -156,10 +160,19 @@ console.log('\n=== C1c. what InitFadeTransition puts in REG_WININ / REG_WINOUT =
     console.log(`                       inside window 1: ${bits((WININ >> 8) & 0x3f)}`);
     console.log(`  REG_WINOUT = ${h(WINOUT)}   outside every window: ${bits(WINOUT & 0x3f)}`);
     const inWin1 = (WININ >> 8) & 0x3f,
+        inWin0 = WININ & 0x3f,
         outside = WINOUT & 0x3f;
     const only = layers.filter((_, i) => inWin1 & (1 << i) && !(outside & (1 << i)));
-    console.log(`  -> shown inside window 1 and NOWHERE else: ${only.join('|')}`);
-    check(only.length === 1 && only[0] === 'BG0', 'BG0 is the one layer window 1 alone shows (the panel)');
+    console.log(`  -> shown inside window 1 and NOT outside every window: ${only.join('|')}`);
+    console.log(`  -> but window 0 shows ${bits(inWin0)} too, so this does NOT say "window 1 alone"`);
+    check(
+        only.length === 1 && only[0] === 'BG0',
+        'BG0 is the one layer a window shows and the outside hides (the panel layer)',
+    );
+    check(
+        (inWin0 & 1) !== 0,
+        'and window 0 shows BG0 as well — the panel is not "exactly where window 1 is" (see C4d)',
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════
@@ -405,17 +418,63 @@ console.log('\n=== C4a. the box opening for real, and what it reveals ===');
     check(openHash !== endHash, 'and the screen is not the panel any more');
 }
 
-console.log('\n=== C4c. gUnk_03004D90.unk9 picks WHICH panel (five values, five screens) ===');
+console.log('\n=== C4c. gUnk_03004D90.unk9 picks WHICH panel (six values, six screens) ===');
 {
     const hashes = new Map();
-    for (const u of [0, 1, 2, 3, 5]) {
+    for (const u of [0, 1, 2, 3, 4, 5]) {
         await armMessageBox(ctx, u);
         await eng.wait({ frames: 40 });
         const hash = await shot(`panel-unk9-${u}`);
         hashes.set(u, hash);
         console.log(`  unk9 = ${u}: screenshot ${hash}  (${OUT}/screenshot-panel-unk9-${u}.png)`);
     }
-    check(new Set(hashes.values()).size === 5, 'five different values of unk9 produce five different panels');
+    check(new Set(hashes.values()).size === 6, 'six different values of unk9 produce six different panels');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════
+// C4d. The window state the box really runs under, and BG0 ablated out of window 1.
+// C1c reads InitFadeTransition's WININ/WINOUT stores; this reads the hardware while the
+// box is open, which is the only way to see that window 0 is enabled at the same time.
+// ═══════════════════════════════════════════════════════════════════════════════════════
+console.log('\n=== C4d. the live window state, and the ablation that names the panel layer ===');
+{
+    const before = (await armMessageBox(ctx, 3)).map(symName);
+    await eng.wait({ frames: 40 });
+    const r = {
+        dispcnt: bus.read16(0x04000000),
+        win0h: bus.read16(regAddr('WIN0H')),
+        win0v: bus.read16(regAddr('WIN0V')),
+        win1h: bus.read16(regAddr('WIN1H')),
+        win1v: bus.read16(regAddr('WIN1V')),
+        winin: bus.read16(regAddr('WININ')),
+        winout: bus.read16(regAddr('WINOUT')),
+    };
+    console.log(`  queue before arming : [${before.join(', ')}]`);
+    console.log(`  queue while open    : [${queueNow(ctx).join(', ')}]`);
+    console.log(`  REG_DISPCNT = ${h(r.dispcnt)}  win0 enabled = ${(r.dispcnt >> 13) & 1}, win1 enabled = ${(r.dispcnt >> 14) & 1}`);
+    console.log(`  window 0 = x ${r.win0h >> 8}..${r.win0h & 0xff}, y ${r.win0v >> 8}..${r.win0v & 0xff}   (WIN0H=${h(r.win0h)} WIN0V=${h(r.win0v)})`);
+    console.log(`  window 1 = x ${r.win1h >> 8}..${r.win1h & 0xff}, y ${r.win1v >> 8}..${r.win1v & 0xff}   (WIN1H=${h(r.win1h)} WIN1V=${h(r.win1v)})`);
+    console.log(`  REG_WININ = ${h(r.winin)}  REG_WINOUT = ${h(r.winout)}`);
+    check(((r.dispcnt >> 13) & 3) === 3, 'BOTH windows are enabled while the box is open');
+    check((r.winin & 0x3f) === 0x01, 'window 0 shows BG0 and nothing else');
+
+    // The game is frozen underneath: GameUpdate is replaced, not layered over.
+    const idleA = await shot('idle-a');
+    await eng.wait({ frames: 60 });
+    const idleB = await shot('idle-b');
+    check(idleA === idleB, '60 idle frames with the box open change no pixel — gameplay is not running');
+    check(
+        !queueNow(ctx).includes('GameUpdate') && queueNow(ctx)[1] === 'UpdateMessageBoxWipe',
+        'GameUpdate is REPLACED in slot 1, not run alongside',
+    );
+
+    // Ablation: take BG0 out of window 1 and the panel must go.
+    const withPanel = await shot('ablate-before');
+    bus.write16(regAddr('WININ'), r.winin & ~0x0100); // ~WININ_WIN1_BG0
+    await eng.wait({ frames: 2 });
+    const withoutPanel = await shot('ablate-after');
+    console.log(`  WININ ${h(r.winin)} -> ${h(bus.read16(regAddr('WININ')))}: screen ${withPanel} -> ${withoutPanel}`);
+    check(withPanel !== withoutPanel, 'clearing WININ_WIN1_BG0 changes the screen — the panel is BG0');
 }
 
 console.log(`\n=== ${failures.length ? `FAILED: ${failures.length}` : 'all checks passed'} ===`);

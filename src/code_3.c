@@ -6593,17 +6593,31 @@ INCLUDE_ASM("asm/nonmatchings/code_3", InitFadeTransition);
 void UpdateMessageBoxFadeIn(void);
 
 /**
- * UpdateMessageBoxWipe: the per-frame step of the in-game message box's box wipe, and
- * the button press that dismisses it.
+ * UpdateMessageBoxWipe (0x08047EC8): the per-frame step of the in-game message box's
+ * box wipe, and the button press that dismisses it.
+ *
+ * (Both addresses in this docstring come from the ELF symbol table, not from the
+ * `@ ADDR` comment luvdis writes: `asm/nonmatchings/code_3/UpdateScreenWipe.s` says
+ * 0x08047ECA and `InitFadeTransition.s` says 0x08047B1E, both two bytes high. The skew
+ * comes with `non_word_aligned_thumb_func_start` and it is systemic -- 39 of the 45
+ * headers using that directive disagree with the ELF by two bytes, while all 91 plain
+ * `thumb_func_start` headers agree exactly.)
  *
  * The message box is the panel the game pops over gameplay to say something -- a hint
  * ("Use a wind bullet to catch enemies, and use them to double jump.") or a notice
- * ("An extra stage has been unlocked."). InitFadeTransition (0x08047B1E) decompresses
+ * ("An extra stage has been unlocked."). InitFadeTransition (0x08047B1C) decompresses
  * the panel, points window 1 at a single point in the middle of the screen, enables
  * it in REG_DISPCNT, and queues this function in callback slot 1. It also sets
- * REG_WININ = 0x3701 and REG_WINOUT = 0x003E, whose only difference is BG0 (shown
- * inside window 1, hidden outside) and BG3 (the other way round) -- so the panel is
- * BG0, and it is visible exactly where window 1 is.
+ * REG_WININ = 0x3701 and REG_WINOUT = 0x003E: BG0 is the one layer shown inside a
+ * window and hidden outside every window, and BG3 is the one shown only outside. So
+ * the panel is BG0 -- confirmed by ablation, since clearing WININ_WIN1_BG0 while the
+ * box is open makes it vanish.
+ *
+ * BG0 is not visible "exactly where window 1 is", though. Measured while the box is
+ * open: REG_DISPCNT = 0x7741 enables window 0 as well as window 1, WIN0H = 0x00F0 and
+ * WIN0V = 0x90A0 frame the full-width strip at y 144..160 (the HUD), and WININ's low
+ * byte is 0x01 = WININ_WIN0_BG0. BG0 therefore shows in window 0 UNION window 1; the
+ * panel is the window-1 half of that.
  *
  * The animation is therefore an axis-aligned RECTANGLE growing from the centre: a box
  * wipe, not an iris (which would need a per-scanline HBlank rewrite this function does
@@ -6614,6 +6628,13 @@ void UpdateMessageBoxFadeIn(void);
  * one. REG_WIN1H packs (x1 << 8) | x2 and REG_WIN1V packs (y1 << 8) | y2, so
  * subtracting 0x04FB moves x1 by -5 and x2 by +5, and subtracting 0x02FD moves y1 by
  * -3 and y2 by +3: one rectangle, both axes, symmetric about its own centre.
+ *
+ * "Over gameplay" is where it sits, not what keeps running underneath it. Arming the
+ * box REPLACES GameUpdate in callback slot 1: the queue goes from
+ * [ReadKeyInput, GameUpdate, VBlankCallback_Dialog] to
+ * [ReadKeyInput, UpdateMessageBoxWipe, VBlankCallback_Dialog], and with the box open
+ * 60 idle frames produce a pixel-identical screenshot. The level stays loaded and
+ * visible; it does not stay animating.
  *
  *   wipeState == 1, opening: win1h 0x7878 -> 0x00F0 and win1v 0x4C4C -> 0x0494 over 24
  *       frames, i.e. the box grows from the point (120, 76) to x 0..240, y 4..148.
@@ -6657,7 +6678,7 @@ void UpdateMessageBoxWipe(void) {
             m4aSoundVSyncOn();
             m4aMPlayAllContinue();
             gCallbackQueue.current[1] = UpdateMessageBoxFadeIn;
-            REG_BLDCNT = 0xD7;
+            REG_BLDCNT = BLDCNT_TGT1_BG0 | BLDCNT_TGT1_BG1 | BLDCNT_TGT1_BG2 | BLDCNT_TGT1_OBJ | BLDCNT_EFFECT_DARKEN;
             return;
         }
         h += 0x4FB;
@@ -6687,13 +6708,13 @@ void UpdateMessageBoxWipe(void) {
  * UpdateMessageBoxWipe leaves REG_BLDCNT darkening BG0|BG1|BG2|OBJ with gBlendValue --
  * which the VBlank callback pushes into REG_BLDY -- still at the level the message box
  * ran at, so the screen is dim when this takes over slot 1. Every frame it re-pins
- * REG_WININ = 1 and REG_WINOUT = 0x3F, which leaves the darkening applied everywhere
+ * REG_WININ to WININ_WIN0_BG0 and REG_WINOUT to every layer, which leaves the darkening applied everywhere
  * except whatever rectangle REG_WIN0H/REG_WIN0V currently frame, and steps gBlendValue
  * down by one every fourth frame. That is the exact mirror of the fade-out at
  * 0x08047ABC, which steps the same byte up on the same cadence before queueing
  * InitFadeTransition.
  *
- * At gBlendValue == 0 it undoes the takeover: REG_WININ gets bit 5 back, and
+ * At gBlendValue == 0 it undoes the takeover: REG_WININ gets WININ_WIN0_CLR back, and
  * REG_BLDCNT, REG_BG0CNT..REG_BG3CNT, gBlendValue and gUnk_03004C20.sceneFrameCounter
  * are restored from gUnk_030051F0 -- the block InitGfxState (its tail at 0x08048220),
  * UpdatePlayerInput and PlayerMovementPhysics fill from those same registers before
@@ -6709,7 +6730,7 @@ void UpdateMessageBoxFadeIn(void) {
     u32 i;
 
     if (gBlendValue == 0) {
-        REG_WININ |= 0x20;
+        REG_WININ |= WININ_WIN0_CLR;
         gBlendValue = gUnk_030051F0.unkE;
         REG_BLDCNT = gUnk_030051F0.unk4;
         REG_BG0CNT = gUnk_030051F0.unk6;
@@ -6724,8 +6745,8 @@ void UpdateMessageBoxFadeIn(void) {
         gCallbackQueue.nextCount = gCallbackQueue.previousCount;
         return;
     }
-    REG_WININ = 1;
-    REG_WINOUT = 0x3F;
+    REG_WININ = WININ_WIN0_BG0;
+    REG_WINOUT = WINOUT_WIN01_BG_ALL | WINOUT_WIN01_OBJ | WINOUT_WIN01_CLR;
     if ((gUnk_03004C20.globalFrameCounter & 3) == 0) {
         gBlendValue -= 1;
     }

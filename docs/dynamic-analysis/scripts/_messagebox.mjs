@@ -23,9 +23,9 @@
 //     gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
 //     gCallbackQueue.nextCount = 3;
 //
-// Both function pointers are resolved through the ELF, and the gUnk_030051F0 member offsets
-// are the ones src/code_3.c uses by name, so a rename breaks this instead of silently
-// writing the wrong cell.
+// Both function pointers are resolved through the ELF, and every struct member offset —
+// gUnk_030051F0's and gUnk_03004D90's alike — comes from di.structMember(), so a rename
+// breaks this instead of silently writing the wrong cell. No offset is hand-typed.
 
 import { SAVES, writeField } from './_harness.mjs';
 import { mustSymbol } from './_callrom.mjs';
@@ -55,6 +55,7 @@ export async function armMessageBox({ eng, bus, di }, unk9) {
     const C20 = mustSymbol(di, 'gUnk_03004C20');
     const BLEND = mustSymbol(di, 'gBlendValue');
     const wipeState = di.structMember('Unk_03004D90', 'wipeState');
+    const unk9Field = di.structMember('Unk_03004D90', 'unk9');
     const REG = { BLDCNT: 0x04000050, BG0CNT: 0x04000008, BG1CNT: 0x0400000a, BG2CNT: 0x0400000c, BG3CNT: 0x0400000e };
 
     await eng.loadState(`${SAVES}/savestate-in-gameplay.json`);
@@ -78,7 +79,7 @@ export async function armMessageBox({ eng, bus, di }, unk9) {
     );
 
     writeField(bus, D90, wipeState, 1);
-    bus.write8(D90 + 9, unk9);
+    writeField(bus, D90, unk9Field, unk9);
     bus.write8(BLEND, 0);
 
     bus.write32(Q + L.next + 0, mustSymbol(di, 'InitFadeTransition') | 1);
