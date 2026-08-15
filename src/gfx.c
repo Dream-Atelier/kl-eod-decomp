@@ -1331,8 +1331,14 @@ extern s16 DivideQ4(s16 num1, s16 num2);
  * xPosBg2 = 1856 = 116 << 4. The BG-layer and window arms need no such seed because
  * their accumulators ARE the live values.
  *
+ * The shipped scripts back the reading up. This is the most-used member of the family
+ * by a wide margin: 149 uses against 62 for the window-corner command and 33 for the
+ * plain one (parsed walk, scan-gfx-stream-commands.mjs). A command that were merely an
+ * "extended" variant of the one above it would not outnumber it four to one.
+ *
  * Stream layout (10 bytes; the handler sits in two dispatch tables, so `FF 42`
- * (0x0811787C slot 2) and `FF 2C` (0x08117854 slot 12) both reach it):
+ * (0x0811787C slot 2) and `FF 2C` (0x08117854 slot 12) both reach it, though only
+ * `FF 42` is shipped):
  *   [2]      GfxStreamEntry index
  *   [3]      -> objIndex (7 bits of the header word at +0x00); entity slot is +13
  *   [4..5]   unaligned s16 dX in pixels -> unk_04 = dX << 4
@@ -2374,9 +2380,13 @@ void StreamCmd_ClearRenderMode(void) {
  *
  * The handler sits in three of StreamCmd_RunScript's six dispatch tables, so it has
  * three legal spellings: `FF 5A` (the `c & 0x40` table at 0x0811787C, slot 26),
- * `FF 3B` (0x081178B8, slot 11) and `FF 03` (0x081178D8, slot 3). Which of them the
- * shipped scripts use is reported by
- * docs/dynamic-analysis/scripts/scan-gfx-stream-commands.mjs.
+ * `FF 3B` (0x081178B8, slot 11) and `FF 03` (0x081178D8, slot 3). Only `FF 03` is
+ * shipped, and it is shipped 1132 times across the cartridge's 20 gfx-stream scripts,
+ * with frame counts from 1 to 380 (median 16). That makes it the single most common
+ * command in the whole scripting language — which is what a "wait" should be, and
+ * what a "set timer and mode" should not. Counts come from the parsed walk in
+ * docs/dynamic-analysis/scripts/scan-gfx-stream-commands.mjs; a naive byte-pair scan
+ * over-counts `FF 03` by 15, so the parse is doing real work here.
  *
  * It does two things, and both are halves of one "wait":
  *

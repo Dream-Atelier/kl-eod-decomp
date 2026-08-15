@@ -296,3 +296,39 @@ for (const op of [0x44, 0x46, 0x4c, 0x34]) {
         `   FF ${hex2(op)}: naive byte-pair hits ${String(naive).padStart(3)}   parsed command starts ${String(parsed).padStart(3)}   ${naive === parsed ? 'AGREE' : 'DISAGREE — some hits are payload bytes'}`,
     );
 }
+
+// ── the round-6 naming round: which SPELLING of each handler do scripts use? ──
+// Several handlers sit in more than one dispatch table, so a handler can have two or
+// three legal opcodes. Only the parsed walk can say which are real command starts:
+// FF 03 in particular is a very common byte pair inside payloads, so its naive count
+// is an order of magnitude too high.
+console.log('\n=== round-6 naming round: every spelling of the motion and wait handlers ===');
+const NAMED = [
+    [0x41, 'StreamCmd_InitLinearMotion'],
+    [0x2b, 'StreamCmd_InitLinearMotion (alias)'],
+    [0x42, 'StreamCmd_InitEntityMotion'],
+    [0x2c, 'StreamCmd_InitEntityMotion (alias)'],
+    [0x44, 'StreamCmd_InitWindowCornerMotion'],
+    [0x2e, 'StreamCmd_InitWindowCornerMotion (alias)'],
+    [0x5a, 'StreamCmd_WaitFrames'],
+    [0x3b, 'StreamCmd_WaitFrames (alias)'],
+    [0x03, 'StreamCmd_WaitFrames (alias)'],
+    [0x4b, 'StreamCmd_InitFrameAnimation'],
+];
+for (const [op, label] of NAMED) {
+    let naive = 0;
+    for (const s of scripts) for (let i = 0; i < s.length - 1; i++) if (s[i] === 0xff && s[i + 1] === op) naive++;
+    const parsed = find(op);
+    console.log(
+        `   FF ${hex2(op)}  ${label.padEnd(36)} handler 0x${(FN.get(op) ?? 0).toString(16)}  len=${LEN.get(op) ?? '?'}` +
+            `   parsed uses ${String(parsed.length).padStart(4)}   (naive byte-pair hits ${String(naive).padStart(4)})`,
+    );
+}
+const waitUses = [0x5a, 0x3b, 0x03].map((o) => find(o).length);
+console.log(`   -> StreamCmd_WaitFrames is issued ${waitUses.reduce((a, b) => a + b, 0)} time(s) in total, split ${waitUses.join(' / ')} across FF 5A / FF 3B / FF 03`);
+const waitCmds = [0x5a, 0x3b, 0x03].flatMap((o) => find(o));
+if (waitCmds.length) {
+    const ns = waitCmds.map((c) => c.bytes[2] | (c.bytes[3] << 8));
+    ns.sort((a, b) => a - b);
+    console.log(`   -> the frame counts it is given range ${ns[0]}..${ns[ns.length - 1]} frames (median ${ns[ns.length >> 1]})`);
+}
