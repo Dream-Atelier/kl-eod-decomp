@@ -6,7 +6,10 @@ Builds a whole-cartridge reference graph and reports every named function that
 nothing can ever reach.  A function is reported only when none of the following
 finds a way in:
 
-  * no branch of any form (bl / blx / b / bCC) anywhere in the code region,
+  * no branch of any form (bl / blx / b / bCC) anywhere in the code region --
+    read both from the disassembly AND decoded straight from cartridge bytes,
+    because generate_asm.py emits some calls as raw `.4byte` data that no
+    disassembly-based scan can see,
   * no ARM B/BL inside a `bx pc; nop; b <arm>` interwork thunk (objdump renders
     those as a raw .word, because it is in Thumb mode at that address),
   * no `adr rN, X; bx rN` inline Thumb->ARM mode switch,
@@ -141,6 +144,39 @@ def is_function_entry(addr, by, order):
     return False
 
 
+def raw_rom_calls(rom, ref):
+    """Decode every Thumb BL/BLX pair straight out of the cartridge.
+
+    This cannot be skipped in favour of reading objdump's output. Wherever a
+    branch target is not a function start in functions_merged.cfg,
+    generate_asm.py emits the call as a raw `.4byte 0x........ @ bl _0XXXXXXX`,
+    so the assembler stores data and objdump renders data — the call is
+    invisible to any scan that trusts the disassembly. There are 73 such sites,
+    and one of them (0x08047A20 -> 0x0804713C, the save-erase routine reached
+    from the hidden boot menu) is the only caller its callee has: reading the
+    disassembly alone reports that function as unreachable when it is not.
+
+    Scanning is limited to the code region; the data region would produce
+    false BL pairs out of graphics bytes.
+    """
+    for addr in range(ROM_BASE, CODE_END - 4, 2):
+        off = addr - ROM_BASE
+        hi, lo = struct.unpack_from("<HH", rom, off)
+        if (hi >> 11) != 0x1E:
+            continue
+        kind = lo >> 11
+        if kind not in (0x1F, 0x1D):        # BL, BLX
+            continue
+        disp = ((hi & 0x7FF) << 12) | ((lo & 0x7FF) << 1)
+        if disp & 0x400000:
+            disp -= 0x800000
+        target = (addr + 4 + disp) & 0xFFFFFFFF
+        if kind == 0x1D:
+            target &= ~3
+        if target != addr:
+            ref[target] += 1
+
+
 def collect_references(by, order):
     """Count every way control can arrive at each address."""
     ref = collections.Counter()
@@ -206,6 +242,7 @@ def main():
 
     with open(ROM, "rb") as f:
         rom = f.read()
+    raw_rom_calls(rom, ref)
 
     dead = [(a, n) for a, n in sorted(inventory.items())
             if not ref.get(a)
