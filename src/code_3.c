@@ -148,6 +148,7 @@ void LoadLevel_World1_Vision1(void) {
     gPaletteVramCursor += 0x80;
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World1_Vision2);
+INCLUDE_ASM("asm/nonmatchings/code_3", sub_08030D3A);
 /**
  * LoadLevel_World2_Vision1: streams the tile and palette graphics data for World 2, Vision 1 from ROM into VRAM and palette RAM via
  * DMA, advancing the gVramWriteCursor/gPaletteVramCursor write cursors.
@@ -946,7 +947,9 @@ void LoadLevel_World6_Vision1(void) {
     gPaletteVramCursor += 0x80;
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World6_Vision2);
+INCLUDE_ASM("asm/nonmatchings/code_3", sub_080356E6);
 INCLUDE_ASM("asm/nonmatchings/code_3", LoadLevel_World7_Vision1);
+INCLUDE_ASM("asm/nonmatchings/code_3", sub_08036566);
 /**
  * LoadLevel_World7_Vision2: streams the tile and palette graphics data for World 7, Vision 2 from ROM into VRAM and palette RAM via
  * DMA (including the level-specific palette tables indexed through gUnk_08189A24), advancing the write cursors.

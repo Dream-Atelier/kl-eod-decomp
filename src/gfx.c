@@ -2008,6 +2008,7 @@ void StreamCmd_ClearRenderMode(void) {
     *streamPtr += 2;
 }
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_SetTimerAndMode);
+INCLUDE_ASM("asm/nonmatchings/gfx", sub_0804E492);
 /**
  * StreamCmd_ToggleDisplayFlag: toggles one of two graphics-control flags,
  * selected by the command's argument byte, then advances the stream by 3.
