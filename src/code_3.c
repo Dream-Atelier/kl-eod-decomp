@@ -6590,5 +6590,76 @@ void UpdateBootMinigame(void) {
 }
 INCLUDE_ASM("asm/nonmatchings/code_3", MainGameFrameLoop);
 INCLUDE_ASM("asm/nonmatchings/code_3", InitFadeTransition);
-INCLUDE_ASM("asm/nonmatchings/code_3", UpdateScreenWipe);
+/* sub_08047F80 is a second, separate ROM function at 0x08047F80: it is never called
+ * directly, only installed into callback slot 1 by UpdateScreenWipe below, so luvdis
+ * saw no entry point for it and generate_asm.py folded it into UpdateScreenWipe's
+ * INCLUDE_ASM slice (0x08047EC8..0x08048027, 0x160 bytes). Both are decompiled here. */
+static void sub_08047F80(void);
+
+void UpdateScreenWipe(void) {
+    s32 h;
+    s32 v;
+
+    if (gUnk_03004D90.unk8 == 1) {
+        h = gUnk_03004D90.unk4;
+        if (h == 0xF0) {
+            gUnk_03004D90.unk8 = 0;
+            return;
+        }
+        h -= 0x4FB;
+        gUnk_03004D90.unk4 = h;
+        v = gUnk_03004D90.unk6;
+        v -= 0x2FD;
+        gUnk_03004D90.unk6 = v;
+        REG_WIN1H = h;
+        REG_WIN1V = v;
+    }
+    if (gUnk_03004D90.unk8 == 2) {
+        h = gUnk_03004D90.unk4;
+        if (h == 0x7878) {
+            UpdateOamSortOrder();
+            m4aSoundVSyncOn();
+            m4aMPlayAllContinue();
+            gCallbackQueue.current[1] = sub_08047F80;
+            REG_BLDCNT = 0xD7;
+            return;
+        }
+        h += 0x4FB;
+        gUnk_03004D90.unk4 = h;
+        v = gUnk_03004D90.unk6;
+        v += 0x2FD;
+        gUnk_03004D90.unk6 = v;
+        REG_WIN1H = h;
+        REG_WIN1V = v;
+    }
+    if ((gNewKeys & 0xF) && (gUnk_03004D90.unk8 == 0)) {
+        gUnk_03004D90.unk8 = 2;
+    }
+}
+
+static void sub_08047F80(void) {
+    u32 i;
+
+    if (gBlendValue == 0) {
+        REG_WININ |= 0x20;
+        gBlendValue = gUnk_030051F0.unkE;
+        REG_BLDCNT = gUnk_030051F0.unk4;
+        REG_BG0CNT = gUnk_030051F0.unk6;
+        REG_BG1CNT = gUnk_030051F0.unk8;
+        REG_BG2CNT = gUnk_030051F0.unkA;
+        REG_BG3CNT = gUnk_030051F0.unkC;
+        gUnk_03004C20.sceneFrameCounter = gUnk_030051F0.unk0;
+        for (i = 0; i < 10; i++) {
+            gCallbackQueue.next[i] = gCallbackQueue.previous[i];
+        }
+        gCallbackQueue.current[gCallbackQueue.currentCount - 1] = NULL;
+        gCallbackQueue.nextCount = gCallbackQueue.previousCount;
+        return;
+    }
+    REG_WININ = 1;
+    REG_WINOUT = 0x3F;
+    if ((gUnk_03004C20.globalFrameCounter & 3) == 0) {
+        gBlendValue -= 1;
+    }
+}
 INCLUDE_ASM("asm/nonmatchings/code_3", UpdateWorldMapLogic);

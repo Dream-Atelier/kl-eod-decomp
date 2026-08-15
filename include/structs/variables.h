@@ -70,6 +70,18 @@ struct Unk_03004C20 {
 };
 extern struct Unk_03004C20 gUnk_03004C20;
 
+/* Iris/screen-wipe window state at 0x03004D90.
+ * unk4/unk6 hold the pending REG_WIN1H / REG_WIN1V ranges, unk8 the wipe mode
+ * (1 = opening, 2 = closing, 0 = idle). Used by InitFadeTransition,
+ * MainGameFrameLoop and UpdateScreenWipe. */
+struct Unk_03004D90 {
+    /* 0x00 */ u8 pad0[0x4];
+    /* 0x04 */ u16 unk4;
+    /* 0x06 */ u16 unk6;
+    /* 0x08 */ u8 unk8;
+};
+extern struct Unk_03004D90 gUnk_03004D90;
+
 /* Per-frame globals used by VBlank callbacks. */
 #define gUnk_03003420 (*(u8 *)0x03003420)
 #define gUnk_03005498 (*(u8 *)0x03005498)

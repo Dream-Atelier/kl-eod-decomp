@@ -48,6 +48,7 @@ gHeldKeys     = 0x030051E4;
 gAButtonHold  = 0x030034F0;
 gLevelStatePtr = 0x030034A0;
 gUnk_03004790 = 0x03004790;
+gUnk_03004D90 = 0x03004D90;
 gUnk_03004DB0 = 0x03004DB0;
 gScrollBounds = 0x03005468;
 gUnk_030034E8 = 0x030034E8;
