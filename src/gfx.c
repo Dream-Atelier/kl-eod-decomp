@@ -30,8 +30,9 @@ extern s32 DivideQ8(s16 num1, s16 num2);
  * `s16 ReadUnalignedS16(u8 *ptr)` and `make compare` FAILS. The consumer is
  * StreamCmd_InitBg2Zoom, and only that one — build both spellings and diff
  * `arm-none-eabi-objdump -d build/src/gfx.o`: the entire delta is inside
- * StreamCmd_InitBg2Zoom, which is the only caller that feeds the result straight into
- * DivideQ8's s16 parameter. With an s16 return agbcc emits the re-narrowing
+ * StreamCmd_InitBg2Zoom, which is the only caller that assigns the result to an s32
+ * local (every other consumer takes it into an s16, where the return width is
+ * invisible). With an s16 return agbcc emits the re-narrowing
  * `lsls #16 / asrs #16` in the caller and the rest of the body reassociates around it,
  * so the function stops matching. Unlike DivideQ8 this pair cannot drift silently: a
  * conflicting declaration makes agbcc exit 1 and `make` stop. */
@@ -344,8 +345,9 @@ INCLUDE_ASM("asm/nonmatchings/gfx", LoadBGTilemapData);
  *    register copy the ROM has"; there is no truncation. Both spellings emit
  *    exactly 167 instructions and exactly two `adds rX, rY, #0` copies, and
  *    neither contains a `lsl/lsr #16` or a masking `and` anywhere in the group
- *    (the function's only two `ands` are the `REG_DISPCNT & 0xFFF8`
- *    read-modify-write). Diff the two disassemblies and the entire delta is
+ *    (the only `and` against a mask is the single `REG_DISPCNT & 0xFFF8`
+ *    read-modify-write; the other `ands` in the function is the `bgAffine`
+ *    bitfield store). Diff the two disassemblies and the entire delta is
  *    that `movs rX,#0x81 / lsls rX,#6 / adds rY,rX,#0` -- the materialisation
  *    of 0x2040, which is where the copy comes from -- moves from after the
  *    screenblock byte to before it.
@@ -828,7 +830,7 @@ extern void SetupOAMSprite(s32 arg0, u8 arg1, u16 arg2, u16 arg3, u8 arg4, u8 ar
  * (0xC0 per group), terminated by an entry whose unk0 halfword is 0xFFFF. It
  * runs to the next symbol, gUnk_0818B704: 0x1800 bytes = 32 group slots, of
  * which only ids 0..19 carry data (4..13 live rows each). Ids 20..31 are all
- * zeros -- every one of the 0xC00 bytes from 0x0818AE04 to 0x0818B704 reads back
+ * zeros -- every one of the 0x900 bytes from 0x0818AE04 to 0x0818B704 reads back
  * 0x00 out of baserom.gba -- so they hold no terminator either, and this loop has
  * no bound, so such an id runs on past its group: measured at runtime, 290
  * iterations, the u8 cursor wraps (13 -> 47) and descriptor slots are written far

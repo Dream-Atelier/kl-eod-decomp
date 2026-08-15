@@ -138,16 +138,17 @@ void HBlankScrollUpdate(void) {
  * emulator does -- gba-kit reports 1..228 there, one line ahead of the 0..227 the
  * register can hold, so on a console the pivot may be scanline 59 rather than 60.
  *
- * MATCHING -- do NOT tidy the body. Two spellings that read as sloppiness are
- * load-bearing, and they turn out to be the SAME lever: `line` must be `u8`, and
- * `(line * 3 - 180)` must be written out TWICE rather than hoisted into a local.
- * The u8 is what keeps a truncation between the two uses and stops agbcc CSE-ing
- * them into one value. Either edit alone -- widening `line` to u32, or hoisting the
- * subexpression -- yields the same 92-byte, 40-instruction function with nine
- * halfwords different from the ROM, and those two broken spellings are
- * byte-identical to each other. Reproduce by making one of them and diffing
- * `arm-none-eabi-objdump -d build/src/engine.o`. A duplicated subexpression is
- * precisely what a reviewer "simplifies", which is why this note exists.
+ * MATCHING -- do NOT hoist `(line * 3 - 180)`. It must be written out TWICE.
+ * Hoisting it into a local (`s32 ramp = line * 3 - 180;`) changes nine halfwords
+ * (offsets 0x04..0x12 and 0x16) and fails `make compare`; agbcc CSEs the written-out
+ * form by itself, computing `lsls r1,r2,#1 / adds r1,r1,r2 / subs r1,#180` once into
+ * r1 and reusing r1 for both multiplies. A duplicated subexpression is precisely what
+ * a reviewer "simplifies", which is why this note exists.
+ *
+ * `line`'s width is NOT load-bearing: `u32 line` compiles byte-identically and the
+ * ROM still matches. An earlier revision of this note claimed the `u8` kept a
+ * truncation between the two uses and suppressed a CSE -- that is the reverse of
+ * what agbcc emits, and it was retracted after being measured.
  */
 void HBlankBg2RefPointUpdate(void) {
     u8 line = REG_VCOUNT_L;

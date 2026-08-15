@@ -1641,7 +1641,6 @@ void UpdateHUDCollectibleCountAlt(void) {
  *     WIN1 and rewrites REG_DISPCNT to the same values as InitLevelBG does, and
  *     again after the tilemap DMA under `gUnk_03004C20.unk10 == 1` -- i.e. keyed on
  *     the flag the other sites set rather than on the world/level pair directly.
- *     That second call is why the panel keeps redrawing after level restore.
  *
  * It first re-blits the panel frame: two DmaCopy16 of 0x14 bytes = 10 tilemap
  * entries, from the off-screen template at gBgTilemapBufs[0] rows 0x16/0x17 col
