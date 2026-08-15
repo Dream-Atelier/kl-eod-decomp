@@ -1245,10 +1245,122 @@ INCLUDE_ASM("asm/nonmatchings/gfx", ProcessSpriteOscillation);
 INCLUDE_ASM("asm/nonmatchings/gfx", ProcessStarfieldEffect);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitStarfield);
 INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitLinearMotion);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitLinearMotionExt);
-INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitRotationMotion);
 u32 ProcessMotionStepExtended(u32 idx);
 extern s16 DivideQ4(s16 num1, s16 num2);
+/**
+ * StreamCmd_InitLinearMotionExt (name inherited, NOT re-earned here — no runtime
+ * evidence was gathered for this handler; everything below is read off the ROM's
+ * own instructions, nothing is claimed about on-screen behaviour).
+ *
+ * Structurally the same handler as StreamCmd_InitWindowCornerMotion — a stream
+ * displacement pair plus a frame count divided into a per-frame velocity, with
+ * ProcessMotionStepExtended installed as the callback — differing in three ways:
+ * param is 2 rather than 4, the stream's byte[3] lands in the entry's objIndex
+ * bitfield rather than targetIndex, and it ends with two extra stores into
+ * gUnk_03002920.
+ *
+ * What it writes, in order (stream is 10 bytes):
+ *   [3]      -> objIndex (7 bits of the header word at +0x00)
+ *   [4..5]   unaligned s16 -> unk_04 = value << 4
+ *   [6..7]   unaligned s16 -> unk_06 = value << 4
+ *   [8..9]   unaligned s16 `duration`; step = (s16)(duration << 4)
+ *   unk_08 = DivideQ4((s16)unk_04, step), unk_0A = DivideQ4((s16)unk_06, step)
+ *   unk_0C = unk_0E = 0; param = 2; callback = ProcessMotionStepExtended; type = 1
+ *   gUnk_03002920[cmd[3] + 0xD].xPosBg2 = .xPosScreen << 4, and the same for
+ *   yPosBg2/yPosScreen — the +0xD bias and the <<4 subpixel convention are the
+ *   ones StreamCmd_ConfigureSprite and StreamCmd_SetEntityTransform already use.
+ *   gStreamPtr += 10.
+ *
+ * Note the divisions read unk_04/unk_06 back out of the entry rather than reusing
+ * the locals, so the `<< 4` truncation to u16 is observable — the same quirk
+ * StreamCmd_InitWindowCornerMotion and StreamCmd_InitBg2Zoom have.
+ *
+ * agbcc matching notes, each measured by ablation against the ROM's own object
+ * (one change at a time from the matching source; objdiff rows in brackets):
+ *   - the family's one `cmd`/`entries` pair per short run of stores (see the
+ *     shape comment above StreamCmd_InitOscillation). Hoisting a single pair to
+ *     the top of the function is by far the biggest lever here [+108].
+ *   - the two DivideQ4 calls must re-read unk_04/unk_06 back OUT of the entry;
+ *     passing the `dx << 4` / `dy << 4` locals instead loses the `ldsh` pair and
+ *     reassociates the whole middle of the function [+72].
+ *   - `unk_0C = unk_0E = 0` chained, so both stores share one computed address;
+ *     written as two statements agbcc recomputes it [+18].
+ *   - the tail indexes gUnk_03002920 as the ARRAY. Through a
+ *     `struct Unk_03002920 *` local gcc reassociates `(i + 0xD) * 0x1C` exactly
+ *     as StreamCmd_ConfigureSprite documents [+14].
+ *   - the tail takes NO `cmd` local either. The ROM materialises the
+ *     gUnk_03002920 pool constant BEFORE it loads gStreamPtr, and that order
+ *     only comes out when the subscript is written in full, so that the array
+ *     base is the first thing evaluated [+2].
+ * Measured NOT load-bearing here, contrary to what the family shape comment
+ * implies: the scaled-index-first split for a bitfield store fed straight from
+ * the stream [0], `step` declared s32 rather than s16 [0], and an s32-returning
+ * DivideQ4 declaration [0]. All three were tried and dropped again.
+ */
+void StreamCmd_InitLinearMotionExt(void) {
+    s16 dx;
+    s16 dy;
+    s16 duration;
+    s16 step;
+    s16 vx;
+    s16 vy;
+
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].objIndex = cmd[3];
+        dx = ReadUnalignedS16(cmd + 4);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_04 = dx << 4;
+        dy = ReadUnalignedS16(cmd + 6);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_06 = dy << 4;
+        duration = ReadUnalignedS16(cmd + 8);
+    }
+    step = duration << 4;
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        vx = DivideQ4((s16)entries[idx].unk_04, step);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_08 = vx;
+        vy = DivideQ4((s16)entries[cmd[2]].unk_06, step);
+    }
+    {
+        u8 *cmd = gStreamPtr;
+        u8 idx = cmd[2];
+        struct GfxStreamEntry *entries = gGfxStreamEntries;
+
+        entries[idx].unk_0A = vy;
+        entries[cmd[2]].unk_0C = entries[cmd[2]].unk_0E = 0;
+        entries[cmd[2]].param = 2;
+        entries[cmd[2]].callback = (u32)ProcessMotionStepExtended;
+        entries[cmd[2]].type = 1;
+    }
+    gUnk_03002920[gStreamPtr[3] + 0xD].xPosBg2 = gUnk_03002920[gStreamPtr[3] + 0xD].xPosScreen << 4;
+    gUnk_03002920[gStreamPtr[3] + 0xD].yPosBg2 = gUnk_03002920[gStreamPtr[3] + 0xD].yPosScreen << 4;
+    gStreamPtr += 10;
+}
+INCLUDE_ASM("asm/nonmatchings/gfx", StreamCmd_InitRotationMotion);
 /**
  * StreamCmd_InitWindowCornerMotion: tween one corner of one hardware window.
  *
