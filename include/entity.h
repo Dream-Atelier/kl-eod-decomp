@@ -92,7 +92,7 @@ extern u32 gCallbackStateArray[];
 #define gEntitySpawnState     ((u8 *)0x03003610)
 
 /* Entity collision/physics lookup table: indexed by entity slot offset.
- * Used by EntityGravityAndFloorCheck, PlayerMainUpdate, SetupOAMSprite. */
+ * Used by EntityGravityAndFloorCheck, EntityUpdateDispatch, SetupOAMSprite. */
 #define gEntityCollisionTable ((u8 *)0x03000790)
 
 /* Entity death/hit reaction state.

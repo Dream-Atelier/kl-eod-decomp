@@ -55,7 +55,6 @@ void SetPaletteAnimEntry(s32, u8);
 void CopyBGScrollTiles(void);
 
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityUpdateDispatch);
-INCLUDE_ASM("asm/nonmatchings/code_1", PlayerMainUpdate);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerMovementPhysics);
 /* Result of a tile-collision probe: unk0 = collision coordinate (-1 = none),
  * unk2 = tile attribute byte. */
@@ -389,6 +388,7 @@ void PlayerRespawnOrDeath(s32 arg0) {
     gUnk_03005220.unk28 = 0;
 }
 INCLUDE_ASM("asm/nonmatchings/code_1", EntityBehaviorMasterUpdate);
+INCLUDE_ASM("asm/nonmatchings/code_1", sub_08016EEE);
 INCLUDE_ASM("asm/nonmatchings/code_1", EntitySpawnFromLevelData);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerFollowEntityMovement);
 INCLUDE_ASM("asm/nonmatchings/code_1", PlayerGrabInputCheck);
