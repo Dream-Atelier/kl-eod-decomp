@@ -332,3 +332,26 @@ if (waitCmds.length) {
     ns.sort((a, b) => a - b);
     console.log(`   -> the frame counts it is given range ${ns[0]}..${ns[ns.length - 1]} frames (median ${ns[ns.length >> 1]})`);
 }
+
+// ── the full opcode histogram ────────────────────────────────────────────────
+// The docstrings on StreamCmd_WaitFrames and StreamCmd_SetRenderMode hang a naming
+// argument on four numbers from this walk: which command is the most-issued, and how
+// often each render-mode spelling is used. A citation is only worth something if the
+// script it cites actually PRINTS the number -- an adversarial reviewer found all four
+// correct but ABSENT from this output, and had to patch the script to check them.
+console.log('\n=== full opcode histogram (parsed walk) ===');
+const hist = new Map();
+for (const c of flat) hist.set(c.op, (hist.get(c.op) ?? 0) + 1);
+const totalCmds = [...hist.values()].reduce((a, b) => a + b, 0);
+console.log(`   ${totalCmds} FF-commands over ${scripts.length} scripts, ${hist.size} distinct opcodes`);
+for (const [op, n] of [...hist].sort((a, b) => b[1] - a[1]).slice(0, 6)) {
+    console.log(`     FF ${hex2(op)}  ${String(n).padStart(5)}`);
+}
+for (const [op, label] of [
+    [0x20, 'StreamCmd_SetRenderMode'],
+    [0x01, 'StreamCmd_SetRenderModeTiled'],
+    [0x02, 'StreamCmd_ClearRenderMode'],
+    [0x03, 'StreamCmd_WaitFrames'],
+]) {
+    console.log(`   FF ${hex2(op)} = ${String(hist.get(op) ?? 0).padStart(5)}   ${label}`);
+}

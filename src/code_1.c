@@ -1303,10 +1303,12 @@ INCLUDE_ASM("asm/nonmatchings/code_1", TransitionFadeOutMusicAndReset);
  * bit. LIGHTEN is not "fade in": TransitionToGameplayScreen below writes
  * BLDCNT_EFFECT_LIGHTEN and counts gBlendValue UP, never down, and io_reg.h says
  * LIGHTEN makes the 1st target whiter -- so that ramp is a fade to WHITE. The real
- * fade-in in this file is TransitionFadeInRestoreWindows, two functions below: REG_BLDCNT =
+ * LIGHTEN-effect fade-in in this file is TransitionFadeInRestoreWindows: REG_BLDCNT =
  * 0xBF (LIGHTEN | TGT1_ALL) with the blend counting DOWN, back toward an unmodified
  * screen. Corrected while naming the round-6 message-box cluster, which shares this
- * ramp.
+ * ramp. (TransitionSelfRemoveFadeIn, further down this file, is a fade-in the other
+ * way round: DARKEN with the blend counting DOWN. The rule is the ramp DIRECTION, not the
+ * effect bit.)
  */
 void TransitionClearAndRestart(void) {
     gUnk_030034E4 = 1;

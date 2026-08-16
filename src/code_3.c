@@ -6599,12 +6599,15 @@ void UpdateMessageBoxFadeIn(void);
  * (Both addresses in this docstring come from the ELF symbol table, not from the
  * `@ ADDR` comment luvdis writes. `asm/nonmatchings/code_3/InitFadeTransition.s` opens
  * `non_word_aligned_thumb_func_start` and says 0x08047B1E; this function's own rename
- * key in klonoa-eod-decomp.toml is still the address-derived one, two bytes high, taken
- * from that same directive. Both
- * are two bytes high, and the skew is systemic: of the 45 `.s` files under
- * asm/nonmatchings/ that open with that directive AND whose symbol resolves in the ELF,
- * 39 disagree with it by two bytes (34 high, 5 low), while all 91 plain
- * `thumb_func_start` headers agree exactly.)
+ * key in klonoa-eod-decomp.toml is still the address-derived one, taken from that same
+ * directive. Both are two bytes high, and the skew is systemic rather than a one-off:
+ * every `.s` file opening `non_word_aligned_thumb_func_start` whose symbol resolves in
+ * the ELF is either exactly right or off by two -- most of them high, a handful low --
+ * while every plain `thumb_func_start` header agrees exactly. Stated as a property and
+ * not as a tally on purpose: `asm/` is generated and gitignored, and generate_asm.py
+ * moves a function to asm/matchings/ the moment it is decompiled, so any absolute count
+ * is stale as soon as anyone matches something. To re-measure, compare each header
+ * address against `arm-none-eabi-nm klonoa-eod.elf`.)
  *
  * The message box is the panel the game pops over gameplay to say something -- a hint
  * ("Use a wind bullet to catch enemies, and use them to double jump.") or a notice
