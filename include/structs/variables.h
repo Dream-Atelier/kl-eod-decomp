@@ -70,6 +70,31 @@ struct Unk_03004C20 {
 };
 extern struct Unk_03004C20 gUnk_03004C20;
 
+/* Message-box window state at 0x03004D90 -- the panel the game pops over gameplay to
+ * show a hint or a notice. InitFadeTransition (0x08047B1C) builds the panel and seeds
+ * this block, InitGfxState / UpdatePlayerInput / PlayerMovementPhysics arm it, and
+ * UpdateMessageBoxWipe steps it. win1h/win1v ARE the box: they are the pending
+ * REG_WIN1H / REG_WIN1V values, and the panel is drawn on BG0 -- the one layer REG_WININ
+ * shows inside a window and REG_WINOUT hides outside every window. Window 1 is not the
+ * only region showing BG0, though: while the box is open REG_DISPCNT = 0x7741 has window
+ * 0 enabled too, over the HUD strip at y 144..160. See UpdateMessageBoxWipe in
+ * src/code_3.c. */
+struct Unk_03004D90 {
+    /* 0x00 */ u8 pad0[0x4];
+    /* 0x04 */ u16 win1h; /* pending REG_WIN1H, (x1 << 8) | x2: 0x7878 shut, 0x00F0 fully open */
+    /* 0x06 */ u16 win1v; /* pending REG_WIN1V, (y1 << 8) | y2: 0x4C4C shut, 0x0494 fully open */
+    /* 0x08 */ u8 wipeState; /* 0 = not animating, 1 = opening, 2 = closing */
+    /* 0x09 */ u8 unk9; /* selects what InitFadeTransition builds: 0 makes it look the panel up
+                         * from the player's world/level/tile position in the table at 0x0811769C
+                         * and use VBlankCallback_Gameplay, non-zero picks a fixed panel and uses
+                         * VBlankCallback_Dialog. InitGfxState writes 3, UpdatePlayerInput writes
+                         * 1/2/5 depending on the level. Forcing 0..5 produces six different
+                         * panels (see prove-message-box-wipe.mjs), but whether the byte is an
+                         * index, an id or a mode selector is not established, so it keeps an unk
+                         * name. */
+};
+extern struct Unk_03004D90 gUnk_03004D90;
+
 /* Per-frame globals used by VBlank callbacks. */
 #define gUnk_03003420 (*(u8 *)0x03003420)
 #define gUnk_03005498 (*(u8 *)0x03005498)
@@ -630,10 +655,51 @@ extern u16 gUnk_0300358C;
 /* Loose globals used by sub_0800CA0C. */
 extern u16 gUnk_03003508; /* halfword-stored per target asm */
 extern u8 gUnk_03000810;
-/* Saved scene callback: ShutdownGfxSubsystem stores gControlBlock[1] here
- * before tearing down; m4a sub_0804EB64 / SoundContextInit also reference
- * the same address. */
-extern u32 gUnk_03000814;
+/* 0x03000814 — the gfx-stream executor's FRAME DEADLINE: the value of
+ * gUnk_03004C20.globalFrameCounter at which the paused command stream may resume.
+ * The gfx tick sub_0804EB64 reads it as `deadline - globalFrameCounter`. The read that
+ * gates the executor, at 0x0804ED04, compares that difference against zero and returns
+ * early — running neither the render-mode dispatch nor StreamCmd_RunScript — while it is
+ * positive. So a deadline in the future is a wait, and a deadline at or before now is
+ * "no wait pending".
+ *
+ * A ROM-wide scan for the word 0x03000814 finds five pool literals in four functions:
+ *   StreamCmd_WaitFrames  writes globalFrameCounter + <stream halfword>  — wait N frames
+ *   the `FF 85` stream handler at 0x0804F074, an m4a-unit command that luvdis merged
+ *   into SoundContextInit.s (so the symbol the pool word lands in, sub_0804F092, is
+ *   the NEXT fragment and not the writer)
+ *                         writes globalFrameCounter + 0x1E              — wait 30 frames
+ *   ShutdownGfxSubsystem  writes globalFrameCounter                     — clear the wait
+ *   sub_0804EB64          two pool words. It READS the cell twice: at 0x0804ED04 against
+ *                         zero (the executor gate above) and at 0x0804EC7A..0x0804EC88
+ *                         against a pool literal, 0x00000E0B = 3595 at 0x0804ECB8. It
+ *                         WRITES globalFrameCounter back at two sites, both gated on the
+ *                         sound-flag mode at gSoundInfo+0x16: 0x0804ECAA also needs a
+ *                         fresh A press, 0x0804ED1C needs no button at all.
+ *
+ * That scan is NOT a proof of completeness, and this comment used to claim it was, on the
+ * grounds that "a Thumb access to a fixed address needs a PC-relative literal". It does
+ * not: base+displacement reaches the cell from a pool word holding some OTHER address,
+ * and a DMA reaches it with no literal at all. A runtime watchpoint from a cold boot
+ * finds a FIFTH writer the scan cannot see — AgbMain+0x30 (0x080004A0), the `str` that
+ * arms the DMA3 fill of IWRAM 0x03000000..0x03007E00 with a zero word. It writes 0, once,
+ * at boot.
+ *
+ * What survives, and is the load-bearing half, is that nothing ever puts a code address
+ * here. Every writer above stores globalFrameCounter, globalFrameCounter + N, or zero —
+ * frame counts by construction — and polling the cell every frame across a 1800-frame
+ * cold boot and all 14 savestates yields only 0x00000000 and 0x00000302.
+ *
+ * It was previously documented as a "saved scene callback: ShutdownGfxSubsystem
+ * stores gControlBlock[1] here". That was wrong, and wrong in a way worth recording.
+ * `gControlBlock` is `((u8 *)0x03004C20)`, so a literal `gControlBlock[1]` would be the
+ * BYTE at +1; what ShutdownGfxSubsystem actually stores is `((u32 *)gControlBlock)[1]`,
+ * the word at +4, and DWARF says offset 4 of struct Unk_03004C20 is globalFrameCounter.
+ * The old comment named a word by an index without checking either the element type or
+ * what that offset holds; the cell never holds a code address at all.
+ *
+ * Evidence: docs/dynamic-analysis/scripts/prove-stream-wait-deadline.mjs. */
+extern u32 gStreamWaitDeadline;
 extern u8 gUnk_030051C8;
 extern u16 gUnk_030051E0;
 extern u8 gUnk_030034C4;

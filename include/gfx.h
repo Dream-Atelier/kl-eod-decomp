@@ -44,7 +44,19 @@ struct GfxStreamEntry {
     /* bits 3-10: per-handler parameter — the word-level "target selector" above.
      * For the static-scroll handler it gates the effect: ProcessStaticBGScroll
      * returns early unless this is 0. Handlers read it differently, so the name
-     * stays generic. */
+     * stays generic.
+     *
+     * For ProcessMotionStepExtended it is a jump-table index (0..4, table at
+     * 0x0804CCB0) selecting WHAT the tween moves, and that is the whole difference
+     * between the three Init...Motion commands:
+     *   0 -> gBGLayerState[targetIndex].scrollX/scrollY   StreamCmd_InitLinearMotion
+     *   2 -> gUnk_03002920[objIndex + 13] position        StreamCmd_InitEntityMotion
+     *   4 -> the window clip bounds in gGfxBufferPtr      StreamCmd_InitWindowCornerMotion
+     * (1 and 3 have no Init command decompiled yet: 1 drives 0x030034AC/0x03005420
+     * and 3 drives an affine scale through ReciprocalQ8/MultiplyQ8.)
+     * Each of the three was run and then ticked, and each moved its own target while
+     * leaving the other two bit-identical, against a dX = dY = 0 control — see
+     * docs/dynamic-analysis/scripts/prove-motion-target-param.mjs. */
     u32 param : 8;
     /* bits 11-14: index of the object this entry drives. Every consumer that
      * reads byte 1 (ProcessMotionStep, ProcessMotionStepExtended,
@@ -67,17 +79,35 @@ struct GfxStreamEntry {
      * i.e. bit 7 of the byte at +0x03, is the timer-sign latch that
      * StreamCmd_InitHBlankWait writes and ProcessHBlankWait reads. */
     u32 headerHigh : 10;
-    u16 unk_04; /* +0x04: tile/frame base index */
-    u16 unk_06; /* +0x06: tile count / allocation size */
+    /* +0x04 and +0x06 are mode-dependent too:
+     *   ProcessFrameAnimation — +0x04 is the GfxStreamAlloc SLOT index, i.e.
+     *                           DmaSpriteToObjVram's `entryIdx`: which tileset's OBJ
+     *                           tiles this entry repaints. Not a tile or frame index.
+     *   the motion handlers    — +0x04/+0x06 are the X and Y displacement of the
+     *                           tween in 12.4 fixed point (pixels << 4), which
+     *                           StreamCmd_InitEntityMotion and its siblings divide by
+     *                           the duration to get the per-frame velocity. */
+    u16 unk_04;
+    u16 unk_06;
     /* +0x08 and +0x0A are mode-dependent, so they keep `unk` names on purpose:
      *   ProcessMotionStep     — +0x08 is the X oscillation amplitude and +0x0A
      *                           the Y amplitude; each is multiplied by
      *                           gSineTable[angle] and shifted right by 8 (E2, E3).
      *   ProcessFrameAnimation — +0x08 is instead the reload value copied into
-     *                           `timer` when the countdown expires. */
+     *                           `timer` when the countdown expires, so it is the
+     *                           number of dispatches each animation frame is HELD.
+     *                           Measured: changing only unk_08 from 0 to 2 makes the
+     *                           DMAd frame sequence 0,0,1,1,2,2,3,3 instead of
+     *                           0,1,2,3,0,1,2,3 (prove-frame-animation.mjs, D). */
     u16 unk_08; /* +0x08: counter / position A */
     u16 unk_0A; /* +0x0A: counter / position B */
-    u16 unk_0C; /* +0x0C: frame index */
+    /* +0x0C: for a frame-animation entry, the CURRENT animation frame within the
+     * tileset named by unk_04 — the cursor ProcessFrameAnimation steps and wraps.
+     * DmaSpriteToObjVram turns it into a source offset of frameIdx * tileCount * 32,
+     * so consecutive values are consecutive cels of one multi-frame sheet landing on
+     * the same OBJ tiles. For the motion handlers it is instead the X accumulator.
+     * Proven by prove-frame-animation.mjs (A: the DMAd frames really cycle). */
+    u16 unk_0C;
     u16 unk_0E; /* +0x0E: unknown */
     u16 unk_10; /* +0x10: unknown */
     u16 unk_12; /* +0x12: unknown */
@@ -103,9 +133,16 @@ struct GfxStreamEntry {
      * the s16 timeout (a negative timeout => wait indefinitely). Proven by
      * prove-button-wait.mjs 3c/3d: with the flag set an already-expired timer keeps
      * ticking negative and the entry survives; with it clear and everything else
-     * identical the entry deactivates on the tick the timer goes negative. */
+     * identical the entry deactivates on the tick the timer goes negative.
+     *
+     * For a frame-animation entry it is the FIRST frame of the loop, and unk_1F below
+     * is the frame COUNT: ProcessFrameAnimation wraps unk_0C back to unk_1E once it
+     * reaches unk_1E + unk_1F. Both were established by changing one of them at a
+     * time and reading back the frames the ROM actually DMAd — base 0 / count 4 gives
+     * 0,1,2,3,0,1,2,3; count 3 alone gives 0,1,2,0,1,2; base 5 alone gives 5,6,7,8
+     * (prove-frame-animation.mjs, B and C). */
     u8 unk_1E;
-    u8 unk_1F; /* +0x1F: frame/animation param */
+    u8 unk_1F; /* +0x1F: frame COUNT for a frame-animation entry; see unk_1E */
     u32 callback; /* +0x20: function pointer for per-frame update */
 }; /* total: 0x24 = 36 bytes */
 
@@ -165,6 +202,32 @@ extern u8 *gStreamPtr;
  * StreamCmd_ConfigureBlend and bit 4 by StreamCmd_ToggleVBlankHandler; bit 3
  * keeps a placeholder name. */
 struct GfxControlFlags {
+    /* 0x00 bits 0-1 — the gfx-stream EXECUTOR LATCH, not a "render mode".
+     * StreamCmd_RunScript sets the field to 3 on entry and loops
+     * `while (byte0 & 3 & 1)`, so:
+     *   bit 0  keep taking commands this frame; clearing it yields until the next tick
+     *   bit 1  the executor is enabled; sub_0804EB64 only calls StreamCmd_RunScript
+     *          when it is set, and clears the whole field on scene exit
+     * `(*p & ~3) | 2` therefore means "stay enabled, stop executing now" —
+     * StreamCmd_WaitFrames writes it as the second half of a wait, and so do
+     * StreamCmd_SetRenderMode (0x0804C774, `FF 20`, 1473 shipped uses) and
+     * StreamCmd_SetRenderModeTiled (0x0804E404, `FF 01`, 19 uses), which are
+     * byte-for-byte identical to each other over all 36 bytes. StreamCmd_ClearRenderMode
+     * (0x0804E428, `FF 02`, 0 uses) writes the same field with bit 1 cleared too, which
+     * switches the executor off. All three names predate this finding and are almost
+     * certainly wrong for the same reason "SetTimerAndMode" was; they are left alone
+     * here only because nothing in this round decompiled them. Measured: streams of
+     * eight identical `FF 03` / `FF 20` / `FF 02` commands each execute ONE per
+     * StreamCmd_RunScript call, while eight `FF 44` — which leave the field alone — all
+     * execute. See docs/dynamic-analysis/scripts/prove-stream-wait-deadline.mjs (3b)
+     * and the flagged list in StreamCmd_WaitFrames' docstring in src/gfx.c.
+     *
+     * Kept as a pad byte, but NOT because spelling it out would cost anything: replacing
+     * `u8 pad_00;` with `u8 mode : 2; u8 pad_00_2 : 6;` was built and `make compare` said
+     * OK. It stays a pad because no C in this tree reaches the field through the struct —
+     * every handler that writes it matches through `s8 *` pointer arithmetic (see the
+     * notes in src/gfx.c) — so named bitfields here would have no readers. Give them
+     * names when a function needs them. */
     u8 pad_00;
     /* 0x01 bit 0 — the current BG video mode, as a one-bit field: 0 = text
      * (DISPCNT mode 0), 1 = affine (mode 1). SetupLevelLayerConfig sets it from
@@ -609,9 +672,11 @@ extern s16 gUnk_030034F8;
  * Used by TransitionInitLevelMusic, TransitionFadeOut*, sub_08024D84. */
 #define gSceneFadeCounter (*(u16 *)0x03005210)
 
-/* Scene/gfx state struct: used by InitGfxState, InitFadeTransition,
- * MainGameFrameLoop, PlayerMovementPhysics. Part of the graphics pipeline state. */
-#define gGfxSceneState    ((u8 *)0x03004D90)
+/* 0x03004D90 used to carry a second, untyped view here -- `gGfxSceneState`, a `u8 *`
+ * macro with no readers anywhere in the tree. It is the message-box window state and
+ * it now has a typed declaration with named fields: `struct Unk_03004D90
+ * gUnk_03004D90` in structs/variables.h. One address, one name, so the macro is
+ * removed rather than left as a second spelling of the same cell. */
 
 /* Scene script / title sequence state.
  * Used by RunSceneScript, RunTitleSequence. */

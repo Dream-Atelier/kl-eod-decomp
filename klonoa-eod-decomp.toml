@@ -119,7 +119,7 @@ sub_0804CFD0 = "ProcessSpriteOscillation"
 sub_0804D0B0 = "ProcessStarfieldEffect"
 sub_0804D32C = "StreamCmd_InitStarfield"
 sub_0804D408 = "StreamCmd_InitLinearMotion"
-sub_0804D4D8 = "StreamCmd_InitLinearMotionExt"
+sub_0804D4D8 = "StreamCmd_InitEntityMotion"
 sub_0804D63C = "StreamCmd_InitRotationMotion"
 sub_0804D798 = "StreamCmd_InitWindowCornerMotion"
 sub_0804D8D4 = "StreamCmd_InitBg2Zoom"
@@ -136,7 +136,7 @@ sub_0804DF80 = "ProcessScreenFade"
 sub_0804E008 = "UpdatePaletteFadeStep"
 sub_0804E0E8 = "ProcessSceneTransitionOut"
 sub_0804E3D6 = "StreamCmd_BeginSceneExit"
-sub_0804E448 = "StreamCmd_SetTimerAndMode"
+sub_0804E448 = "StreamCmd_WaitFrames"
 sub_0804E568 = "StreamCmd_ToggleDisplayFlag"
 sub_0804E634 = "StreamCmd_SetWindowCorner"
 sub_0804E6B6 = "StreamCmd_SetBGScreenSize"
@@ -512,7 +512,12 @@ sub_080472C8 = "ConfigureInterruptsForGameplay"
 sub_080475DC = "UpdateBootMinigame"
 sub_080477A8 = "MainGameFrameLoop"
 sub_08047B1E = "InitFadeTransition"
-sub_08047ECA = "UpdateScreenWipe"
+sub_08047ECA = "UpdateMessageBoxWipe"
+# 0x08047F80 is a real ROM function that luvdis never found an entry point for (nothing
+# calls it -- its address is only ever stored into a callback slot), so no sub_08047F80
+# symbol comes out of the disassembly. This alias is what gives that address the usual
+# sub_ spelling alongside its semantic name.
+sub_08047F80 = "UpdateMessageBoxFadeIn"
 sub_0804802A = "UpdateWorldMapLogic"
 
 # Util functions

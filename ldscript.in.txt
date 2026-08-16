@@ -48,6 +48,7 @@ gHeldKeys     = 0x030051E4;
 gAButtonHold  = 0x030034F0;
 gLevelStatePtr = 0x030034A0;
 gUnk_03004790 = 0x03004790;
+gUnk_03004D90 = 0x03004D90;
 gUnk_03004DB0 = 0x03004DB0;
 gScrollBounds = 0x03005468;
 gUnk_030034E8 = 0x030034E8;
@@ -333,7 +334,7 @@ gUnk_080786C8 = 0x080786C8;
 gUnk_080786E8 = 0x080786E8;
 gUnk_08078708 = 0x08078708;
 gUnk_03000810 = 0x03000810;
-gUnk_03000814 = 0x03000814;
+gStreamWaitDeadline = 0x03000814;
 gUnk_03003508 = 0x03003508;
 gUnk_03004654 = 0x03004654;
 gUnk_03004D80 = 0x03004D80;
@@ -491,6 +492,11 @@ gLayerTileCount = 0x08057814;
 gLayerTileByteSize = 0x08057894;
 gLayerCharBlock = 0x080578D4;
 gLayerScreenBlock = 0x08057914;
+/* Scene-exit table read only by ProcessSceneTransitionOut: high nibble -> gUnk_03004C20.world,
+ * low nibble -> the teardown variant it switches on. Named rather than spelled as a cast
+ * address because agbcc only holds the base in a register across the four uses when it is a
+ * symbol; see the note in src/gfx.c. */
+gUnk_0805769C = 0x0805769C;
 gStreamDataTable = 0x08189AFC;
 /* The graphics stream's OBJ-tileset table and its parallel OBJ-palette table, plus
  * a typed pointer to the allocator table at 0x030007C8 (the cell gGfxStreamBuffer
