@@ -1509,7 +1509,7 @@ extern void VBlankCallback_Gameplay(void); /* VBlankCallback_Gameplay — litera
 extern void InitGameplayState(void); /* InitGameplayState — literal-pool stored callback */
 extern void TransitionGameOver(void); /* TransitionGameOver */
 extern void TransitionFadeOutWithMusic(void); /* TransitionFadeOutWithMusic */
-extern void UpdatePlayerDamageState(void); /* UpdatePlayerDamageState */
+extern void UpdatePlayerState(void); /* UpdatePlayerState */
 extern void ApplyEntityTileMovement(void); /* ApplyEntityTileMovement */
 extern void UpdatePaletteAnimations(void); /* UpdatePaletteAnimations */
 extern void EntityGravityAndFloorCheck(u8); /* EntityGravityAndFloorCheck */
@@ -1540,10 +1540,19 @@ extern void EntityProjectileUpdate(void); /* EntityProjectileUpdate */
  * Otherwise it steps the player's damage state and sweeps
  * gUnk_03002920[0xD..count], dispatching a per-`kind` update handler.
  *
- * The pause branch is the guard, not the job: measured over 120 frames of
- * ordinary play it runs once per frame, writes gCallbackQueue zero times and
- * makes 840 calls out to entity handlers. Pressing START does write the queue,
- * so the zero is a measurement. Runtime: prove-gameplay-entity-update.mjs.
+ * Everything but the pause branch sits under `gUnk_030052A0 == 0xFE`; the tail
+ * then runs EntityProjectileUpdate and ApplyEntityTileMovement under their own
+ * guards, and the sweep ends with UpdatePaletteAnimations.
+ *
+ * The pause branch is the guard, not the job. Measured over 120 idle frames in
+ * one level it runs once per frame, writes gCallbackQueue zero times and makes
+ * 840 calls out to three entity handlers -- three, because that is the entity
+ * population of that one savestate, not a property of the switch, which has ~15
+ * arms. Pressing START does write the queue, so the zero is a measurement.
+ * Runtime: prove-gameplay-entity-update.mjs.
+ *
+ * UpdateUIState below has the same shape and is still named for something it does
+ * not do; it never ran in any savestate here, so it is left alone.
  */
 void UpdateGameplayEntities(void) {
     u32 var_r2;
@@ -1569,7 +1578,7 @@ void UpdateGameplayEntities(void) {
 
     if (gUnk_030052A0 == 0xFE) {
         if ((gCallbackQueue.current[4] != TransitionGameOver) && (gCallbackQueue.current[4] != TransitionFadeOutWithMusic)) {
-            UpdatePlayerDamageState();
+            UpdatePlayerState();
         }
 
         for (var_r4 = 0xD; var_r4 < gUnk_03005428; var_r4++) {
@@ -1725,7 +1734,7 @@ extern void EntityBossPhaseC(s32); /* sub_08021DAC */
 extern void EntityMiniBossAlt(u8); /* sub_08023BC0 */
 extern void UpdateEntitySpawnState(u8); /* sub_0803CE14 */
 extern void UpdatePaletteAnimations(void); /* UpdatePaletteAnimations */
-extern void UpdatePlayerDamageState(void); /* UpdatePlayerDamageState */
+extern void UpdatePlayerState(void); /* UpdatePlayerState */
 extern void ApplyEntityTileMovement(void); /* ApplyEntityTileMovement */
 extern void TransitionFadeOutWithMusic(void); /* TransitionFadeOutWithMusic */
 extern void TransitionGameOver(void); /* TransitionGameOver */
@@ -1991,7 +2000,7 @@ void UpdateUIState(void) {
 
     if (gUnk_03005400.unkE_7 && (gCallbackQueue.current[4] != TransitionGameOver)
         && (gCallbackQueue.current[4] != TransitionFadeOutWithMusic)) {
-        UpdatePlayerDamageState();
+        UpdatePlayerState();
     }
 
     if (gUnk_03005220.unk37 != 0) {
@@ -2843,18 +2852,35 @@ void VBlankCallback_TitleScreen(void) {
     gUnk_03003420 = 1;
 }
 /**
- * UpdatePlayerDamageState: one frame of the player's reaction to being hit.
+ * UpdatePlayerState: one frame of the player's whole update.
  *
- * Two branches, both keyed off gUnk_03005220. While deathSequenceTimer is set it
- * runs the death sequence: it swallows input, jumps gBlendValue to 0x10 and ramps
- * it back to 0 (the screen fade), puts the entities into blend mode, decrements
- * `lives` and hands off to either the respawn step (sub_08024D84) or the
- * game-over path. Otherwise, while invincibilityTimer is set, it flickers the
- * player sprite by toggling gUnk_03002920[0].onScreen.
+ * ONE function, 0x0800D188..0x08014174 -- 28652 bytes with a single entry and a
+ * single exit (the `pop {r0}; bx r0` at 0x08014172 is the only return instruction
+ * in the range). Measured: over 120 frames the entry runs 120 times and that
+ * epilogue runs 120 times. Twenty-seven functions_merged.cfg entries fall strictly
+ * inside it -- 0x0800DB18, 0x080101E8 (which even carries the semantic name
+ * EntityUpdateDispatch), 0x08011F10 and 24 more -- and they are labels, not
+ * functions: agbcc emits `bl` for an intra-function jump past `b`'s +/-2 KB range,
+ * so being a `bl` target proves nothing here. Nothing has been done about those 27;
+ * `scripts/find_dead_code.py` lists them.
+ *
+ * Its prologue is two sequential blocks, not alternatives -- the death block ends
+ * by branching into the hurt block, so both run on the same frame:
+ *   - while gUnk_03005220.deathSequenceTimer is set: swallow input (gNewKeys and
+ *     gHeldKeys are zeroed), put entities 1..count-1 into blend mode on the single
+ *     frame the timer reads 0x41, set gBlendValue to 0x10 on that same frame and
+ *     ramp it down, and on the frame it reads 1 decrement `lives` and hand off to
+ *     either the respawn step (sub_08024D84) or the game-over path.
+ *   - while gUnk_03005220.hurtStateTimer is set AND unk5B is set: flicker the
+ *     player by toggling gUnk_03002920[0].onScreen.
+ * Everything after that runs unconditionally, and it is the bulk of the function:
+ * measured over 150 frames of walking and jumping, its writes land in
+ * gUnk_03002920[0] (the player's position) and in gUnk_03005220 +0x26..+0x4B.
  *
  * It is not a callback: no word in ROM or RAM holds its address, and both callers
- * reach it with a plain `bl` from a per-frame main-loop function. It carried the
- * name VBlankCallback_Credits, which was wrong on both halves.
- * Runtime: prove-player-damage-state.mjs, prove-invincibility-flicker.mjs.
+ * reach it with a `bl` from a per-frame main-loop function. It carried the name
+ * VBlankCallback_Credits, which was wrong on both halves.
+ * Runtime: prove-player-damage-state.mjs, prove-invincibility-flicker.mjs,
+ * prove-d81a-is-not-a-function.mjs.
  */
-INCLUDE_ASM("asm/nonmatchings/code_0", UpdatePlayerDamageState);
+INCLUDE_ASM("asm/nonmatchings/code_0", UpdatePlayerState);

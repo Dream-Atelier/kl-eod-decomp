@@ -1,6 +1,9 @@
-// PROOF: 0x0800D188 is the player's per-frame damage/death step, not a VBlank
-// callback and nothing to do with the credits. It was named
-// `VBlankCallback_Credits`; this is what it actually is.
+// PROOF: the function at 0x0800D188 is not a VBlank callback and has nothing to do
+// with the credits. It was named `VBlankCallback_Credits`.
+//
+// What it IS -- the player's whole per-frame update, 0x0800D188..0x08014174 --
+// is established in prove-d81a-is-not-a-function.mjs. This script only refutes
+// the old name and characterises the death branch of its prologue.
 //
 // Three observations, each of which the old name has to survive and does not:
 //
@@ -16,8 +19,8 @@
 //     play the entry runs every frame and the body runs zero times.
 //
 //  3. THE BODY IS THE DEATH SEQUENCE. Walk into the Moo until the hearts empty:
-//     the body now runs, gBlendValue jumps to 0x10 and ramps back to 0 (the
-//     screen fade), and gUnk_03005220.lives drops by one.
+//     the body now runs, gBlendValue is set to 0x10 on the frame the timer reads
+//     0x41 and ramps back to 0 (the screen fade), and lives drops by one.
 //
 // Expected output: five PASS lines, then the observed ramp.
 import { mkdirSync, readFileSync } from 'node:fs';
@@ -32,7 +35,7 @@ const rt = await bootNextToMoo(OUT);
 const eng = rt.engine;
 const di = eng.debugInfo;
 
-const ENTRY = di.symbolToAddress('UpdatePlayerDamageState') >>> 0;
+const ENTRY = di.symbolToAddress('UpdatePlayerState') >>> 0;
 // The `bne` past the deathSequenceTimer==0 early-out. Asserted rather than
 // assumed, so a shifted function fails here instead of measuring the wrong code.
 const BODY = ENTRY + 0x26;
@@ -118,12 +121,20 @@ if (deadBody > armedFrames) {
 }
 console.log(`PASS  3. dead: ${deadEntry} entries, ${deadBody} body runs, ${armedFrames} frames with the timer armed`);
 
+// The 0x10 store is gated on the timer reading exactly 0x41, five steps after the
+// sequence arms at 0x46 -- not on the death frame. Tie the peak to that frame, or
+// a fade from anywhere else in the window would satisfy it: the death sequence
+// installs TransitionFadeOutWithMusic, which ramps the same byte.
 const peak = Math.max(...blend);
 const peakAt = blend.indexOf(peak);
-if (peak !== 0x10 || !blend.slice(peakAt).includes(0)) {
-  throw new Error(`gBlendValue did not ramp 0x10 -> 0: peak 0x${peak.toString(16)} at frame ${peakAt}, trace ${blend.join(',')}`);
+if (peak !== 0x10) throw new Error(`gBlendValue peaked at 0x${peak.toString(16)}, expected 0x10`);
+// 0x40 and not 0x41 because onFrame samples after the frame runs: the store
+// happens while the timer reads 0x41 and the same frame decrements it.
+if (timer[peakAt] !== 0x40) {
+  throw new Error(`gBlendValue peaked on the frame the timer read 0x${timer[peakAt].toString(16)}, expected 0x40 (stored at 0x41)`);
 }
-console.log(`PASS  4. gBlendValue jumped to 0x10 on the death frame and ramped back to 0 (the screen fade)`);
+if (!blend.slice(peakAt).includes(0)) throw new Error(`gBlendValue never came back to 0: ${blend.join(',')}`);
+console.log(`PASS  4. gBlendValue was set to 0x10 on the frame deathSequenceTimer read 0x41, and ramped back to 0 (the screen fade)`);
 
 const livesAfter = eng.readVariable('gUnk_03005220.lives');
 if (livesAfter !== livesBefore - 1) throw new Error(`lives went ${livesBefore} -> ${livesAfter}, expected one less`);

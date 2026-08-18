@@ -96,12 +96,16 @@ extern u32 gCallbackStateArray[];
 #define gEntityCollisionTable ((u8 *)0x03000790)
 
 /* Entity death/hit reaction state.
- * Used by EntityDeathAnimation, EntityHitReaction, SpawnEntityAtPosition. */
+ * Loaded in EntityDeathAnimation, SpawnEntityAtPosition, SetupOAMSprite,
+ * RenderCharacterTiles, UpdateGameplayEntities and UpdatePlayerState.
+ * NOT EntityHitReaction, which this used to name: that function loads
+ * 0x030052A0 -- gOamProcessState, four lines down -- and none of 0x0300528C. */
 #define gEntityDeathState     ((u8 *)0x0300528C)
 
 /* OAM sprite processing state byte: compared against 0xFE sentinel.
  * Used by ProcessOamSpriteLayout, UpdateGameplayEntities, InitLevelBG,
- * UpdateScrollPosition, UpdateStageSelectScreen. */
+ * UpdateScrollPosition, UpdateStageSelectScreen, EntityHitReaction,
+ * UpdatePlayerSpecial. */
 #define gOamProcessState      (*(u8 *)0x030052A0)
 
 /* ── Entity Data Tables ── */

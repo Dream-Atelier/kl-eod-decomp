@@ -405,14 +405,20 @@ extern void *const gStreamPaletteTable[];
 #define ROM_SPRITE_FRAME_TABLE   0x08078FC8
 
 /* Display configuration / sprite mapping table.
- * Used by SetupDisplayConfig to select rendering modes. */
+ * One load site in the cartridge, in InitLevelGameplay. (It read "used by
+ * SetupDisplayConfig", which is not a symbol in this tree -- it was the proposed
+ * name for sub_0800CA0C before that became InitLevelGameplay.) */
 #define ROM_DISPLAY_CONFIG_TABLE 0x080D821C
 
 /* OAM template data (initial OAM attribute values).
  * Used by InitOamEntries (sub_0800A468). */
 #define ROM_OAM_TEMPLATE         0x080E2A7C
 
-/* Graphics asset / tileset tables used by InitGraphicsSystem. */
+/* Graphics asset / tileset tables. ROM_GFX_ASSET_TABLE has one load site, in
+ * InitLevelBG; ROM_TILESET_TABLE has fourteen, in LoadSpriteFrame,
+ * ResetVideoRegisters, RenderCharacterTiles and UpdatePlayerState. (These read
+ * "used by InitGraphicsSystem", which is not a symbol in this tree -- it was the
+ * proposed name for sub_08001158 before that became InitLevelBG.) */
 #define ROM_GFX_ASSET_TABLE      0x0818B7AC
 #define ROM_TILESET_TABLE        0x0818B8E0
 
@@ -682,13 +688,14 @@ extern s16 gUnk_030034F8;
  * Used by RunSceneScript, RunTitleSequence. */
 #define gSceneScriptState (*(u32 *)0x03005488)
 
-/* 0x030051C8 had a gCutsceneState macro here, with no users and a user list that
- * named the wrong functions: two of its three names came from reading a symbol off
- * the front of a merged asm blob rather than from the function the pool word sits
- * in. The six that really load it are InitLevelFromROMTable, InitLevelGameplay,
- * TransitionFadeOutWithMusic, sub_0800DB18, sub_08011F10 and sub_08044FD0 -- two of
- * them level setup, so "cutscene" was not established either. The macro is gone
- * rather than renamed. */
+/* 0x030051C8 had a gCutsceneState macro here, with no users. Ten pool words in the
+ * cartridge hold the address, and they sit in five functions: InitLevelFromROMTable,
+ * InitLevelGameplay, TransitionFadeOutWithMusic, DecompressAndLoadLevel, and
+ * UpdatePlayerState twice (0x0800DDA8 and 0x08012200, both inside its
+ * 0x0800D188..0x08014174 extent -- the old comment's third name,
+ * VBlankCallback_Cutscene, is not a symbol in this tree at all). Three of the five
+ * are level setup, so "cutscene" was never established. The macro is gone rather
+ * than renamed. */
 
 /* ── Palette / Visual Effects ── */
 

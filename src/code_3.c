@@ -3538,7 +3538,7 @@ void UpdatePlayerNormal(u8 arg0) {
                     gUnk_03005400.unkD = 5;
                     gUnk_03005400.unk8_6 = 0;
 
-                    if ((gUnk_03005220.unk31 != 0) && (gUnk_03005220.invincibilityTimer == 0)) {
+                    if ((gUnk_03005220.unk31 != 0) && (gUnk_03005220.hurtStateTimer == 0)) {
                         gEntityInfo[0].yPosBg2 -= 0x30;
                     }
                     gUnk_030007E0.unkC_0 = 5;
@@ -5399,7 +5399,7 @@ void SetEntityVisibility(u8 arg0) {
         gEntityInfo[0x14].unkF = 0x19;
         gEntityInfo[0x13].unkF = 0x19;
 
-        gUnk_03005220.invincibilityTimer = 0;
+        gUnk_03005220.hurtStateTimer = 0;
         if (gUnk_03005220.unk31 == 1) {
             SetPaletteAnimEntry(0, 0);
         } else {

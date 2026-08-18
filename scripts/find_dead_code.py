@@ -41,6 +41,11 @@ Reports two lists. "mid-function splits" are cfg entries the previous
 instruction falls into, so nothing can call them; "unreachable" are real
 function entries no reference reaches.
 
+The splits list is a shortlist to confirm one at a time, not a batch to delete.
+Twenty-seven of its entries lie strictly inside the single function at
+0x0800D188, which runs to 0x08014174 with one entry and one return -- so a split
+can be deep inside a much larger function than the next cfg entry suggests.
+
 Requires a built klonoa-eod.elf (run `make` first).
 """
 
@@ -305,7 +310,11 @@ def main():
         for a, n in splits:
             pm, po, _ = by[order[bisect.bisect_left(order, a) - 1]]
             print("%08X  %-9s  %-30s %s %s" % (a, module_of(a), n, pm, po))
-        print("\n^ these are not functions: drop them from functions_merged.cfg.\n")
+        print("\n^ control reaches each of these from the instruction above it, so none is a\n"
+              "  function entry. Confirm before dropping any: a `bl` to one of them is NOT\n"
+              "  evidence against this -- agbcc emits `bl` for an intra-function jump past\n"
+              "  `b`'s +/-2 KB range -- and luvdis names some non-word-aligned entries at +2,\n"
+              "  so one of an adjacent pair can be the real function.\n")
     print("%-10s  %-9s  %-30s %5s" % ("ADDR", "MODULE", "NAME", "BYTES"))
     for a, n in dead:
         print("%08X  %-9s  %-30s %5d" % (a, module_of(a), n, size_of(a)))
