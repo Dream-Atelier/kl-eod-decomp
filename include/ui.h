@@ -40,7 +40,7 @@ extern const u32 gSpriteDataTable[];
 /* ── Gameplay / UI State (extended) ── */
 
 /* Gameplay mode/sub-state: byte accessed with DMA multiplier (×0x800).
- * Used by ProcessInputAndUpdateEntities, UpdateUIState, HandlePauseMenuInput,
+ * Used by ProcessInputAndUpdateEntities, UpdateUIState, UpdateGameplayEntities,
  * AnimatePaletteEffects. Controls OAM DMA source selection. */
 #define gGameplayMode    (*(u8 *)0x030034BC)
 

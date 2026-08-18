@@ -317,7 +317,7 @@ extern void *gUnk_03005290;
 /* Sprite/palette state byte (kleod-canonical, address 0x030052A0). */
 extern u8 gUnk_030052A0;
 
-/* HandlePauseMenuInput / UpdateUIState entity-link state. */
+/* UpdateGameplayEntities / UpdateUIState entity-link state. */
 extern u8 gUnk_030047B8;
 extern u8 gUnk_0300528C;
 extern u8 gUnk_03005470;
@@ -486,7 +486,21 @@ struct Unk_03005220 {
     /* 0x3B */ u8 unk3B;
     /* 0x3C */ u8 unk3C;
     /* 0x3D */ u8 unk3D;
-    /* 0x3E */ u8 unk3E;
+    /* 0x3E */ u8 hurtStateTimer; /* clocks the player's post-hit state. PlayerRespawnOrDeath arms it to
+                                   * 0x87 on every path it reaches -- not only on losing a heart -- and
+                                   * UpdatePlayerState decrements it by 1 per CALL (it has two call sites,
+                                   * so a scene that queues both steps it twice a frame); InitScrollState
+                                   * and SetEntityVisibility also clear it outright. It sequences several
+                                   * things as it runs down: a knockback nudge to gUnk_03002920[0] while it
+                                   * is above 0x78, a palette-anim selection at 0x6C and below, and -- only
+                                   * while unk5B is also set -- the flicker, toggling
+                                   * gUnk_03002920[0].onScreen fast while it is above 0x43 and four times
+                                   * slower below. unk5B is the half that means "took damage": code_1.c
+                                   * treats `hurtStateTimer && unk5B` as the do-not-kill-again guard, and
+                                   * PlayerRespawnOrDeath sets it only on the damage path. The timer alone
+                                   * reads as "in the hurt state" (code_3.c). It is NOT an invincibility
+                                   * counter, which is what it was first renamed to.
+                                   * Runtime: prove-invincibility-flicker.mjs */
     /* 0x3F */ u8 unk3F;
     /* 0x40 */ u8 unk40;
     /* 0x41 */ u8 unk41;

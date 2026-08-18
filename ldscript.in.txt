@@ -457,7 +457,7 @@ gUnk_030034A8 = 0x030034A8;
 gUnk_0300363C = 0x0300363C;
 gUnk_080E2A84 = 0x080E2A84;
 
-/* code_1 alternate-entry points referenced by HandlePauseMenuInput.
+/* code_1 alternate-entry points referenced by UpdateGameplayEntities.
  * Bindings live in asm/thumb_aliases.s so the linker marks the symbols
  * as Thumb and emits a direct `bl` (not an interwork stub). */
 gUnk_0818B7AC = 0x0818B7AC;
