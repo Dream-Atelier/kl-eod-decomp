@@ -37,6 +37,10 @@ Usage:
   python3 scripts/find_dead_code.py
   python3 scripts/find_dead_code.py --json      # machine-readable
 
+Reports two lists. "mid-function splits" are cfg entries the previous
+instruction falls into, so nothing can call them; "unreachable" are real
+function entries no reference reaches.
+
 Requires a built klonoa-eod.elf (run `make` first).
 """
 
@@ -114,16 +118,31 @@ def terminates(mnem, ops):
             or (mnem.startswith("mov") and ops.startswith("pc")))
 
 
+def fallen_into(addr, by, order):
+    """Is this address code that the instruction above it runs straight into?
+
+    Such an address cannot be a function: control reaches it without a call, so
+    whatever named it cut a real function in two and gave the tail a name. The
+    reachability pass below drops these from its inventory; report_splits() also
+    prints them, because a silent filter is how one survives for a whole release.
+    """
+    head = by.get(addr)
+    if head is None or head[0] in DATA_DIRECTIVES:
+        return False                      # the address is data, not a split
+    i = bisect.bisect_left(order, addr) - 1
+    if i < 0:
+        return False
+    pm, po, _ = by[order[i]]
+    return not terminates(pm, po)
+
+
 def is_function_entry(addr, by, order):
     head = by.get(addr)
     if head is None or head[0] in DATA_DIRECTIVES:
         return False                      # the address is data, not code
 
-    i = bisect.bisect_left(order, addr) - 1
-    if i >= 0:
-        pm, po, _ = by[order[i]]
-        if not terminates(pm, po):
-            return False                  # fallen into: a mid-function split
+    if fallen_into(addr, by, order):
+        return False                      # a mid-function split
 
     if head[0] in ("push", "stmdb") or (head[0] == "sub" and head[1].startswith("sp")):
         return True                       # prologue
@@ -265,14 +284,28 @@ def main():
         return (boundaries[i] if i < len(boundaries) else CODE_END) - addr
 
     if args.json:
-        json.dump([{"addr": "%08X" % a, "name": n, "module": module_of(a),
-                    "bytes": size_of(a)} for a, n in dead], sys.stdout, indent=2)
+        json.dump({"unreachable": [{"addr": "%08X" % a, "name": n, "module": module_of(a),
+                                    "bytes": size_of(a)} for a, n in dead],
+                   "splits": [{"addr": "%08X" % a, "name": sorted(ns)[0],
+                               "module": module_of(a)}
+                              for a, ns in sorted(named.items())
+                              if fallen_into(a, by, order)]}, sys.stdout, indent=2)
         print()
         return
 
+    splits = [(a, sorted(ns)[0]) for a, ns in sorted(named.items())
+              if fallen_into(a, by, order)]
+
     total = sum(size_of(a) for a, _ in dead)
     print("named function entries : %d" % len(inventory))
+    print("mid-function splits    : %d" % len(splits))
     print("unreachable            : %d\n" % len(dead))
+    if splits:
+        print("%-10s  %-9s  %-30s %s" % ("ADDR", "MODULE", "NAME", "INSTRUCTION ABOVE"))
+        for a, n in splits:
+            pm, po, _ = by[order[bisect.bisect_left(order, a) - 1]]
+            print("%08X  %-9s  %-30s %s %s" % (a, module_of(a), n, pm, po))
+        print("\n^ these are not functions: drop them from functions_merged.cfg.\n")
     print("%-10s  %-9s  %-30s %5s" % ("ADDR", "MODULE", "NAME", "BYTES"))
     for a, n in dead:
         print("%08X  %-9s  %-30s %5d" % (a, module_of(a), n, size_of(a)))

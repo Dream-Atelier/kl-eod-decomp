@@ -317,7 +317,7 @@ extern void *gUnk_03005290;
 /* Sprite/palette state byte (kleod-canonical, address 0x030052A0). */
 extern u8 gUnk_030052A0;
 
-/* HandlePauseMenuInput / UpdateUIState entity-link state. */
+/* UpdateGameplayEntities / UpdateUIState entity-link state. */
 extern u8 gUnk_030047B8;
 extern u8 gUnk_0300528C;
 extern u8 gUnk_03005470;
@@ -486,7 +486,11 @@ struct Unk_03005220 {
     /* 0x3B */ u8 unk3B;
     /* 0x3C */ u8 unk3C;
     /* 0x3D */ u8 unk3D;
-    /* 0x3E */ u8 unk3E;
+    /* 0x3E */ u8 invincibilityTimer; /* post-hit invincibility, in frames. Armed above 0x80 on the frame a
+                                       * heart is lost and counted down by 1 per frame to 0; while it is set
+                                       * UpdatePlayerDamageState flickers the player by toggling
+                                       * gUnk_03002920[0].onScreen -- fast while the timer is above 0x43, four
+                                       * times slower below it. Runtime: prove-invincibility-flicker.mjs */
     /* 0x3F */ u8 unk3F;
     /* 0x40 */ u8 unk40;
     /* 0x41 */ u8 unk41;

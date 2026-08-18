@@ -3538,7 +3538,7 @@ void UpdatePlayerNormal(u8 arg0) {
                     gUnk_03005400.unkD = 5;
                     gUnk_03005400.unk8_6 = 0;
 
-                    if ((gUnk_03005220.unk31 != 0) && (gUnk_03005220.unk3E == 0)) {
+                    if ((gUnk_03005220.unk31 != 0) && (gUnk_03005220.invincibilityTimer == 0)) {
                         gEntityInfo[0].yPosBg2 -= 0x30;
                     }
                     gUnk_030007E0.unkC_0 = 5;
@@ -5399,7 +5399,7 @@ void SetEntityVisibility(u8 arg0) {
         gEntityInfo[0x14].unkF = 0x19;
         gEntityInfo[0x13].unkF = 0x19;
 
-        gUnk_03005220.unk3E = 0;
+        gUnk_03005220.invincibilityTimer = 0;
         if (gUnk_03005220.unk31 == 1) {
             SetPaletteAnimEntry(0, 0);
         } else {
@@ -6367,7 +6367,7 @@ INCLUDE_ASM("asm/nonmatchings/code_3", UpdateScrollPosition);
  * RunVisionStartConfirmDelay: the confirm delay between picking a vision and loading it.
  *
  * NOTE: the name is a legacy misnomer — this has nothing to do with the pause menu (that is
- * HandlePauseMenuInput). It is installed as gCallbackQueue.current[1] by UpdatePlayerInput when A is
+ * UpdateGameplayEntities). It is installed as gCallbackQueue.current[1] by UpdatePlayerInput when A is
  * pressed on a vision node of the vision-select map, and it runs once per frame from then on.
  *
  * First frame (visionStartPending clear): play the confirm jingle (song 0x26), latch

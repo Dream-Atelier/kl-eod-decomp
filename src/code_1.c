@@ -281,7 +281,7 @@ void InitScrollState(void) {
     gUnk_03005220.unk41 = 0;
     gUnk_03005220.unk40 = 0;
     gUnk_03005220.unk3F = 0;
-    gUnk_03005220.unk3E = 0;
+    gUnk_03005220.invincibilityTimer = 0;
     gUnk_03005220.unk3C = 0;
     gUnk_03005220.unk55 = 0;
     gUnk_03005220.unk54 = 0;
@@ -376,7 +376,7 @@ void PlayerRespawnOrDeath(s32 arg0) {
     }
 
     gUnk_03005220.unk1C = 0;
-    gUnk_03005220.unk3E = 0x87;
+    gUnk_03005220.invincibilityTimer = 0x87;
     if (gUnk_03005220.unk3D > 1) {
         gUnk_03005220.unk3D = 1;
         m4aSongNumStart(0x8E);
@@ -612,8 +612,8 @@ void EntityPickupCollect(u8 slot) {
  * `arm-none-eabi-objdump -d build/src/code_1.o`.
  *
  * On a hit, the entity's kind selects the reaction:
- *   0x6E KLONOA  - kill the player (PlayerRespawnOrDeath(1)) unless the death
- *                  sequence is already running (unk3E && unk5B).
+ *   0x6E KLONOA  - kill the player (PlayerRespawnOrDeath(1)) unless the player is
+ *                  still in post-hit invincibility (invincibilityTimer && unk5B).
  *   0x6F BOX     - break it: only when unk8 > 1 and its cooldown unk9 is 0;
  *                  retires it (unkF = 0x1B, onScreen = 0, unk9 = 0x46), clears
  *                  the palette-anim slot it owned, and drops the two tracking
@@ -658,7 +658,7 @@ void EntityProjectileUpdate(void) {
                     && gUnk_03002920[j].yPosBg2 > gUnk_03002920[i].yPosBg2 - 0x18) {
                     switch (gUnk_03002920[j].kind - 0x6E) {
                         case 0:
-                            if (gUnk_03005220.unk3E != 0 && gUnk_03005220.unk5B != 0) {
+                            if (gUnk_03005220.invincibilityTimer != 0 && gUnk_03005220.unk5B != 0) {
                                 continue;
                             }
                             PlayerRespawnOrDeath(1);
@@ -1132,7 +1132,7 @@ void TransitionGameOver(void) {
 /**
  * sub_08024D84: one frame of the ending/credits hand-off step.
  *
- * Installed as gCallbackQueue.next[1] by VBlankCallback_Credits (code_0), and run
+ * Installed as gCallbackQueue.next[1] by UpdatePlayerDamageState (code_0), and run
  * once per frame while gUnk_030034E4 (transition-busy) is held at 1.
  *
  * Two independent jobs:

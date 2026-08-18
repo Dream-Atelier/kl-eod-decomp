@@ -682,9 +682,13 @@ extern s16 gUnk_030034F8;
  * Used by RunSceneScript, RunTitleSequence. */
 #define gSceneScriptState (*(u32 *)0x03005488)
 
-/* Cutscene/credits animation state.
- * Used by VBlankCallback_Credits, VBlankCallback_Cutscene, TransitionFadeOutWithMusic. */
-#define gCutsceneState    ((u8 *)0x030051C8)
+/* 0x030051C8 had a gCutsceneState macro here, with no users and a user list that
+ * named the wrong functions: two of its three names came from reading a symbol off
+ * the front of a merged asm blob rather than from the function the pool word sits
+ * in. The six that really load it are InitLevelFromROMTable, InitLevelGameplay,
+ * TransitionFadeOutWithMusic, sub_0800DB18, sub_08011F10 and sub_08044FD0 -- two of
+ * them level setup, so "cutscene" was not established either. The macro is gone
+ * rather than renamed. */
 
 /* ── Palette / Visual Effects ── */
 

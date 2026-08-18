@@ -100,7 +100,7 @@ extern u32 gCallbackStateArray[];
 #define gEntityDeathState     ((u8 *)0x0300528C)
 
 /* OAM sprite processing state byte: compared against 0xFE sentinel.
- * Used by ProcessOamSpriteLayout, HandlePauseMenuInput, InitLevelBG,
+ * Used by ProcessOamSpriteLayout, UpdateGameplayEntities, InitLevelBG,
  * UpdateScrollPosition, UpdateStageSelectScreen. */
 #define gOamProcessState      (*(u8 *)0x030052A0)
 
