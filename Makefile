@@ -227,7 +227,17 @@ EXPECTED := $(patsubst %,expected/src/%.o,$(MODULES))
 # The generator is a prerequisite too.  Without it, editing scripts/generate_expected.py leaves
 # every target object stale and `make expected` reports "Nothing to be done" -- so a fix to the
 # generator silently does not reach the objects anyone then scores against.
-expected/src/%.o: $(ELF) $(DECOMP_TOML) $(LDSCRIPT_IN) scripts/generate_expected.py
+#
+# The .s corpus belongs there for the same reason, and for a sharper one: it is the INPUT this
+# script reads, and `verify-asm` is the only gate in the tree that reads those files back against
+# the ROM.  Without it, the loop a person actually uses while working on scripts/generate_asm.py
+# -- `python3 scripts/generate_asm.py; make verify-asm` -- rewrites every .s and refreshes
+# nothing, so the gate validates the PREVIOUS run's objects and prints green.  Proven with
+# `make -q expected/src/gfx.o` returning 0 after touching asm/nonmatchings/gfx/*.s.
+# CI is unaffected either way (fresh checkout, and `make compare` relinks $(ELF) first).
+ASM_FUNC_SRCS := $(shell find asm/matchings asm/nonmatchings -name '*.s' 2>/dev/null)
+
+expected/src/%.o: $(ELF) $(DECOMP_TOML) $(LDSCRIPT_IN) scripts/generate_expected.py $(ASM_FUNC_SRCS)
 	@mkdir -p expected/src
 	@python3 scripts/generate_expected.py $* $@
 
