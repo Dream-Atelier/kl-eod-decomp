@@ -129,12 +129,27 @@ for addr, f in files:
     # Pool padding is NOT re-spelled here.  An alignment halfword is data that luvdis prints as
     # `lsls r0, r0, #0x00`, and this block used to rewrite the ones preceding a `.4byte` to
     # `.align 2, 0` -- but scripts/generate_asm.py now spells them `.2byte 0x0000` in the .s
-    # itself (`_convert_pool_padding`), which is the only place that decision belongs: this side
-    # and the INCLUDE_ASM side read the same files, so a rule that lives only here makes the two
-    # objects disagree about the pad's kind, which is the same spurious objdiff row in the
-    # opposite direction.  The generator's gate is also the stricter of the two -- it declines a
-    # `.4byte` whose own comment says luvdis decoded a branch there (`.4byte 0xFFFFF01F @ bl
-    # _08030A3A`), which this block took.  With it gone the two sides agree pad for pad.
+    # itself (`_convert_pool_padding`), which is the only place that decision belongs.
+    #
+    # The reason differs by side, and only one of the two is "the same file":
+    #   * 137 functions are INCLUDE_ASM'd from asm/nonmatchings.  There both objects literally
+    #     read this .s, so a rule living only here made the two disagree about the pad's kind --
+    #     the same spurious objdiff row, in the opposite direction.
+    #   * 330 functions live in asm/matchings and feed only this target.  Their base side is
+    #     agbcc-compiled C, so the argument above does not apply; what applies is that the
+    #     target must agree with what agbcc emits for pool padding, which is data.  It does,
+    #     because the generator writes `.2byte 0x0000` into the .s.
+    # The generator's gate is also the stricter of the two -- it declines a `.4byte` whose own
+    # comment says luvdis decoded a branch there (`.4byte 0xFFFFF01F @ bl _08030A3A`), which
+    # this block took.  With it gone the two sides agree pad for pad.
+    #
+    # THIS DELETION AND `_convert_pool_padding` ARE ONE CHANGE.  Reverting the generator half
+    # without restoring this block leaves the pad spelled as code on BOTH sides, and no gate in
+    # this repo notices: measured on the pre-fix corpus, dropping this block alone moves 1926
+    # `$d`/`$t` symbols across the nine target objects (system 10, math 2, engine 112, code_0
+    # 318, code_1 784, code_3 462, gfx 226, syscalls 0, eeprom 12) while `.text` stays
+    # byte-identical in all nine, `verify-asm` stays green and the ROM SHA1 does not move.  The
+    # only symptom is objdiff quietly re-acquiring ~1000 spurious pad rows.
     lines += [l + "\n" for l in body if l.strip() or True]
     lines.append(f"\t.size\t{name}, .-{name}\n")
 
