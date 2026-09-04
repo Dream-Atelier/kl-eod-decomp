@@ -1476,6 +1476,27 @@ def _convert_pool_padding(func_lines: list[str]) -> list[str]:
     sitting next to data.  When the gate cannot see a pool, the line is
     left as luvdis decoded it -- under-spelling a pad costs a mapping
     symbol, mis-spelling an instruction would be a lie about the ROM.
+
+    So this does not close the class, and the residual is not noise.  Of
+    the 1268 pads the corpus holds, 1027 are rewritten and 241 are not:
+
+      185  the next content is code.  75 of those sit two bytes before a
+           ROM word that looks like a GBA pointer, i.e. a literal pool the
+           address-driven passes above did not recover -- the pool is
+           there, but its first word is still spelled as an instruction,
+           so a gate that reads the neighbour's spelling cannot see it.
+       42  the pad is the last content of its function, after a ``bx``.
+           Unreachable, so decidable by a rule this pass does not have;
+           what it has is "a pool follows", and at end of function nothing
+           says one does.
+       12  the neighbour is a data directive luvdis annotated as a branch
+           (see ``_pad_follows_data``).
+        2  the next content is ``.inst``.
+
+    Every one of the 241 reads 0x0000 in the ROM, so every one is a
+    candidate.  Widening to reach them needs evidence this pass does not
+    consult -- the ROM, or the pad's own address -- which is a different
+    change with a different gate, not a bigger version of this one.
     """
     result = None
     for i, line in enumerate(func_lines):
