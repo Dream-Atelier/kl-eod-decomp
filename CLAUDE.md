@@ -120,6 +120,12 @@ Some m4a functions need different compiler flags. They're compiled separately an
 - **functions_merged.cfg** — function boundaries for Luvdis
 - **ldscript.txt** — linker script (ROM at 0x08000000)
 - **mizuchi.yaml** — Mizuchi AI decompilation config
+- **mizuchi-db.json** — Mizuchi's index. It is tracked here but produced by
+  [Mizuchi](https://github.com/macabeus/mizuchi), not by anything in this repo, and each entry
+  embeds a verbatim copy of that function's `.s` alongside its C. So a change to
+  `scripts/generate_asm.py` that alters how `asm/` is spelled leaves it stale until Mizuchi
+  re-indexes: nothing in the Makefile or CI regenerates or checks it. Say so when you land
+  such a change, and give the count.
 - **config.mk** — ROM metadata (KLONOA, AKLE, AF)
 - **scripts/generate_asm.py** — generates asm/ from baserom.gba
 - **scripts/update_stats.py** — auto-updates website stats
