@@ -1440,24 +1440,52 @@ def _pad_follows_data(func_lines: list[str], pad: int) -> bool:
 
 
 def _convert_pool_padding(func_lines: list[str]) -> list[str]:
-    """Spell the NOP that word-aligns a literal pool as data, not as code.
+    """Spell a 0x0000 halfword that sits in front of a pool as data, not code.
 
-    agbcc emits a bare 0x0000 halfword to word-align a pool, and luvdis
-    decodes it the only way an instruction decoder can: ``lsls r0, r0,
-    #0x00``, which is what that encoding means as an instruction.  The
-    bytes are right and only the *kind* is wrong -- but the kind is what
-    the assembler records in its ARM mapping symbols, so it keeps ``$t``
-    (code) across the pad instead of starting ``$d`` (data) two bytes
-    earlier.  Every consumer that reads mapping symbols out of the built
-    object inherits that, and a byte-exact candidate is then scored as
-    disagreeing with the target over bytes it reproduced exactly.
+    agbcc emits bare 0x0000 halfwords inside and around its literal pools,
+    and luvdis decodes them the only way an instruction decoder can:
+    ``lsls r0, r0, #0x00``, which is what that encoding means as an
+    instruction.  The bytes are right and only the *kind* is wrong -- but
+    the kind is what the assembler records in its ARM mapping symbols, so
+    it keeps ``$t`` (code) across the halfword instead of starting ``$d``
+    (data) two bytes earlier.  Every consumer that reads mapping symbols
+    out of the built object inherits that, and a byte-exact candidate is
+    then scored as disagreeing with the target over bytes it reproduced
+    exactly.
 
-    What this pass actually decides is narrower than "pool alignment": it
-    rewrites *a 0x0000 halfword whose next content is an uncommented data
-    directive*.  That is a claim about the neighbour's spelling, not about
-    the pad's address, and the two are not the same claim -- see
-    ``_pad_follows_data`` for the eight word-aligned counter-examples the
-    comment test excludes.
+    What this pass decides is exactly one thing, and it is narrower than
+    "pool alignment": it rewrites *a 0x0000 halfword whose next content is
+    an uncommented data directive*.  That is a claim about the neighbour's
+    spelling, not about the pad's address, and the two are not the same
+    claim.
+
+    So do not read the rewrites as "alignment padding" -- that is the
+    common case, not the class.  A 0x0000 halfword in front of a pool is
+    data either way, but it is data for two different reasons, and this
+    gate cannot tell them apart because it never looks:
+
+      * alignment padding, the halfword that makes the next word aligned;
+      * the HIGH half of a small literal-pool constant -- the pool word
+        ``0x00008980`` is a low half luvdis decodes as ``ldrh r0, [r0,
+        #0x0C]`` followed by a 0x0000 high half it decodes as this pad.
+
+    Measured over the nine modules that have an expected object (984 of
+    the 1027 rewrites; m4a's 43 have none), 13 rewrites are the second
+    kind: the word two bytes back has a zero high half and the module
+    loads it (``@ =0x0000XXXX``).  They are still data, so the rewrite is
+    still right; what would be wrong is calling them padding.  The address
+    test cannot separate the two either -- all 984 sit at
+    ``addr % 4 == 2``, both kinds included.
+
+    ``_find_high_halfwords`` above is the pass that models the second kind
+    properly, for 0x08XX and 0x0300 high halves.  It has no 0x0000 case,
+    and ``_convert_pc_relative_pool``'s ``_PC_REL_LDR_RE`` matches only
+    the ``ldr rN, [pc, #imm]`` spelling, so a pool word luvdis already
+    symbolised (``ldr r6, _0800B76C @ =0x00001130``) is invisible to it.
+    That is why 100 halfwords of exactly this shape are still spelled as
+    code below, two lines from ones that are not -- inside the same pool,
+    in ``RenderCharacterTiles`` twice over.  Closing that is a job for the
+    address-driven passes, not for this one.
 
     ``.2byte 0x0000`` is the spelling, not ``.align 2, 0``, and that is a
     measured constraint rather than a preference.  Because the gate never
@@ -1478,20 +1506,31 @@ def _convert_pool_padding(func_lines: list[str]) -> list[str]:
     symbol, mis-spelling an instruction would be a lie about the ROM.
 
     So this does not close the class, and the residual is not noise.  Of
-    the 1268 pads the corpus holds, 1027 are rewritten and 241 are not:
+    the 1268 pads the corpus holds, 1027 are rewritten and 241 are not.
+    By what the gate saw when it declined:
 
-      185  the next content is code.  75 of those sit two bytes before a
-           ROM word that looks like a GBA pointer, i.e. a literal pool the
-           address-driven passes above did not recover -- the pool is
-           there, but its first word is still spelled as an instruction,
-           so a gate that reads the neighbour's spelling cannot see it.
-       42  the pad is the last content of its function, after a ``bx``.
-           Unreachable, so decidable by a rule this pass does not have;
-           what it has is "a pool follows", and at end of function nothing
-           says one does.
+      185  the next content is code.
+       42  the next content runs out -- the pad is the last thing in its
+           file, after a ``bx`` (all 42, measured).  Unreachable, so
+           decidable by a rule this pass does not have; what it has is "a
+           pool follows", and at end of file nothing says one does.
        12  the neighbour is a data directive luvdis annotated as a branch
            (see ``_pad_follows_data``).
         2  the next content is ``.inst``.
+
+    That table is what the gate answered, not what the residual IS, and
+    the two do not line up.  Cut the same 241 by shape instead, using the
+    195 that the nine target modules cover (m4a's 15 and libgcc's 31 have
+    no expected object, so no assembler-assigned address):
+
+      100  are the high halfword of a small pool word the module loads --
+           the largest single shape in the residual, and the SAME shape as
+           13 of the pads this pass did rewrite.  Nothing about a pool
+           follows them; what follows is another undecoded halfword.
+       57  sit two bytes before a ROM word that looks like a GBA pointer,
+           i.e. a literal pool the address-driven passes did not recover.
+           15 of those are also of the shape above.
+       53  are neither.
 
     Every one of the 241 reads 0x0000 in the ROM, so every one is a
     candidate.  Widening to reach them needs evidence this pass does not
@@ -1973,8 +2012,13 @@ def _fix_misplaced_literal_pools(nm_root, module_funcs):
             # preceding function ended on pool padding, that pad was the last
             # line of its function while _convert_pool_padding ran at write
             # time, so nothing proved a pool followed it and the gate correctly
-            # declined.  It does now.  Re-running the pass is safe: it is
-            # idempotent, address-free, and reads only what follows each pad.
+            # declined.  It does now.  Re-running the pass is safe here, but
+            # not because it is idempotent in general: each pad tests the
+            # ORIGINAL neighbour while the rewrite goes to a copy, so two
+            # ADJACENT pads before a pool would take two applications to
+            # both convert.  No two are adjacent -- the corpus pad
+            # run-length histogram is {1: 241} -- and re-running the pass
+            # over the finished corpus rewrites nothing.
             prev_lines = _convert_pool_padding(prev_lines)
             with open(prev_path, "w") as f:
                 f.writelines(prev_lines)
