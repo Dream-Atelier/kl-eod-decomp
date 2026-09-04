@@ -1146,14 +1146,20 @@ def _convert_trailing_data(func_lines: list[str], addresses: list[int],
                            rom_data: bytes) -> list[str]:
     """Convert safe trailing data patterns after the last return.
 
-    Only performs two conservative conversions that do not depend on
-    accurate address computation:
+    PARKED: this function has no caller (see the note at the end of
+    ``_apply_data_regions``).  Nothing here runs today.
 
-    1. **NOP padding** (``lsls r0, r0, #0x00`` = 0x0000) directly
-       before a data directive → ``.2byte 0x0000``
-    2. **Truncated ``.byte`` literal pools** followed by an instruction
-       that encodes as the high halfword of a GBA pointer → extend to
-       ``.4byte`` using the ROM word at the label's embedded address.
+    It performs one conversion: **truncated ``.byte`` literal pools**
+    followed by an instruction that encodes as the high halfword of a GBA
+    pointer → extend to ``.4byte`` using the ROM word at the label's
+    embedded address.
+
+    It used to perform a second one -- ``lsls r0, r0, #0x00`` →
+    ``.2byte 0x0000`` -- and that is now ``_convert_pool_padding``'s and
+    only its.  Do not put it back here: the copy that lived here was
+    UNGATED, so re-enabling this pass would have re-spelled every pad after
+    the last return with no neighbour test, which is the blanket rewrite
+    the live gate exists to prevent.
     """
     rom_base = 0x08000000
 
@@ -1176,14 +1182,16 @@ def _convert_trailing_data(func_lines: list[str], addresses: list[int],
     #   - existing data directives (.4byte, .2byte, .byte)
     #   - known IWRAM high halfword pattern (lsls r0, r0, #0x0C = 0x0300)
     #   - known I/O high halfword pattern (lsls r0, r0, #0x10 = 0x0400)
-    #   - NOP padding (lsls r0, r0, #0x00 = 0x0000) — alignment before pool
+    # _NOP is NOT a seed here.  It used to be, which let a lone trailing pad
+    # seed its own rewrite; the pad decision now belongs entirely to
+    # _convert_pool_padding.
     has_data_seed = False
     for i in range(last_return + 1, len(func_lines)):
         s = func_lines[i].strip()
         if ".4byte" in s or ".2byte" in s or ".byte" in s:
             has_data_seed = True
             break
-        if s in ("lsls r0, r0, #0x0C", "lsls r0, r0, #0x10", _NOP):
+        if s in ("lsls r0, r0, #0x0C", "lsls r0, r0, #0x10"):
             has_data_seed = True
             break
 
@@ -1206,10 +1214,13 @@ def _convert_trailing_data(func_lines: list[str], addresses: list[int],
             byte_offset_from_label = 0
             continue
 
-        # --- NOP padding → .2byte 0x0000 ---
+        # --- NOP padding: not this pass's decision ---
+        # _convert_pool_padding is the one place that decides how a 0x0000
+        # halfword is spelled.  This branch used to make the same rewrite with
+        # no neighbour test at all, so re-enabling this parked pass would have
+        # silently taken the 42 function-final pads the live gate declines on
+        # purpose -- two rules, one gated and one not, disagreeing.
         if s == _NOP:
-            result[i] = "\t.2byte 0x0000\n"
-            changed = True
             byte_offset_from_label += line_size
             continue
 
