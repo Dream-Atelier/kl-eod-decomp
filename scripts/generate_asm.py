@@ -1401,18 +1401,31 @@ def _convert_pc_relative_pool(func_lines, addresses, rom_data):
 
 
 def _pad_follows_data(func_lines: list[str], pad: int) -> bool:
-    """True if the first content after line *pad* is a data directive.
+    """True if the first content after line *pad* is an uncommented data directive.
 
     Blank lines, comment-only lines and bare ``_0804B634:`` labels are
     skipped; a label carrying its content on the same line
     (``_0804B634: .4byte 0x08189CCC`` -- a shape luvdis really emits)
     contributes that content.
 
-    ``.inst`` is deliberately NOT data.  Luvdis emits it for a halfword it
-    could not decode and stage 8.5 re-spells real ``ldr`` instructions with
-    it, so it is evidence of code, not of a pool starting here.  Running
-    out of lines is not evidence either: the pad may be the last thing in
-    the function, with the pool it aligns living in the next one.
+    This is a test of how the neighbour is *spelled*, not of what its bytes
+    are, so it is written to fail closed in every direction the spelling can
+    lie:
+
+    * ``.inst`` is not data.  Luvdis emits it for a halfword it could not
+      decode and stage 8.5 re-spells real ``ldr`` instructions with it, so
+      it is evidence of code, not of a pool starting here.
+    * A data directive carrying an ``@`` comment is not data either.  The
+      comment is luvdis telling you it *did* decode the halfword and chose
+      not to print it as an instruction: ``.2byte 0xFEC9 @ bl lr+3474``.
+      All 1740 ``@`` comments on data directives in the corpus name a
+      branch mnemonic, and the twelve pads whose neighbour carries one
+      include all eight pads that sit at a word-ALIGNED address -- where a
+      halfword of padding cannot be what aligns a pool.  Admitting them
+      cost nothing in bytes but asserted "pool" over halfwords the
+      generator itself annotates as branches.
+    * Running out of lines is not evidence.  The pad may be the last thing
+      in the function, with the pool it aligns living in the next one.
     """
     for i in range(pad + 1, len(func_lines)):
         s = func_lines[i].strip()
@@ -1420,7 +1433,9 @@ def _pad_follows_data(func_lines: list[str], pad: int) -> bool:
             s = s.split(":", 1)[1].strip()
         if not s or s.startswith("@"):
             continue
-        return s.startswith((".4byte", ".2byte", ".byte"))
+        if not s.startswith((".4byte", ".2byte", ".byte")):
+            return False
+        return "@" not in s
     return False
 
 
@@ -1437,17 +1452,28 @@ def _convert_pool_padding(func_lines: list[str]) -> list[str]:
     object inherits that, and a byte-exact candidate is then scored as
     disagreeing with the target over bytes it reproduced exactly.
 
-    ``.2byte 0x0000`` is the spelling, not ``.align 2, 0``: it names the
-    two bytes it emits and does not depend on the current alignment, so a
-    pad that turned out not to be two bytes would fail loudly instead of
-    silently emitting a different number of them.  Nothing in the
-    generated corpus establishes alignment for an ``.align`` to rest on.
+    What this pass actually decides is narrower than "pool alignment": it
+    rewrites *a 0x0000 halfword whose next content is an uncommented data
+    directive*.  That is a claim about the neighbour's spelling, not about
+    the pad's address, and the two are not the same claim -- see
+    ``_pad_follows_data`` for the eight word-aligned counter-examples the
+    comment test excludes.
+
+    ``.2byte 0x0000`` is the spelling, not ``.align 2, 0``, and that is a
+    measured constraint rather than a preference.  Because the gate never
+    reads the pad's address, it cannot know the pad is what makes the next
+    word aligned; at a site that is already word-aligned ``.align 2, 0``
+    emits ZERO bytes and silently shortens the function.  ``.2byte 0x0000``
+    names the two bytes it emits, so it is byte-neutral wherever the gate
+    fires.  (``scripts/generate_expected.py`` does spell the same pad
+    ``.align 2, 0`` when it builds objdiff's target side, and gets away
+    with it only because the ``.org`` before each function refills what an
+    ``.align`` drops.  Do not carry that spelling back here.)
 
     The rewrite is byte-neutral by construction, but the *classification*
-    is not, so it is gated: a pad becomes data only when the next content
-    is a data directive.  The same 0x0000 encoding is also a real
+    is not, so it is gated.  The same 0x0000 encoding is also a real
     degenerate shift, and mis-decoded regions leave real instructions
-    sitting next to code.  When the gate cannot see a pool, the line is
+    sitting next to data.  When the gate cannot see a pool, the line is
     left as luvdis decoded it -- under-spelling a pad costs a mapping
     symbol, mis-spelling an instruction would be a lie about the ROM.
     """
@@ -1466,7 +1492,7 @@ def _apply_data_regions(func_lines: list[str], func_addr: int,
                         rom_data: bytes) -> list[str]:
     """Replace data-as-code instruction mnemonics with data directives.
 
-    Five-pass pipeline:
+    Four-pass pipeline:
       1. **High halfwords** — identify ``lsrs #0x20`` (0x08XX) and
          ``lsls r0, r0, #0x0C`` (0x0300) entries.
       2. **Low halfwords** — for each high, find its preceding partner
@@ -1475,8 +1501,9 @@ def _apply_data_regions(func_lines: list[str], func_addr: int,
          are in the convert set (both encode as 0x08XX).
       4. **PC-relative pool** — words the function itself ``ldr``s out of
          its own pool, which need no shape test to be pool words.
-      5. **Pool padding** — the 0x0000 halfword aligning a pool, wherever
-         in the body it sits.
+
+    Every pass here is address-driven.  The pool *padding* rewrite is not,
+    and lives outside this function -- see ``_convert_pool_padding``.
 
     Adjacent low+high pairs are emitted as a single ``.4byte``;
     unpaired high halfwords become ``.2byte``.
@@ -1514,19 +1541,12 @@ def _apply_data_regions(func_lines: list[str], func_addr: int,
     # shape test -- see _convert_pc_relative_pool.
     func_lines = _convert_pc_relative_pool(func_lines, addresses, rom_data)
 
-    # Pass 5: the NOP padding that word-aligns a pool.  Runs last so the gate
-    # sees the pool words passes 1-4 recovered, and it is the only pass here
-    # that needs no addresses at all -- it rewrites two bytes into the same two
-    # bytes, keyed on what follows.  Scoped to the whole body, not to what
-    # trails the last return: of the pool pads under asm/nonmatchings only
-    # 60 of 586 sit after it.
-    func_lines = _convert_pool_padding(func_lines)
-
     # _convert_trailing_data remains disabled — its address computation is
     # unreliable for non-word-aligned functions, producing wrong literal pool
     # values.  Passes 1-4 handle the bulk of data-as-code conversion with
-    # ROM-verified addresses; pass 5 covers the padding it also spelled, minus
-    # the address arithmetic that made it unsafe.
+    # ROM-verified addresses.  The padding it also spelled is now
+    # _convert_pool_padding, which the caller runs separately: it needs no
+    # addresses and no ROM, so it must not share this pipeline's gate.
     return func_lines
 
 
@@ -1555,6 +1575,13 @@ def _write_asm_files(merged_entries, libgcc_lines, pre_func):
     for name, addr, module, lines in merged_entries:
         if DATA_REGIONS:
             lines = _apply_data_regions(lines, addr, rom_data)
+        # Not part of the DATA_REGIONS pipeline: it needs neither addresses
+        # nor the ROM, only what the line after the pad says.  It runs after
+        # that pipeline so the gate sees the pool words those passes
+        # recovered, and here rather than earlier because _get_last_instruction
+        # and _detect_sub_functions both key on _NOP -- both have already run
+        # by now, so function boundaries cannot move underneath it.
+        lines = _convert_pool_padding(lines)
         with open(os.path.join(nm_root, module, f"{name}.s"), "w") as f:
             f.writelines(lines)
         module_funcs.setdefault(module, []).append((addr, name))
