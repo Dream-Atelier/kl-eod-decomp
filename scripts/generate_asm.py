@@ -1948,6 +1948,13 @@ def _fix_misplaced_literal_pools(nm_root, module_funcs):
             with open(prev_path) as f:
                 prev_lines = f.readlines()
             prev_lines.append(f"\t{pool_value}\n")
+            # The moved word is new evidence about the line above it.  When the
+            # preceding function ended on pool padding, that pad was the last
+            # line of its function while _convert_pool_padding ran at write
+            # time, so nothing proved a pool followed it and the gate correctly
+            # declined.  It does now.  Re-running the pass is safe: it is
+            # idempotent, address-free, and reads only what follows each pad.
+            prev_lines = _convert_pool_padding(prev_lines)
             with open(prev_path, "w") as f:
                 f.writelines(prev_lines)
 
