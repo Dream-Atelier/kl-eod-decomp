@@ -126,17 +126,15 @@ for addr, f in files:
     # the same macro without the align.
     body = [re.sub(r"(?<!non_word_aligned_)\bthumb_func_start\b",
                    "non_word_aligned_thumb_func_start", l) for l in body]
-    # An alignment halfword is data, but luvdis prints it as `lsls r0, r0, #0x00`.  Left as an
-    # instruction it becomes an extra CODE row on this side only, which objdiff reports as a
-    # spurious `delete`.  Rewrite the ones that end a function or precede a literal pool -- both
-    # positions are unreachable, so neither can be live code.
-    for i, l in enumerate(body):
-        if not re.match(r"^[ \t]*lsls[ \t]+r0,[ \t]*r0,[ \t]*#0x0+[ \t]*$", l):
-            continue
-        j = next((k for k in range(i + 1, len(body)) if body[k].strip()), None)
-        nxt = body[j] if j is not None else ""
-        if re.match(r"^_?[0-9A-Fa-f]*:?[ \t]*\.4byte", nxt):
-            body[i] = "\t.align\t2, 0"
+    # Pool padding is NOT re-spelled here.  An alignment halfword is data that luvdis prints as
+    # `lsls r0, r0, #0x00`, and this block used to rewrite the ones preceding a `.4byte` to
+    # `.align 2, 0` -- but scripts/generate_asm.py now spells them `.2byte 0x0000` in the .s
+    # itself (`_convert_pool_padding`), which is the only place that decision belongs: this side
+    # and the INCLUDE_ASM side read the same files, so a rule that lives only here makes the two
+    # objects disagree about the pad's kind, which is the same spurious objdiff row in the
+    # opposite direction.  The generator's gate is also the stricter of the two -- it declines a
+    # `.4byte` whose own comment says luvdis decoded a branch there (`.4byte 0xFFFFF01F @ bl
+    # _08030A3A`), which this block took.  With it gone the two sides agree pad for pad.
     lines += [l + "\n" for l in body if l.strip() or True]
     lines.append(f"\t.size\t{name}, .-{name}\n")
 
