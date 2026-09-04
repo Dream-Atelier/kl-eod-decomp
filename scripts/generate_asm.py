@@ -1400,19 +1400,83 @@ def _convert_pc_relative_pool(func_lines, addresses, rom_data):
     return current if current != func_lines else func_lines
 
 
+def _pad_follows_data(func_lines: list[str], pad: int) -> bool:
+    """True if the first content after line *pad* is a data directive.
+
+    Blank lines, comment-only lines and bare ``_0804B634:`` labels are
+    skipped; a label carrying its content on the same line
+    (``_0804B634: .4byte 0x08189CCC`` -- a shape luvdis really emits)
+    contributes that content.
+
+    ``.inst`` is deliberately NOT data.  Luvdis emits it for a halfword it
+    could not decode and stage 8.5 re-spells real ``ldr`` instructions with
+    it, so it is evidence of code, not of a pool starting here.  Running
+    out of lines is not evidence either: the pad may be the last thing in
+    the function, with the pool it aligns living in the next one.
+    """
+    for i in range(pad + 1, len(func_lines)):
+        s = func_lines[i].strip()
+        if _is_label_line(s):
+            s = s.split(":", 1)[1].strip()
+        if not s or s.startswith("@"):
+            continue
+        return s.startswith((".4byte", ".2byte", ".byte"))
+    return False
+
+
+def _convert_pool_padding(func_lines: list[str]) -> list[str]:
+    """Spell the NOP that word-aligns a literal pool as data, not as code.
+
+    agbcc emits a bare 0x0000 halfword to word-align a pool, and luvdis
+    decodes it the only way an instruction decoder can: ``lsls r0, r0,
+    #0x00``, which is what that encoding means as an instruction.  The
+    bytes are right and only the *kind* is wrong -- but the kind is what
+    the assembler records in its ARM mapping symbols, so it keeps ``$t``
+    (code) across the pad instead of starting ``$d`` (data) two bytes
+    earlier.  Every consumer that reads mapping symbols out of the built
+    object inherits that, and a byte-exact candidate is then scored as
+    disagreeing with the target over bytes it reproduced exactly.
+
+    ``.2byte 0x0000`` is the spelling, not ``.align 2, 0``: it names the
+    two bytes it emits and does not depend on the current alignment, so a
+    pad that turned out not to be two bytes would fail loudly instead of
+    silently emitting a different number of them.  Nothing in the
+    generated corpus establishes alignment for an ``.align`` to rest on.
+
+    The rewrite is byte-neutral by construction, but the *classification*
+    is not, so it is gated: a pad becomes data only when the next content
+    is a data directive.  The same 0x0000 encoding is also a real
+    degenerate shift, and mis-decoded regions leave real instructions
+    sitting next to code.  When the gate cannot see a pool, the line is
+    left as luvdis decoded it -- under-spelling a pad costs a mapping
+    symbol, mis-spelling an instruction would be a lie about the ROM.
+    """
+    result = None
+    for i, line in enumerate(func_lines):
+        if line.strip() != _NOP or not _pad_follows_data(func_lines, i):
+            continue
+        if result is None:
+            result = list(func_lines)
+        result[i] = "\t.2byte 0x0000\n"
+
+    return result if result is not None else func_lines
+
+
 def _apply_data_regions(func_lines: list[str], func_addr: int,
                         rom_data: bytes) -> list[str]:
     """Replace data-as-code instruction mnemonics with data directives.
 
-    Four-pass pipeline:
+    Five-pass pipeline:
       1. **High halfwords** — identify ``lsrs #0x20`` (0x08XX) and
          ``lsls r0, r0, #0x0C`` (0x0300) entries.
       2. **Low halfwords** — for each high, find its preceding partner
          and verify the 32-bit ROM word is a valid GBA pointer.
       3. **Consecutive pairs** — handle edge cases where both halfwords
          are in the convert set (both encode as 0x08XX).
-      4. **Trailing data** — convert any remaining instruction lines
-         after the last return to data directives.
+      4. **PC-relative pool** — words the function itself ``ldr``s out of
+         its own pool, which need no shape test to be pool words.
+      5. **Pool padding** — the 0x0000 halfword aligning a pool, wherever
+         in the body it sits.
 
     Adjacent low+high pairs are emitted as a single ``.4byte``;
     unpaired high halfwords become ``.2byte``.
@@ -1450,10 +1514,19 @@ def _apply_data_regions(func_lines: list[str], func_addr: int,
     # shape test -- see _convert_pc_relative_pool.
     func_lines = _convert_pc_relative_pool(func_lines, addresses, rom_data)
 
-    # Pass 5 (_convert_trailing_data) is disabled — its address computation
-    # is unreliable for non-word-aligned functions, producing wrong literal
-    # pool values.  The pointer-pair passes (1-3) handle the bulk of
-    # data-as-code conversion with ROM-verified addresses.
+    # Pass 5: the NOP padding that word-aligns a pool.  Runs last so the gate
+    # sees the pool words passes 1-4 recovered, and it is the only pass here
+    # that needs no addresses at all -- it rewrites two bytes into the same two
+    # bytes, keyed on what follows.  Scoped to the whole body, not to what
+    # trails the last return: of the pool pads under asm/nonmatchings only
+    # 60 of 586 sit after it.
+    func_lines = _convert_pool_padding(func_lines)
+
+    # _convert_trailing_data remains disabled — its address computation is
+    # unreliable for non-word-aligned functions, producing wrong literal pool
+    # values.  Passes 1-4 handle the bulk of data-as-code conversion with
+    # ROM-verified addresses; pass 5 covers the padding it also spelled, minus
+    # the address arithmetic that made it unsafe.
     return func_lines
 
 
