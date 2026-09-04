@@ -1488,15 +1488,23 @@ def _convert_pool_padding(func_lines: list[str]) -> list[str]:
     test cannot separate the two either -- all 984 sit at
     ``addr % 4 == 2``, both kinds included.
 
-    ``_find_high_halfwords`` above is the pass that models the second kind
-    properly, for 0x08XX and 0x0300 high halves.  It has no 0x0000 case,
-    and ``_convert_pc_relative_pool``'s ``_PC_REL_LDR_RE`` matches only
-    the ``ldr rN, [pc, #imm]`` spelling, so a pool word luvdis already
+    100 halfwords of exactly this shape are still spelled as code (see the
+    residual table below), two lines from ones that are not -- inside the
+    same pool, in ``RenderCharacterTiles`` twice over.  This gate cannot
+    reach them and should not try: what follows them is not a data
+    directive but another undecoded halfword, which is the low half of the
+    NEXT pool word.  They belong to the address-driven passes, and the
+    model gap there is that ``_find_high_halfwords`` covers 0x08XX and
+    0x0300 high halves and has no 0x0000 case.
+
+    One measured contributor, and only one -- do not read it as the whole
+    explanation: ``_convert_pc_relative_pool``'s ``_PC_REL_LDR_RE`` matches
+    only the ``ldr rN, [pc, #imm]`` spelling, so a pool word luvdis already
     symbolised (``ldr r6, _0800B76C @ =0x00001130``) is invisible to it.
-    That is why 100 halfwords of exactly this shape are still spelled as
-    code below, two lines from ones that are not -- inside the same pool,
-    in ``RenderCharacterTiles`` twice over.  Closing that is a job for the
-    address-driven passes, not for this one.
+    Corpus-wide that accounts for 14 pool words that sit at a label
+    referenced only that way and are still spelled as instructions --
+    ``_0800B76C`` among them, so it is the mechanism for
+    ``RenderCharacterTiles`` -- against 8209 label-form references in all.
 
     ``.2byte 0x0000`` is the spelling, not ``.align 2, 0``, and that is a
     measured constraint rather than a preference.  Because the gate never
