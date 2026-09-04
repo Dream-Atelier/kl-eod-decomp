@@ -1657,15 +1657,27 @@ def _write_asm_files(merged_entries, libgcc_lines, pre_func):
             f.writelines(lines)
         module_funcs.setdefault(module, []).append((addr, name))
 
+    # The same gate on the two line lists that are NOT per-function entries.
+    # Which files a pass covers should be a decision, and until now this one's
+    # coverage was an accident of which write statement it sat next to: these
+    # two were written straight from untouched lists a few lines below the
+    # loop.  asm/libgcc.s is not a file it may skip by design -- it is git
+    # TRACKED and `ASM_SRCS := $(wildcard asm/*.s)` assembles it directly into
+    # the ROM, unlike every file the pass does cover, which reaches the ROM
+    # only through INCLUDE_ASM.  Today this changes nothing: of libgcc.s's 31
+    # pads, 0 have a data directive as their next content (all 31 are followed
+    # by a `thumb_func_start`), and _pre.s has no pads at all.  It is here so
+    # that the residual table in _convert_pool_padding counts 241 gate
+    # DECISIONS rather than 210 decisions and 31 files the gate never saw.
     if pre_func:
         mod, pre_lines = pre_func
         with open(os.path.join(nm_root, mod, "_pre.s"), "w") as f:
-            f.writelines(pre_lines)
+            f.writelines(_convert_pool_padding(pre_lines))
 
     with open(os.path.join(ROOT, "asm", "libgcc.s"), "w") as f:
         f.write('.include "asm/macros.inc"\n.syntax unified\n.text\n\n')
         f.write("@ libgcc runtime (thunks, division, modulo)\n")
-        f.writelines(libgcc_lines)
+        f.writelines(_convert_pool_padding(libgcc_lines))
 
     print(f"  {len(merged_entries)} functions in asm/nonmatchings/")
     print(f"  Generated asm/libgcc.s ({len(libgcc_lines)} lines)")
