@@ -1146,14 +1146,20 @@ def _convert_trailing_data(func_lines: list[str], addresses: list[int],
                            rom_data: bytes) -> list[str]:
     """Convert safe trailing data patterns after the last return.
 
-    Only performs two conservative conversions that do not depend on
-    accurate address computation:
+    PARKED: this function has no caller (see the note at the end of
+    ``_apply_data_regions``).  Nothing here runs today.
 
-    1. **NOP padding** (``lsls r0, r0, #0x00`` = 0x0000) directly
-       before a data directive → ``.2byte 0x0000``
-    2. **Truncated ``.byte`` literal pools** followed by an instruction
-       that encodes as the high halfword of a GBA pointer → extend to
-       ``.4byte`` using the ROM word at the label's embedded address.
+    It performs one conversion: **truncated ``.byte`` literal pools**
+    followed by an instruction that encodes as the high halfword of a GBA
+    pointer → extend to ``.4byte`` using the ROM word at the label's
+    embedded address.
+
+    It used to perform a second one -- ``lsls r0, r0, #0x00`` →
+    ``.2byte 0x0000`` -- and that is now ``_convert_pool_padding``'s and
+    only its.  Do not put it back here: the copy that lived here was
+    UNGATED, so re-enabling this pass would have re-spelled every pad after
+    the last return with no neighbour test, which is the blanket rewrite
+    the live gate exists to prevent.
     """
     rom_base = 0x08000000
 
@@ -1176,14 +1182,16 @@ def _convert_trailing_data(func_lines: list[str], addresses: list[int],
     #   - existing data directives (.4byte, .2byte, .byte)
     #   - known IWRAM high halfword pattern (lsls r0, r0, #0x0C = 0x0300)
     #   - known I/O high halfword pattern (lsls r0, r0, #0x10 = 0x0400)
-    #   - NOP padding (lsls r0, r0, #0x00 = 0x0000) — alignment before pool
+    # _NOP is NOT a seed here.  It used to be, which let a lone trailing pad
+    # seed its own rewrite; the pad decision now belongs entirely to
+    # _convert_pool_padding.
     has_data_seed = False
     for i in range(last_return + 1, len(func_lines)):
         s = func_lines[i].strip()
         if ".4byte" in s or ".2byte" in s or ".byte" in s:
             has_data_seed = True
             break
-        if s in ("lsls r0, r0, #0x0C", "lsls r0, r0, #0x10", _NOP):
+        if s in ("lsls r0, r0, #0x0C", "lsls r0, r0, #0x10"):
             has_data_seed = True
             break
 
@@ -1206,10 +1214,13 @@ def _convert_trailing_data(func_lines: list[str], addresses: list[int],
             byte_offset_from_label = 0
             continue
 
-        # --- NOP padding → .2byte 0x0000 ---
+        # --- NOP padding: not this pass's decision ---
+        # _convert_pool_padding is the one place that decides how a 0x0000
+        # halfword is spelled.  This branch used to make the same rewrite with
+        # no neighbour test at all, so re-enabling this parked pass would have
+        # silently taken the 42 function-final pads the live gate declines on
+        # purpose -- two rules, one gated and one not, disagreeing.
         if s == _NOP:
-            result[i] = "\t.2byte 0x0000\n"
-            changed = True
             byte_offset_from_label += line_size
             continue
 
@@ -1400,6 +1411,162 @@ def _convert_pc_relative_pool(func_lines, addresses, rom_data):
     return current if current != func_lines else func_lines
 
 
+def _pad_follows_data(func_lines: list[str], pad: int) -> bool:
+    """True if the first content after line *pad* is an uncommented data directive.
+
+    Blank lines, comment-only lines and bare ``_0804B634:`` labels are
+    skipped; a label carrying its content on the same line
+    (``_0804B634: .4byte 0x08189CCC`` -- a shape luvdis really emits)
+    contributes that content.
+
+    This is a test of how the neighbour is *spelled*, not of what its bytes
+    are, so it is written to fail closed in every direction the spelling can
+    lie:
+
+    * ``.inst`` is not data.  Luvdis emits it for a halfword it could not
+      decode and stage 8.5 re-spells real ``ldr`` instructions with it, so
+      it is evidence of code, not of a pool starting here.
+    * A data directive carrying an ``@`` comment is not data either.  The
+      comment is luvdis telling you it *did* decode the halfword and chose
+      not to print it as an instruction: ``.2byte 0xFEC9 @ bl lr+3474``.
+      All 1740 ``@`` comments on data directives in the corpus name a
+      branch mnemonic, and the twelve pads whose neighbour carries one
+      include all eight pads that sit at a word-ALIGNED address -- where a
+      halfword of padding cannot be what aligns a pool.  Admitting them
+      cost nothing in bytes but asserted "pool" over halfwords the
+      generator itself annotates as branches.
+    * Running out of lines is not evidence.  The pad may be the last thing
+      in the function, with the pool it aligns living in the next one.
+    """
+    for i in range(pad + 1, len(func_lines)):
+        s = func_lines[i].strip()
+        if _is_label_line(s):
+            s = s.split(":", 1)[1].strip()
+        if not s or s.startswith("@"):
+            continue
+        if not s.startswith((".4byte", ".2byte", ".byte")):
+            return False
+        return "@" not in s
+    return False
+
+
+def _convert_pool_padding(func_lines: list[str]) -> list[str]:
+    """Spell a 0x0000 halfword that sits in front of a pool as data, not code.
+
+    agbcc emits bare 0x0000 halfwords inside and around its literal pools,
+    and luvdis decodes them the only way an instruction decoder can:
+    ``lsls r0, r0, #0x00``, which is what that encoding means as an
+    instruction.  The bytes are right and only the *kind* is wrong -- but
+    the kind is what the assembler records in its ARM mapping symbols, so
+    it keeps ``$t`` (code) across the halfword instead of starting ``$d``
+    (data) two bytes earlier.  Every consumer that reads mapping symbols
+    out of the built object inherits that, and a byte-exact candidate is
+    then scored as disagreeing with the target over bytes it reproduced
+    exactly.
+
+    What this pass decides is exactly one thing, and it is narrower than
+    "pool alignment": it rewrites *a 0x0000 halfword whose next content is
+    an uncommented data directive*.  That is a claim about the neighbour's
+    spelling, not about the pad's address, and the two are not the same
+    claim.
+
+    So do not read the rewrites as "alignment padding" -- that is the
+    common case, not the class.  A 0x0000 halfword in front of a pool is
+    data either way, but it is data for two different reasons, and this
+    gate cannot tell them apart because it never looks:
+
+      * alignment padding, the halfword that makes the next word aligned;
+      * the HIGH half of a small literal-pool constant -- the pool word
+        ``0x00008980`` is a low half luvdis decodes as ``ldrh r0, [r0,
+        #0x0C]`` followed by a 0x0000 high half it decodes as this pad.
+
+    Measured over the nine modules that have an expected object (984 of
+    the 1027 rewrites; m4a's 43 have none), 13 rewrites are the second
+    kind: the word two bytes back has a zero high half and the module
+    loads it (``@ =0x0000XXXX``).  They are still data, so the rewrite is
+    still right; what would be wrong is calling them padding.  The address
+    test cannot separate the two either -- all 984 sit at
+    ``addr % 4 == 2``, both kinds included.
+
+    100 halfwords of exactly this shape are still spelled as code (see the
+    residual table below), two lines from ones that are not -- inside the
+    same pool, in ``RenderCharacterTiles`` twice over.  This gate cannot
+    reach them and should not try: what follows them is not a data
+    directive but another undecoded halfword, which is the low half of the
+    NEXT pool word.  They belong to the address-driven passes, and the
+    model gap there is that ``_find_high_halfwords`` covers 0x08XX and
+    0x0300 high halves and has no 0x0000 case.
+
+    One measured contributor, and only one -- do not read it as the whole
+    explanation: ``_convert_pc_relative_pool``'s ``_PC_REL_LDR_RE`` matches
+    only the ``ldr rN, [pc, #imm]`` spelling, so a pool word luvdis already
+    symbolised (``ldr r6, _0800B76C @ =0x00001130``) is invisible to it.
+    Corpus-wide that accounts for 14 pool words that sit at a label
+    referenced only that way and are still spelled as instructions --
+    ``_0800B76C`` among them, so it is the mechanism for
+    ``RenderCharacterTiles`` -- against 8209 label-form references in all.
+
+    ``.2byte 0x0000`` is the spelling, not ``.align 2, 0``, and that is a
+    measured constraint rather than a preference.  Because the gate never
+    reads the pad's address, it cannot know the pad is what makes the next
+    word aligned; at a site that is already word-aligned ``.align 2, 0``
+    emits ZERO bytes and silently shortens the function.  ``.2byte 0x0000``
+    names the two bytes it emits, so it is byte-neutral wherever the gate
+    fires.  (``scripts/generate_expected.py`` does spell the same pad
+    ``.align 2, 0`` when it builds objdiff's target side, and gets away
+    with it only because the ``.org`` before each function refills what an
+    ``.align`` drops.  Do not carry that spelling back here.)
+
+    The rewrite is byte-neutral by construction, but the *classification*
+    is not, so it is gated.  The same 0x0000 encoding is also a real
+    degenerate shift, and mis-decoded regions leave real instructions
+    sitting next to data.  When the gate cannot see a pool, the line is
+    left as luvdis decoded it -- under-spelling a pad costs a mapping
+    symbol, mis-spelling an instruction would be a lie about the ROM.
+
+    So this does not close the class, and the residual is not noise.  Of
+    the 1268 pads the corpus holds, 1027 are rewritten and 241 are not.
+    By what the gate saw when it declined:
+
+      185  the next content is code.
+       42  the next content runs out -- the pad is the last thing in its
+           file, after a ``bx`` (all 42, measured).  Unreachable, so
+           decidable by a rule this pass does not have; what it has is "a
+           pool follows", and at end of file nothing says one does.
+       12  the neighbour is a data directive luvdis annotated as a branch
+           (see ``_pad_follows_data``).
+        2  the next content is ``.inst``.
+
+    That table is what the gate answered, not what the residual IS, and
+    the two do not line up.  Cut the same 241 by shape instead, using the
+    195 that the nine target modules cover (m4a's 15 and libgcc's 31 have
+    no expected object, so no assembler-assigned address):
+
+      100  are the high halfword of a small pool word the module loads --
+           the largest single shape in the residual, and the SAME shape as
+           13 of the pads this pass did rewrite.  Nothing about a pool
+           follows them; what follows is another undecoded halfword.
+       57  sit two bytes before a ROM word that looks like a GBA pointer,
+           i.e. a literal pool the address-driven passes did not recover.
+           15 of those are also of the shape above.
+       53  are neither.
+
+    Every one of the 241 reads 0x0000 in the ROM, so every one is a
+    candidate.  Widening to reach them needs evidence this pass does not
+    consult -- the ROM, or the pad's own address -- which is a different
+    change with a different gate, not a bigger version of this one.
+    """
+    result = None
+    for i, line in enumerate(func_lines):
+        if line.strip() != _NOP or not _pad_follows_data(func_lines, i):
+            continue
+        if result is None:
+            result = list(func_lines)
+        result[i] = "\t.2byte 0x0000\n"
+
+    return result if result is not None else func_lines
+
+
 def _apply_data_regions(func_lines: list[str], func_addr: int,
                         rom_data: bytes) -> list[str]:
     """Replace data-as-code instruction mnemonics with data directives.
@@ -1411,8 +1578,11 @@ def _apply_data_regions(func_lines: list[str], func_addr: int,
          and verify the 32-bit ROM word is a valid GBA pointer.
       3. **Consecutive pairs** — handle edge cases where both halfwords
          are in the convert set (both encode as 0x08XX).
-      4. **Trailing data** — convert any remaining instruction lines
-         after the last return to data directives.
+      4. **PC-relative pool** — words the function itself ``ldr``s out of
+         its own pool, which need no shape test to be pool words.
+
+    Every pass here is address-driven.  The pool *padding* rewrite is not,
+    and lives outside this function -- see ``_convert_pool_padding``.
 
     Adjacent low+high pairs are emitted as a single ``.4byte``;
     unpaired high halfwords become ``.2byte``.
@@ -1450,10 +1620,12 @@ def _apply_data_regions(func_lines: list[str], func_addr: int,
     # shape test -- see _convert_pc_relative_pool.
     func_lines = _convert_pc_relative_pool(func_lines, addresses, rom_data)
 
-    # Pass 5 (_convert_trailing_data) is disabled — its address computation
-    # is unreliable for non-word-aligned functions, producing wrong literal
-    # pool values.  The pointer-pair passes (1-3) handle the bulk of
-    # data-as-code conversion with ROM-verified addresses.
+    # _convert_trailing_data remains disabled — its address computation is
+    # unreliable for non-word-aligned functions, producing wrong literal pool
+    # values.  Passes 1-4 handle the bulk of data-as-code conversion with
+    # ROM-verified addresses.  The padding it also spelled is now
+    # _convert_pool_padding, which the caller runs separately: it needs no
+    # addresses and no ROM, so it must not share this pipeline's gate.
     return func_lines
 
 
@@ -1482,19 +1654,38 @@ def _write_asm_files(merged_entries, libgcc_lines, pre_func):
     for name, addr, module, lines in merged_entries:
         if DATA_REGIONS:
             lines = _apply_data_regions(lines, addr, rom_data)
+        # Not part of the DATA_REGIONS pipeline: it needs neither addresses
+        # nor the ROM, only what the line after the pad says.  It runs after
+        # that pipeline so the gate sees the pool words those passes
+        # recovered, and here rather than earlier because _get_last_instruction
+        # and _detect_sub_functions both key on _NOP -- both have already run
+        # by now, so function boundaries cannot move underneath it.
+        lines = _convert_pool_padding(lines)
         with open(os.path.join(nm_root, module, f"{name}.s"), "w") as f:
             f.writelines(lines)
         module_funcs.setdefault(module, []).append((addr, name))
 
+    # The same gate on the two line lists that are NOT per-function entries.
+    # Which files a pass covers should be a decision, and until now this one's
+    # coverage was an accident of which write statement it sat next to: these
+    # two were written straight from untouched lists a few lines below the
+    # loop.  asm/libgcc.s is not a file it may skip by design -- it is git
+    # TRACKED and `ASM_SRCS := $(wildcard asm/*.s)` assembles it directly into
+    # the ROM, unlike every file the pass does cover, which reaches the ROM
+    # only through INCLUDE_ASM.  Today this changes nothing: of libgcc.s's 31
+    # pads, 0 have a data directive as their next content (all 31 are followed
+    # by a `thumb_func_start`), and _pre.s has no pads at all.  It is here so
+    # that the residual table in _convert_pool_padding counts 241 gate
+    # DECISIONS rather than 210 decisions and 31 files the gate never saw.
     if pre_func:
         mod, pre_lines = pre_func
         with open(os.path.join(nm_root, mod, "_pre.s"), "w") as f:
-            f.writelines(pre_lines)
+            f.writelines(_convert_pool_padding(pre_lines))
 
     with open(os.path.join(ROOT, "asm", "libgcc.s"), "w") as f:
         f.write('.include "asm/macros.inc"\n.syntax unified\n.text\n\n')
         f.write("@ libgcc runtime (thunks, division, modulo)\n")
-        f.writelines(libgcc_lines)
+        f.writelines(_convert_pool_padding(libgcc_lines))
 
     print(f"  {len(merged_entries)} functions in asm/nonmatchings/")
     print(f"  Generated asm/libgcc.s ({len(libgcc_lines)} lines)")
@@ -1848,6 +2039,18 @@ def _fix_misplaced_literal_pools(nm_root, module_funcs):
             with open(prev_path) as f:
                 prev_lines = f.readlines()
             prev_lines.append(f"\t{pool_value}\n")
+            # The moved word is new evidence about the line above it.  When the
+            # preceding function ended on pool padding, that pad was the last
+            # line of its function while _convert_pool_padding ran at write
+            # time, so nothing proved a pool followed it and the gate correctly
+            # declined.  It does now.  Re-running the pass is safe here, but
+            # not because it is idempotent in general: each pad tests the
+            # ORIGINAL neighbour while the rewrite goes to a copy, so two
+            # ADJACENT pads before a pool would take two applications to
+            # both convert.  No two are adjacent -- the corpus pad
+            # run-length histogram is {1: 241} -- and re-running the pass
+            # over the finished corpus rewrites nothing.
+            prev_lines = _convert_pool_padding(prev_lines)
             with open(prev_path, "w") as f:
                 f.writelines(prev_lines)
 
